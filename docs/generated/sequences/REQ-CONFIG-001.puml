@@ -1,8 +1,0 @@
-@startuml REQ-CONFIG-001
-autonumber
-
-participant "Config" as Config
-
-note over Config: load_config()
-
-@enduml

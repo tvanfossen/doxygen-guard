@@ -1,9 +1,0 @@
-@startuml REQ-IMPACT-002
-autonumber
-
-participant "Impact" as Impact
-
-
-Impact -> Impact: load_requirements_full()
-
-@enduml

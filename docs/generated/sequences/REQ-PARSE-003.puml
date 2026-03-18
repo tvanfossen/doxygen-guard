@@ -1,8 +1,0 @@
-@startuml REQ-PARSE-003
-autonumber
-
-participant "Parser" as Parser
-
-note over Parser: find_body_end_indent()
-
-@enduml

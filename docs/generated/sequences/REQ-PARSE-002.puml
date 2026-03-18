@@ -1,9 +1,0 @@
-@startuml REQ-PARSE-002
-autonumber
-
-participant "Parser" as Parser
-
-note over Parser: parse_doxygen_tags()
-note over Parser: find_doxygen_block_before()
-
-@enduml
