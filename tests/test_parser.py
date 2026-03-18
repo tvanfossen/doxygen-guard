@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from doxygen_guard.config import VALIDATE_DEFAULTS
 from doxygen_guard.parser import (
+    ParseSettings,
     find_body_end,
     find_doxygen_block_before,
     is_forward_declaration,
@@ -16,6 +17,7 @@ COMMENT_START = VALIDATE_DEFAULTS["comment_style"]["start"]
 COMMENT_END = VALIDATE_DEFAULTS["comment_style"]["end"]
 C_PATTERN = VALIDATE_DEFAULTS["languages"]["c"]["function_pattern"]
 C_EXCLUDES = VALIDATE_DEFAULTS["languages"]["c"]["exclude_names"]
+C_SETTINGS = ParseSettings(comment_start=COMMENT_START, comment_end=COMMENT_END)
 
 
 class TestParseTags:
@@ -176,7 +178,7 @@ class TestParseFunctions:
 
     def test_simple_c_file(self, fixtures_dir):
         content = (fixtures_dir / "simple.c").read_text()
-        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END)
+        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, C_SETTINGS)
 
         assert len(functions) == 3
         assert functions[0].name == "Module_Init"
@@ -192,7 +194,7 @@ class TestParseFunctions:
 
     def test_forward_declarations_skipped(self, fixtures_dir):
         content = (fixtures_dir / "forward_decl.c").read_text()
-        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END)
+        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, C_SETTINGS)
 
         # Only the definition should be found, not the forward declarations
         assert len(functions) == 1
@@ -205,8 +207,7 @@ class TestParseFunctions:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
             skip_forward_declarations=False,
         )
 
@@ -225,7 +226,7 @@ void Real_Func(void) {
     }
 }
 """
-        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END)
+        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, C_SETTINGS)
         names = [f.name for f in functions]
         assert "Real_Func" in names
         # 'if' and 'return' should not appear even though they might match the pattern
@@ -252,7 +253,7 @@ void Func_B(void) {
     z();
 }
 """
-        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END)
+        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, C_SETTINGS)
         assert len(functions) == 2
         assert functions[0].name == "Func_A"
         assert functions[0].body_end == 8  # closing brace of Func_A
@@ -261,7 +262,7 @@ void Func_B(void) {
 
     def test_tags_parsed_correctly(self, fixtures_dir):
         content = (fixtures_dir / "simple.c").read_text()
-        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END)
+        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, C_SETTINGS)
 
         process_func = functions[1]
         assert process_func.name == "Module_Process"

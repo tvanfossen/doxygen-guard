@@ -25,7 +25,7 @@ def _make_func(
             start_line=def_line - 4,
             end_line=def_line - 1,
             tags={"brief": ["Do something."], "version": ["1.0"]} if tags is None else tags,
-            raw="/** @brief Do something. @version 1.0 */",
+            raw="/**\n * @brief Do something.\n * @version 1.0\n */",
         )
     return Function(name=name, def_line=def_line, body_end=body_end, doxygen=doxygen)
 

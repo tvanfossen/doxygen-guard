@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
-    { name = "Tyler VanFossen" },
+    { name = "Tristan VanFossen" },
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

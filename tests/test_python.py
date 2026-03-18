@@ -7,7 +7,7 @@ from textwrap import dedent
 
 from doxygen_guard.config import CONFIG_DEFAULTS, VALIDATE_DEFAULTS
 from doxygen_guard.main import validate_file
-from doxygen_guard.parser import find_body_end_indent, parse_functions
+from doxygen_guard.parser import ParseSettings, find_body_end_indent, parse_functions
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 PY_CONFIG = VALIDATE_DEFAULTS["languages"]["python"]
@@ -15,6 +15,7 @@ PY_PATTERN = PY_CONFIG["function_pattern"]
 PY_EXCLUDES = PY_CONFIG["exclude_names"]
 PY_START = PY_CONFIG["comment_style"]["start"]
 PY_END = PY_CONFIG["comment_style"]["end"]
+PY_SETTINGS = ParseSettings(comment_start=PY_START, comment_end=PY_END, body_style="indent")
 
 
 class TestPythonFunctionDetection:
@@ -26,9 +27,7 @@ class TestPythonFunctionDetection:
             content,
             PY_PATTERN,
             PY_EXCLUDES,
-            PY_START,
-            PY_END,
-            body_style="indent",
+            PY_SETTINGS,
         )
         names = [f.name for f in functions]
         assert "init_system" in names
@@ -50,9 +49,7 @@ class TestPythonFunctionDetection:
             content,
             PY_PATTERN,
             PY_EXCLUDES,
-            PY_START,
-            PY_END,
-            body_style="indent",
+            PY_SETTINGS,
         )
         assert len(functions) == 1
         assert functions[0].name == "handler"
@@ -68,9 +65,7 @@ class TestPythonDoxygenBlocks:
             content,
             PY_PATTERN,
             PY_EXCLUDES,
-            PY_START,
-            PY_END,
-            body_style="indent",
+            PY_SETTINGS,
         )
         by_name = {f.name: f for f in functions}
 
@@ -88,9 +83,7 @@ class TestPythonDoxygenBlocks:
             content,
             PY_PATTERN,
             PY_EXCLUDES,
-            PY_START,
-            PY_END,
-            body_style="indent",
+            PY_SETTINGS,
         )
         by_name = {f.name: f for f in functions}
         assert by_name["undocumented_function"].doxygen is None
@@ -106,9 +99,7 @@ class TestPythonDoxygenBlocks:
             content,
             PY_PATTERN,
             PY_EXCLUDES,
-            PY_START,
-            PY_END,
-            body_style="indent",
+            PY_SETTINGS,
         )
         assert len(functions) == 1
         assert functions[0].doxygen is None
@@ -123,9 +114,7 @@ class TestPythonDoxygenBlocks:
             content,
             PY_PATTERN,
             PY_EXCLUDES,
-            PY_START,
-            PY_END,
-            body_style="indent",
+            PY_SETTINGS,
         )
         assert len(functions) == 1
         assert functions[0].doxygen is None
@@ -143,9 +132,7 @@ class TestPythonDoxygenBlocks:
             content,
             PY_PATTERN,
             PY_EXCLUDES,
-            PY_START,
-            PY_END,
-            body_style="indent",
+            PY_SETTINGS,
         )
         assert len(functions) == 1
         tags = functions[0].doxygen.tags
@@ -164,9 +151,7 @@ class TestPythonDoxygenBlocks:
             content,
             PY_PATTERN,
             PY_EXCLUDES,
-            PY_START,
-            PY_END,
-            body_style="indent",
+            PY_SETTINGS,
         )
         assert len(functions) == 1
         assert functions[0].doxygen is not None

@@ -16,21 +16,15 @@ from doxygen_guard.impact import (
     format_markdown,
     format_text,
     load_requirements,
-    map_to_test_suites,
     run_impact,
 )
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
-def _make_impact_config(tmp_path=None, req_file=None):
+def _make_impact_config(req_file=None):
     """Build a config with impact section for testing."""
-    impact = {
-        "test_mapping": [
-            {"match": "REQ-025[0-9]", "suite": "Pairing", "command": "run_pairing"},
-            {"match": "REQ-055[0-9]", "suite": "OTA", "command": "run_ota"},
-            {"match": ".*", "suite": "Full Regression", "command": "run_all"},
-        ],
+    impact: dict = {
         "output": {"format": "markdown", "file": None},
     }
     if req_file:
@@ -91,14 +85,14 @@ class TestCollectChangedFunctions:
         assert result == []
 
     def test_unknown_extension_skipped(self, tmp_path):
-        py_file = tmp_path / "test.rs"
-        py_file.write_text("fn foo() {}")
+        rs_file = tmp_path / "test.rs"
+        rs_file.write_text("fn foo() {}")
 
         def mock_runner(cmd):
             return "@@ -1,1 +1,1 @@\n-old\n+new\n"
 
         result = collect_changed_functions(
-            [str(py_file)],
+            [str(rs_file)],
             CONFIG_DEFAULTS,
             staged=True,
             run_command=mock_runner,
@@ -181,32 +175,6 @@ class TestLoadRequirements:
         assert reqs == {}
 
 
-class TestMapToTestSuites:
-    """Tests for map_to_test_suites."""
-
-    def test_matches_specific_pattern(self):
-        config = _make_impact_config()
-        result = map_to_test_suites({"REQ-0252"}, config)
-        suites = [r["suite"] for r in result]
-        assert "Pairing" in suites
-
-    def test_matches_wildcard(self):
-        config = _make_impact_config()
-        result = map_to_test_suites({"REQ-9999"}, config)
-        suites = [r["suite"] for r in result]
-        assert "Full Regression" in suites
-
-    def test_no_mapping_config(self):
-        result = map_to_test_suites({"REQ-0001"}, CONFIG_DEFAULTS)
-        assert result == []
-
-    def test_deduplicates_suites(self):
-        config = _make_impact_config()
-        result = map_to_test_suites({"REQ-0251", "REQ-0252"}, config)
-        suite_names = [r["suite"] for r in result]
-        assert suite_names.count("Pairing") == 1
-
-
 class TestBuildImpactReport:
     """Tests for build_impact_report."""
 
@@ -223,7 +191,6 @@ class TestBuildImpactReport:
         req252 = next(e for e in entries if e.req_id == "REQ-0252")
         assert len(req252.functions) == 2
         assert req252.req_name == "BLE-First Pairing"
-        assert "Pairing" in req252.test_suites
 
     def test_no_changes(self):
         entries = build_impact_report([], CONFIG_DEFAULTS)
@@ -239,15 +206,12 @@ class TestFormatMarkdown:
                 req_id="REQ-0252",
                 req_name="Pairing",
                 functions=[ChangedFunction(name="Func", file_path="a.c", reqs=["REQ-0252"])],
-                test_suites=["Pairing"],
-                test_commands=["run_pairing"],
             ),
         ]
         result = format_markdown(entries)
         assert "## Change Impact Report" in result
         assert "REQ-0252" in result
         assert "Func" in result
-        assert "`run_pairing`" in result
         assert "1 requirement(s)" in result
 
     def test_empty_report(self):
@@ -276,13 +240,12 @@ class TestFormatText:
 
     def test_lists_reqs(self):
         entries = [
-            ImpactEntry(req_id="REQ-0252", test_suites=["Pairing"]),
-            ImpactEntry(req_id="REQ-0555", test_suites=["OTA"]),
+            ImpactEntry(req_id="REQ-0252"),
+            ImpactEntry(req_id="REQ-0555"),
         ]
         result = format_text(entries)
         assert "REQ-0252" in result
         assert "REQ-0555" in result
-        assert "Pairing" in result
 
     def test_empty_report(self):
         result = format_text([])

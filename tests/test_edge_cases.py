@@ -8,15 +8,17 @@ from textwrap import dedent
 from doxygen_guard.checks import check_presence, check_tags, check_version_staleness
 from doxygen_guard.config import CONFIG_DEFAULTS, VALIDATE_DEFAULTS, deep_merge
 from doxygen_guard.main import validate_file
-from doxygen_guard.parser import parse_functions
+from doxygen_guard.parser import ParseSettings, parse_functions
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 COMMENT_START = VALIDATE_DEFAULTS["comment_style"]["start"]
 COMMENT_END = VALIDATE_DEFAULTS["comment_style"]["end"]
 C_PATTERN = VALIDATE_DEFAULTS["languages"]["c"]["function_pattern"]
 C_EXCLUDES = VALIDATE_DEFAULTS["languages"]["c"]["exclude_names"]
+C_SETTINGS = ParseSettings(comment_start=COMMENT_START, comment_end=COMMENT_END)
 JAVA_PATTERN = VALIDATE_DEFAULTS["languages"]["java"]["function_pattern"]
 JAVA_EXCLUDES = VALIDATE_DEFAULTS["languages"]["java"]["exclude_names"]
+JAVA_SETTINGS = ParseSettings(comment_start=COMMENT_START, comment_end=COMMENT_END)
 
 
 class TestDecorativeComments:
@@ -28,8 +30,7 @@ class TestDecorativeComments:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         names = {f.name: f for f in functions}
 
@@ -63,8 +64,7 @@ class TestDecorativeComments:
             "\n".join(lines),
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         assert len(functions) == 1
         assert functions[0].doxygen is not None
@@ -87,8 +87,7 @@ class TestJavaLanguageConfig:
             content,
             JAVA_PATTERN,
             JAVA_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            JAVA_SETTINGS,
         )
         names = [f.name for f in functions]
         assert "initService" in names
@@ -102,8 +101,7 @@ class TestJavaLanguageConfig:
             content,
             JAVA_PATTERN,
             JAVA_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            JAVA_SETTINGS,
         )
         violations = check_presence(functions, "Main.java", CONFIG_DEFAULTS)
         undoc = [v for v in violations if "no doxygen comment" in v.message]
@@ -124,8 +122,7 @@ class TestJavaLanguageConfig:
             content,
             JAVA_PATTERN,
             JAVA_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            JAVA_SETTINGS,
         )
         assert len(functions) == 1
         assert functions[0].name == "helper"
@@ -145,8 +142,7 @@ class TestJavaLanguageConfig:
             content,
             JAVA_PATTERN,
             JAVA_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            JAVA_SETTINGS,
         )
         assert len(functions) == 1
         assert functions[0].name == "getItems"
@@ -161,8 +157,7 @@ class TestVersionStaleness:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
 
         # Simulate: Stale_Func body changed (line 5), version not touched
@@ -186,14 +181,16 @@ class TestVersionStaleness:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
 
         # Simulate: Updated_Func body AND doxygen both changed
         updated = [f for f in functions if f.name == "Updated_Func"][0]
+        # Find the actual @version line within the doxygen block
+        raw_lines = updated.doxygen.raw.splitlines()
+        version_offset = next(i for i, ln in enumerate(raw_lines) if "@version" in ln)
         changed_lines = {
-            updated.doxygen.start_line + 1,  # version line changed
+            updated.doxygen.start_line + version_offset,  # @version line changed
             updated.def_line + 1,  # body line changed
         }
 
@@ -233,8 +230,7 @@ class TestTagValidation:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
 
         violations = check_tags(functions, "bad_tags.c", config)
@@ -257,8 +253,7 @@ class TestTagValidation:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
 
         violations = check_tags(functions, "bad_tags.c", config)
@@ -281,8 +276,7 @@ class TestBracesInStrings:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
 
         names = [f.name for f in functions]
@@ -319,8 +313,7 @@ class TestBracesInStrings:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
 
         unbal = [f for f in functions if f.name == "Unbalanced"][0]
@@ -355,8 +348,7 @@ class TestForwardDeclarationMix:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         # Forward declaration skipped, definition found
         assert len(functions) == 1
@@ -377,8 +369,7 @@ class TestGccAttributes:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         names = {f.name: f for f in functions}
 
@@ -392,8 +383,7 @@ class TestGccAttributes:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         names = {f.name: f for f in functions}
 
@@ -425,8 +415,7 @@ class TestGccAttributes:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         assert len(functions) == 1
         assert functions[0].doxygen is not None
@@ -448,8 +437,7 @@ class TestGccAttributes:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         assert len(functions) == 1
         # Second line of attribute doesn't match attr_re, so backward scan
@@ -466,8 +454,7 @@ class TestTypedefReturnsAndMacroQualifiers:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         names = {f.name: f for f in functions}
         assert "get_status" in names
@@ -479,8 +466,7 @@ class TestTypedefReturnsAndMacroQualifiers:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         names = {f.name: f for f in functions}
         assert "find_config" in names
@@ -492,8 +478,7 @@ class TestTypedefReturnsAndMacroQualifiers:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         names = {f.name: f for f in functions}
         assert "internal_helper" in names
@@ -505,8 +490,7 @@ class TestTypedefReturnsAndMacroQualifiers:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         names = {f.name: f for f in functions}
         assert "default_handler" in names
@@ -518,8 +502,7 @@ class TestTypedefReturnsAndMacroQualifiers:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         names = {f.name: f for f in functions}
         assert "undocumented_func" in names
@@ -549,8 +532,7 @@ class TestTypedefReturnsAndMacroQualifiers:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         assert len(functions) == 1
         assert functions[0].name == "convert_error"
@@ -570,8 +552,7 @@ class TestTypedefReturnsAndMacroQualifiers:
             content,
             C_PATTERN,
             C_EXCLUDES,
-            COMMENT_START,
-            COMMENT_END,
+            C_SETTINGS,
         )
         assert len(functions) == 1
         assert functions[0].name == "create_node"

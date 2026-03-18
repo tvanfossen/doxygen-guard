@@ -114,9 +114,19 @@ def check_version_staleness(
         if not body_lines & changed_lines:
             continue
 
-        # Function body was changed — check if @version line was also changed
-        doxygen_lines = set(range(func.doxygen.start_line, func.doxygen.end_line + 1))
-        version_line_changed = bool(doxygen_lines & changed_lines)
+        # Function body was changed — check if the specific @version line was changed.
+        # We need the raw source lines to check content, but we only have changed
+        # line numbers (0-indexed). Check that at least one changed line in the
+        # doxygen range contains the version tag string.
+        doxygen_lines_in_diff = (
+            set(range(func.doxygen.start_line, func.doxygen.end_line + 1)) & changed_lines
+        )
+        raw_lines = func.doxygen.raw.splitlines()
+        version_line_changed = any(
+            version_tag in raw_lines[ln - func.doxygen.start_line]
+            for ln in doxygen_lines_in_diff
+            if 0 <= ln - func.doxygen.start_line < len(raw_lines)
+        )
 
         if tag_key not in func.doxygen.tags:
             # No version tag at all — already caught by presence check

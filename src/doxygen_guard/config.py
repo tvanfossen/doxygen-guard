@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from doxygen_guard.parser import ParseSettings
 
 import yaml
 
@@ -115,16 +118,12 @@ TRACE_DEFAULTS: dict[str, Any] = {
         "triggers": "note",
     },
     "options": {
-        "show_notes": True,
-        "show_returns": False,
-        "group_by_bus": True,
         "autonumber": True,
     },
 }
 
 IMPACT_DEFAULTS: dict[str, Any] = {
     "requirements": None,
-    "test_mapping": [],
     "output": {
         "format": "markdown",
         "file": None,
@@ -181,3 +180,17 @@ def get_language_config(config: dict[str, Any], file_path: str) -> dict[str, Any
         if ext in lang_config.get("extensions", []):
             return lang_config
     return None
+
+
+## @brief Resolve comment style and body style for a given language config.
+#  @version 1.1
+def resolve_parse_settings(config: dict[str, Any], lang_config: dict[str, Any]) -> ParseSettings:
+    from doxygen_guard.parser import ParseSettings
+
+    global_style = config.get("validate", {}).get("comment_style", {})
+    lang_style = lang_config.get("comment_style", {})
+    return ParseSettings(
+        comment_start=lang_style.get("start", global_style.get("start", r"/\*\*(?!\*)")),
+        comment_end=lang_style.get("end", global_style.get("end", r"\*/")),
+        body_style=lang_config.get("body_style", "braces"),
+    )

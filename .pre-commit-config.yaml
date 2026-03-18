@@ -6,6 +6,16 @@ repos:
         args: [--fix]
       - id: ruff-format
 
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - flake8-cognitive-complexity
+          - flake8-functions
+        args: ["--select=CCR,CFQ", "--max-cognitive-complexity=15", "--max-returns-amount=3"]
+        files: ^src/
+
   - repo: local
     hooks:
       - id: doxygen-guard
