@@ -1,0 +1,8 @@
+@startuml REQ-VAL-002
+autonumber
+
+participant "Validate" as Validate
+
+note over Validate: check_version_staleness()
+
+@enduml

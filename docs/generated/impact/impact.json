@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "req_id": "REQ-TRACE-001",
+    "req_name": "Sequence diagram generation",
+    "functions": [
+      {
+        "name": "generate_plantuml",
+        "file": "src/doxygen_guard/tracer.py",
+        "version": "1.5"
+      }
+    ]
+  }
+]

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -180,11 +181,12 @@ def collect_all_tagged_functions(
     return tagged, all_participants
 
 
-## @brief Recursively find source files with extensions matching language config.
-#  @version 1.0
+## @brief Recursively find source files, respecting validate.exclude patterns.
+#  @version 1.1
 #  @internal
 def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
     languages = config.get("validate", {}).get("languages", {})
+    exclude_patterns = config.get("validate", {}).get("exclude", [])
     extensions: set[str] = set()
     for lang_config in languages.values():
         extensions.update(lang_config.get("extensions", []))
@@ -196,7 +198,10 @@ def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
 
     files: list[Path] = []
     for ext in extensions:
-        files.extend(source_path.rglob(f"*{ext}"))
+        for f in source_path.rglob(f"*{ext}"):
+            rel = str(f.relative_to(Path.cwd())) if f.is_absolute() else str(f)
+            if not any(re.search(p, rel) for p in exclude_patterns):
+                files.append(f)
     return sorted(files)
 
 
@@ -357,12 +362,44 @@ def build_sequence_edges(
     return edges, all_warnings
 
 
-## @brief Render edges as a PlantUML @startuml/@enduml block.
-#  @version 1.3
+## @brief Collect all participant names from edges and function listings.
+#  @version 1.0
+#  @internal
+def _collect_all_active_names(
+    edges: list[dict[str, Any]],
+    functions: list[TaggedFunction],
+) -> list[str]:
+    names = _collect_active_participants(edges)
+    for tf in functions:
+        pname = tf.participant_name or tf.name
+        if pname not in names:
+            names.append(pname)
+    return names
+
+
+## @brief Render function notes for functions not referenced in any edge.
+#  @version 1.0
+#  @internal
+def _render_unlisted_functions(
+    functions: list[TaggedFunction],
+    edges: list[dict[str, Any]],
+) -> list[str]:
+    funcs_in_edges = {e.get("label", "") for e in edges}
+    lines: list[str] = []
+    for tf in functions:
+        if not any(tf.name in label for label in funcs_in_edges):
+            pname = _safe_id(tf.participant_name or tf.name)
+            lines.append(f"note over {pname}: {tf.name}()")
+    return lines
+
+
+## @brief Render edges and function listings as a PlantUML block.
+#  @version 1.5
 #  @req REQ-TRACE-001
 def generate_plantuml(
     req_id: str,
     edges: list[dict[str, Any]],
+    functions: list[TaggedFunction],
     participants: list[Participant],
     config: dict[str, Any],
     req_name: str | None = None,
@@ -375,13 +412,18 @@ def generate_plantuml(
         lines.append("autonumber")
     lines.append("")
 
-    active_names = _collect_active_participants(edges)
+    active_names = _collect_all_active_names(edges, functions)
     participant_set = {p.name for p in participants}
     for pname in active_names:
         if pname in participant_set:
             lines.append(f'participant "{pname}" as {_safe_id(pname)}')
 
     lines.append("")
+    lines.extend(_render_unlisted_functions(functions, edges))
+
+    if functions and edges:
+        lines.append("")
+
     for edge in edges:
         lines.append(_render_edge(edge))
 
@@ -461,12 +503,12 @@ def _write_diagrams_for_reqs(
     all_warnings: list[str] = []
 
     if req_id:
-        emitters = [tf for tf in all_tagged if req_id in tf.reqs]
-        if not emitters:
+        funcs = [tf for tf in all_tagged if req_id in tf.reqs]
+        if not funcs:
             return [], all_warnings
-        edges, warnings = build_sequence_edges(emitters, all_tagged, participants)
+        edges, warnings = build_sequence_edges(funcs, all_tagged, participants)
         all_warnings.extend(warnings)
-        puml = generate_plantuml(req_id, edges, participants, config)
+        puml = generate_plantuml(req_id, edges, funcs, participants, config)
         return [write_diagram(req_id, puml, output_dir)], all_warnings
 
     req_groups: dict[str, list[TaggedFunction]] = {}
@@ -475,12 +517,10 @@ def _write_diagrams_for_reqs(
             req_groups.setdefault(req, []).append(tf)
 
     written: list[Path] = []
-    for r, emitters in sorted(req_groups.items()):
-        edges, warnings = build_sequence_edges(emitters, all_tagged, participants)
+    for r, funcs in sorted(req_groups.items()):
+        edges, warnings = build_sequence_edges(funcs, all_tagged, participants)
         all_warnings.extend(warnings)
-        if not edges:
-            continue
-        puml = generate_plantuml(r, edges, participants, config)
+        puml = generate_plantuml(r, edges, funcs, participants, config)
         written.append(write_diagram(r, puml, output_dir))
     return written, all_warnings
 

@@ -3,6 +3,8 @@ autonumber
 
 participant "Pairing Manager" as Pairing_Manager
 
+note over Pairing_Manager: startMqttConnection()
+
 Pairing_Manager --> Pairing_Manager: EVENT:PAIRING_STARTED\nPairing_Start() → WiFi_ConnectAfterDelay()
 Pairing_Manager -> Pairing_Manager: None
 note right of Pairing_Manager: CLOUD_DISABLE

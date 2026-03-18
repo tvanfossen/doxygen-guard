@@ -1,0 +1,9 @@
+@startuml REQ-CONFIG-002
+autonumber
+
+participant "Config" as Config
+
+note over Config: get_language_config()
+note over Config: resolve_parse_settings()
+
+@enduml

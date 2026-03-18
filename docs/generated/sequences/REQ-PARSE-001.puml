@@ -1,0 +1,10 @@
+@startuml REQ-PARSE-001
+autonumber
+
+participant "Parser" as Parser
+
+note over Parser: find_body_end()
+note over Parser: is_forward_declaration()
+note over Parser: parse_functions()
+
+@enduml

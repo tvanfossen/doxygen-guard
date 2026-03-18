@@ -1,0 +1,13 @@
+@startuml REQ-IMPACT-003
+autonumber
+
+participant "Impact" as Impact
+
+note over Impact: build_impact_report()
+note over Impact: format_markdown()
+note over Impact: format_json()
+note over Impact: format_text()
+note over Impact: run_impact()
+note over Impact: _run_impact_command()
+
+@enduml

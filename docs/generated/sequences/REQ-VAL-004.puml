@@ -1,0 +1,8 @@
+@startuml REQ-VAL-004
+autonumber
+
+participant "Validate" as Validate
+
+note over Validate: check_req_coverage()
+
+@enduml

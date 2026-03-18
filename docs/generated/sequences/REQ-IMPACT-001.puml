@@ -1,0 +1,9 @@
+@startuml REQ-IMPACT-001
+autonumber
+
+participant "Impact" as Impact
+
+note over Impact: _extract_changed_functions()
+note over Impact: collect_changed_functions()
+
+@enduml

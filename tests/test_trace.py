@@ -192,7 +192,7 @@ class TestGeneratePlantuml:
                 "style": "-->",
             },
         ]
-        result = generate_plantuml("REQ-0001", edges, participants, TRACE_CONFIG)
+        result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         assert "@startuml REQ-0001" in result
         assert "@enduml" in result
         assert "autonumber" in result
@@ -202,6 +202,7 @@ class TestGeneratePlantuml:
     def test_with_req_name(self):
         result = generate_plantuml(
             "REQ-0252",
+            [],
             [],
             [],
             TRACE_CONFIG,
@@ -220,12 +221,12 @@ class TestGeneratePlantuml:
                 "style": "note",
             },
         ]
-        result = generate_plantuml("REQ-0001", edges, participants, TRACE_CONFIG)
+        result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         assert "note right of Pairing: DISABLE_CLOUD" in result
 
     def test_no_autonumber_when_disabled(self):
         config = deep_merge(TRACE_CONFIG, {"trace": {"options": {"autonumber": False}}})
-        result = generate_plantuml("REQ-0001", [], [], config)
+        result = generate_plantuml("REQ-0001", [], [], [], config)
         assert "autonumber" not in result
 
 

@@ -1,0 +1,9 @@
+@startuml REQ-TRACE-003
+autonumber
+
+participant "Trace" as Trace
+
+note over Trace: _load_external_participants()
+note over Trace: _resolve_by_prefix()
+
+@enduml
