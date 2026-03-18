@@ -134,9 +134,13 @@ def validate_file(
             return []
 
     content = Path(file_path).read_text()
-    comment_style = validate.get("comment_style", {})
-    comment_start = comment_style.get("start", r"/\*\*(?!\*)")
-    comment_end = comment_style.get("end", r"\*/")
+
+    # Per-language comment style overrides global
+    global_style = validate.get("comment_style", {})
+    lang_style = lang_config.get("comment_style", {})
+    comment_start = lang_style.get("start", global_style.get("start", r"/\*\*(?!\*)"))
+    comment_end = lang_style.get("end", global_style.get("end", r"\*/"))
+    body_style = lang_config.get("body_style", "braces")
     skip_fwd = validate.get("presence", {}).get("skip_forward_declarations", True)
 
     functions = parse_functions(
@@ -146,6 +150,7 @@ def validate_file(
         comment_start=comment_start,
         comment_end=comment_end,
         skip_forward_declarations=skip_fwd,
+        body_style=body_style,
     )
 
     violations: list[Violation] = []

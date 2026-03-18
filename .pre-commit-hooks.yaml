@@ -3,5 +3,5 @@
   description: Validate doxygen comments for presence, version staleness, and custom tag syntax
   entry: doxygen-guard
   language: python
-  types_or: [c, c++, java]
+  types_or: [c, c++, java, python]
   require_serial: true

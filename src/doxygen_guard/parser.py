@@ -53,8 +53,8 @@ def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     for match in tag_pattern.finditer(block_text):
         tag_name = match.group(1)
         tag_value = match.group(2).strip()
-        # Clean up multi-line values (remove leading * from continuation lines)
-        tag_value = re.sub(r"\n\s*\*\s*", " ", tag_value).strip()
+        # Clean up multi-line continuation prefixes (C: leading *, Python: leading #)
+        tag_value = re.sub(r"\n\s*[*#]\s*", " ", tag_value).strip()
         tags.setdefault(tag_name, []).append(tag_value)
 
     return tags
@@ -147,6 +147,44 @@ def find_body_end(lines: list[str], start_line: int) -> int:
     return len(lines) - 1
 
 
+def find_body_end_indent(lines: list[str], start_line: int) -> int:
+    """Find the end of an indentation-based function body (Python).
+
+    @brief Locate the last line of a Python function body by tracking indentation.
+    @version 1.0
+    """
+    # Find the indentation of the def line
+    def_indent = len(lines[start_line]) - len(lines[start_line].lstrip())
+
+    # The body starts after the colon; find the first non-empty body line to get body indent
+    body_indent = None
+    last_body_line = start_line
+
+    for i in range(start_line + 1, len(lines)):
+        stripped = lines[i].strip()
+        if not stripped:
+            # Blank lines within a function body are fine
+            continue
+
+        current_indent = len(lines[i]) - len(lines[i].lstrip())
+
+        if body_indent is None:
+            # First non-blank line after def — establishes body indentation
+            if current_indent > def_indent:
+                body_indent = current_indent
+                last_body_line = i
+            else:
+                # No body (e.g., just `def f(): pass` on one line)
+                return start_line
+        elif current_indent >= body_indent:
+            last_body_line = i
+        else:
+            # Indentation dropped back to or below def level — body ended
+            break
+
+    return last_body_line
+
+
 def is_forward_declaration(lines: list[str], func_line: int) -> bool:
     """Check if a function match is a forward declaration (ends with semicolon).
 
@@ -171,15 +209,18 @@ def parse_functions(
     comment_start: str,
     comment_end: str,
     skip_forward_declarations: bool = True,
+    body_style: str = "braces",
 ) -> list[Function]:
     """Find all functions in source content and extract their doxygen blocks.
 
     @brief Parse source code to find functions and their associated doxygen comments.
-    @version 1.0
+    @version 1.1
     """
     lines = content.splitlines()
     func_re = re.compile(function_pattern, re.MULTILINE)
     functions: list[Function] = []
+
+    body_end_fn = find_body_end_indent if body_style == "indent" else find_body_end
 
     for i, line in enumerate(lines):
         match = func_re.match(line)
@@ -194,7 +235,7 @@ def parse_functions(
             logger.debug("Skipping forward declaration: %s at line %d", func_name, i + 1)
             continue
 
-        body_end = find_body_end(lines, i)
+        body_end = body_end_fn(lines, i)
         doxygen = find_doxygen_block_before(lines, i, comment_start, comment_end)
 
         func = Function(

@@ -76,6 +76,16 @@ VALIDATE_DEFAULTS: dict[str, Any] = {
             ),
             "exclude_names": ["if", "for", "while", "switch", "return"],
         },
+        "python": {
+            "extensions": [".py"],
+            "function_pattern": r"^\s*(?:async\s+)?def\s+(\w+)\s*\(",
+            "exclude_names": [],
+            "comment_style": {
+                "start": r"^\s*##(?!#)",
+                "end": r"^\s*#",
+            },
+            "body_style": "indent",
+        },
     },
     "comment_style": {
         "start": r"/\*\*(?!\*)",

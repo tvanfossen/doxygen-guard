@@ -203,7 +203,7 @@ class TestGetLanguageConfig:
 
     def test_unknown_extension(self):
         config = CONFIG_DEFAULTS
-        result = get_language_config(config, "script.py")
+        result = get_language_config(config, "script.rs")
         assert result is None
 
     def test_no_extension(self):

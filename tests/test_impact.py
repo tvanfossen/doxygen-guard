@@ -91,8 +91,8 @@ class TestCollectChangedFunctions:
         assert result == []
 
     def test_unknown_extension_skipped(self, tmp_path):
-        py_file = tmp_path / "test.py"
-        py_file.write_text("def foo(): pass")
+        py_file = tmp_path / "test.rs"
+        py_file.write_text("fn foo() {}")
 
         def mock_runner(cmd):
             return "@@ -1,1 +1,1 @@\n-old\n+new\n"

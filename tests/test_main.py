@@ -28,8 +28,8 @@ class TestValidateFile:
         assert "Undocumented_Function" in violations[0].message
 
     def test_unknown_extension_skipped(self, tmp_path):
-        py_file = tmp_path / "script.py"
-        py_file.write_text("def foo(): pass")
+        py_file = tmp_path / "script.rs"
+        py_file.write_text("fn foo() {}")
         violations = validate_file(str(py_file), CONFIG_DEFAULTS, no_git=True)
         assert violations == []
 
