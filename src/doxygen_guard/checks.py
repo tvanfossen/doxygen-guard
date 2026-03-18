@@ -17,38 +17,28 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+## @brief Represents a check failure with location and description.
+#  @version 1.0
 @dataclass
 class Violation:
-    """A single validation violation.
-
-    @brief Represents a check failure with location and description.
-    @version 1.0
-    """
-
     file: str
     line: int  # 1-indexed for display
     check: str  # "presence" | "version" | "tag"
     message: str
 
+    ## @brief Human-readable violation string.
+    #  @version 1.0
     def __str__(self) -> str:
-        """Format violation for display.
-
-        @brief Human-readable violation string.
-        @version 1.0
-        """
         return f"{self.file}:{self.line}: [{self.check}] {self.message}"
 
 
+## @brief Verify every function has a doxygen comment with @brief and @version.
+#  @version 1.0
 def check_presence(
     functions: list[Function],
     file_path: str,
     config: dict[str, Any],
 ) -> list[Violation]:
-    """Check that all functions have doxygen blocks with required minimum tags.
-
-    @brief Verify every function has a doxygen comment with @brief and @version.
-    @version 1.0
-    """
     validate = config.get("validate", {})
     presence_config = validate.get("presence", {})
 
@@ -95,19 +85,14 @@ def check_presence(
     return violations
 
 
+## @brief Detect stale @version tags when function bodies have been modified.
+#  @version 1.0
 def check_version_staleness(
     functions: list[Function],
     file_path: str,
     config: dict[str, Any],
     changed_lines: set[int],
 ) -> list[Violation]:
-    """Check that @version was updated if the function body changed.
-
-    @brief Detect stale @version tags when function bodies have been modified.
-    @version 1.0
-
-    changed_lines: set of 0-indexed line numbers that were modified in the staged diff.
-    """
     validate = config.get("validate", {})
     version_config = validate.get("version", {})
 
@@ -152,16 +137,13 @@ def check_version_staleness(
     return violations
 
 
+## @brief Check that doxygen tags match configured patterns, prefixes, and markers.
+#  @version 1.0
 def check_tags(
     functions: list[Function],
     file_path: str,
     config: dict[str, Any],
 ) -> list[Violation]:
-    """Validate custom tag syntax per config rules.
-
-    @brief Check that doxygen tags match configured patterns, prefixes, and markers.
-    @version 1.0
-    """
     validate = config.get("validate", {})
     tag_rules = validate.get("tags", {})
 
@@ -183,6 +165,8 @@ def check_tags(
     return violations
 
 
+## @brief Check one tag value against pattern, prefix, contains, and confidence rules.
+#  @version 1.0
 def _validate_tag_value(
     file_path: str,
     func: Function,
@@ -190,11 +174,6 @@ def _validate_tag_value(
     value: str,
     rules: dict[str, Any],
 ) -> list[Violation]:
-    """Validate a single tag value against its rules.
-
-    @brief Check one tag value against pattern, prefix, contains, and confidence rules.
-    @version 1.0
-    """
     violations: list[Violation] = []
     line = func.doxygen.start_line + 1 if func.doxygen else func.def_line + 1
 
@@ -254,12 +233,9 @@ def _validate_tag_value(
     return violations
 
 
+## @brief Strip [marker] suffix from tag value.
+#  @version 1.0
 def _strip_confidence_marker(value: str, rules: dict[str, Any]) -> str:
-    """Remove trailing confidence marker from a tag value for pattern checking.
-
-    @brief Strip [marker] suffix from tag value.
-    @version 1.0
-    """
     markers = rules.get("confidence_markers", [])
     if not markers:
         return value
@@ -272,6 +248,8 @@ def _strip_confidence_marker(value: str, rules: dict[str, Any]) -> str:
     return value
 
 
+## @brief Verify confidence marker syntax [marker] is present and valid.
+#  @version 1.0
 def _check_confidence_marker(
     file_path: str,
     func: Function,
@@ -280,11 +258,6 @@ def _check_confidence_marker(
     markers: list[str],
     line: int,
 ) -> list[Violation]:
-    """Validate that a tag value has a valid confidence marker if markers are configured.
-
-    @brief Verify confidence marker syntax [marker] is present and valid.
-    @version 1.0
-    """
     marker_pattern = re.compile(r"\[(\w+)\]$")
     match = marker_pattern.search(value)
 

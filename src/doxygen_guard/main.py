@@ -23,12 +23,9 @@ from doxygen_guard.tracer import run_trace
 logger = logging.getLogger(__name__)
 
 
+## @brief Create argparse parser with validate/trace/impact subcommands.
+#  @version 1.0
 def build_parser() -> argparse.ArgumentParser:
-    """Build the CLI argument parser.
-
-    @brief Create argparse parser with validate/trace/impact subcommands.
-    @version 1.0
-    """
     parser = argparse.ArgumentParser(
         prog="doxygen-guard",
         description="Validate doxygen comments for presence, version staleness, and custom tags",
@@ -111,16 +108,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+## @brief Orchestrate presence, staleness, and tag checks for one file.
+#  @version 1.0
 def validate_file(
     file_path: str,
     config: dict[str, Any],
     no_git: bool = False,
 ) -> list[Violation]:
-    """Run all validation checks on a single file.
-
-    @brief Orchestrate presence, staleness, and tag checks for one file.
-    @version 1.0
-    """
     lang_config = get_language_config(config, file_path)
     if lang_config is None:
         logger.debug("Skipping %s — no matching language config", file_path)
@@ -172,12 +166,9 @@ def validate_file(
     return violations
 
 
+## @brief Run validation checks on all specified files and report violations.
+#  @version 1.0
 def run_validate(args: argparse.Namespace, config: dict[str, Any]) -> int:
-    """Execute the validate subcommand.
-
-    @brief Run validation checks on all specified files and report violations.
-    @version 1.0
-    """
     files = args.files or []
     if not files:
         logger.warning("No files specified for validation")
@@ -205,12 +196,9 @@ def run_validate(args: argparse.Namespace, config: dict[str, Any]) -> int:
     return 0
 
 
+## @brief Parse arguments and dispatch to the appropriate subcommand.
+#  @version 1.0
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point.
-
-    @brief Parse arguments and dispatch to the appropriate subcommand.
-    @version 1.0
-    """
     raw_argv = list(argv if argv is not None else sys.argv[1:])
 
     # Pre-commit passes filenames without a subcommand. Detect this and inject "validate".
@@ -294,12 +282,9 @@ def main(argv: list[str] | None = None) -> int:
     return 1
 
 
+## @brief Wrapper for setuptools console_scripts entry point.
+#  @version 1.0
 def cli_main() -> None:
-    """Entry point wrapper that calls sys.exit.
-
-    @brief Wrapper for setuptools console_scripts entry point.
-    @version 1.0
-    """
     sys.exit(main())
 
 

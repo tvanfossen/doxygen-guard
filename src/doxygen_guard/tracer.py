@@ -17,27 +17,19 @@ from doxygen_guard.parser import Function, parse_functions
 logger = logging.getLogger(__name__)
 
 
+## @brief Maps source path prefixes to diagram participants.
+#  @version 1.0
 @dataclass
 class Participant:
-    """A named actor in a sequence diagram.
-
-    @brief Maps source path prefixes to diagram participants.
-    @version 1.0
-    """
-
     id: str
     label: str
     match: str
 
 
+## @brief Function metadata needed for diagram generation.
+#  @version 1.0
 @dataclass
 class TaggedFunction:
-    """A function with its resolved participant and relevant tags.
-
-    @brief Function metadata needed for diagram generation.
-    @version 1.0
-    """
-
     name: str
     file_path: str
     participant: Participant | None
@@ -48,28 +40,22 @@ class TaggedFunction:
     reqs: list[str] = field(default_factory=list)
 
 
+## @brief Find the participant whose match prefix appears in the file path.
+#  @version 1.0
 def resolve_participant(file_path: str, participants: list[Participant]) -> Participant | None:
-    """Match a file path to a participant by path prefix.
-
-    @brief Find the participant whose match prefix appears in the file path.
-    @version 1.0
-    """
     for participant in participants:
         if participant.match in file_path:
             return participant
     return None
 
 
+## @brief Walk source directories, parse functions, extract @emits/@handles/@ext/@triggers.
+#  @version 1.0
 def collect_tagged_functions(
     source_dirs: list[str],
     config: dict[str, Any],
     req_filter: str | None = None,
 ) -> list[TaggedFunction]:
-    """Scan source files and collect functions with trace-relevant tags.
-
-    @brief Walk source directories, parse functions, extract @emits/@handles/@ext/@triggers.
-    @version 1.0
-    """
     trace_config = config.get("trace", {})
     participants = [
         Participant(id=p["id"], label=p["label"], match=p["match"])
@@ -112,12 +98,9 @@ def collect_tagged_functions(
     return tagged
 
 
+## @brief Recursively find source files with extensions matching language config.
+#  @version 1.0
 def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
-    """Find all source files in a directory matching configured language extensions.
-
-    @brief Recursively find source files with extensions matching language config.
-    @version 1.0
-    """
     languages = config.get("validate", {}).get("languages", {})
     extensions: set[str] = set()
     for lang_config in languages.values():
@@ -135,16 +118,13 @@ def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
     return sorted(files)
 
 
+## @brief Build a TaggedFunction from a Function's doxygen tags.
+#  @version 1.0
 def _extract_tagged_function(
     func: Function,
     file_path: str,
     participants: list[Participant],
 ) -> TaggedFunction | None:
-    """Extract trace-relevant tags from a parsed function.
-
-    @brief Build a TaggedFunction from a Function's doxygen tags.
-    @version 1.0
-    """
     if func.doxygen is None:
         return None
 
@@ -161,16 +141,11 @@ def _extract_tagged_function(
     )
 
 
+## @brief Resolve @emits->@handles pairs and @ext calls into directed edges.
+#  @version 1.0
 def build_sequence_edges(
     tagged_functions: list[TaggedFunction],
 ) -> list[dict[str, Any]]:
-    """Build sequence diagram edges from tagged functions.
-
-    @brief Resolve @emits→@handles pairs and @ext calls into directed edges.
-    @version 1.0
-
-    Returns a list of edge dicts with keys: from_id, to_id, label, style, notes.
-    """
     # Build handler lookup: event_name → participant that handles it
     handler_map: dict[str, TaggedFunction] = {}
     for tf in tagged_functions:
@@ -228,32 +203,26 @@ def build_sequence_edges(
     return edges
 
 
+## @brief Find the participant whose file path contains the module name.
+#  @version 1.0
 def _resolve_ext_participant(
     module: str,
     tagged_functions: list[TaggedFunction],
 ) -> str:
-    """Resolve an @ext module reference to a participant ID.
-
-    @brief Find the participant whose file path contains the module name.
-    @version 1.0
-    """
     for tf in tagged_functions:
         if tf.participant and module in tf.file_path:
             return tf.participant.id
     return "unknown"
 
 
+## @brief Render edges as a PlantUML @startuml/@enduml block.
+#  @version 1.0
 def generate_plantuml(
     req_id: str,
     edges: list[dict[str, Any]],
     config: dict[str, Any],
     req_name: str | None = None,
 ) -> str:
-    """Generate a PlantUML sequence diagram string.
-
-    @brief Render edges as a PlantUML @startuml/@enduml block.
-    @version 1.0
-    """
     trace_config = config.get("trace", {})
     options = trace_config.get("options", {})
 
@@ -294,12 +263,9 @@ def generate_plantuml(
     return "\n".join(lines)
 
 
+## @brief Extract ordered participant list from edges for diagram declaration.
+#  @version 1.0
 def _collect_active_participants(edges: list[dict[str, Any]]) -> list[str]:
-    """Collect unique participant IDs from edges in order of first appearance.
-
-    @brief Extract ordered participant list from edges for diagram declaration.
-    @version 1.0
-    """
     seen: set[str] = set()
     ordered: list[str] = []
     for edge in edges:
@@ -310,16 +276,13 @@ def _collect_active_participants(edges: list[dict[str, Any]]) -> list[str]:
     return ordered
 
 
+## @brief Save .puml content to the configured output directory.
+#  @version 1.0
 def write_diagram(
     req_id: str,
     puml_content: str,
     output_dir: str,
 ) -> Path:
-    """Write a PlantUML diagram to a file.
-
-    @brief Save .puml content to the configured output directory.
-    @version 1.0
-    """
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
@@ -330,17 +293,14 @@ def write_diagram(
     return puml_file
 
 
+## @brief Orchestrate scanning, edge building, and diagram generation.
+#  @version 1.0
 def run_trace(
     source_dirs: list[str],
     config: dict[str, Any],
     req_id: str | None = None,
     trace_all: bool = False,
 ) -> list[Path]:
-    """Execute the trace command.
-
-    @brief Orchestrate scanning, edge building, and diagram generation.
-    @version 1.0
-    """
     trace_config = config.get("trace", {})
     output_dir = trace_config.get("output_dir", "docs/generated/sequences/")
 

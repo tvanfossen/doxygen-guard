@@ -23,14 +23,10 @@ from doxygen_guard.parser import parse_functions
 logger = logging.getLogger(__name__)
 
 
+## @brief Tracks a changed function with its requirement tags and version info.
+#  @version 1.0
 @dataclass
 class ChangedFunction:
-    """A function whose body was modified in a diff.
-
-    @brief Tracks a changed function with its requirement tags and version info.
-    @version 1.0
-    """
-
     name: str
     file_path: str
     reqs: list[str] = field(default_factory=list)
@@ -38,14 +34,10 @@ class ChangedFunction:
     new_version: str | None = None
 
 
+## @brief Groups changed functions by requirement for the impact report.
+#  @version 1.0
 @dataclass
 class ImpactEntry:
-    """A requirement affected by changes.
-
-    @brief Groups changed functions by requirement for the impact report.
-    @version 1.0
-    """
-
     req_id: str
     req_name: str | None = None
     functions: list[ChangedFunction] = field(default_factory=list)
@@ -53,6 +45,8 @@ class ImpactEntry:
     test_commands: list[str] = field(default_factory=list)
 
 
+## @brief Parse source files and cross-reference with git diff to find changed functions.
+#  @version 1.0
 def collect_changed_functions(
     file_paths: list[str],
     config: dict[str, Any],
@@ -60,11 +54,6 @@ def collect_changed_functions(
     staged: bool = False,
     run_command: RunCommand | None = None,
 ) -> list[ChangedFunction]:
-    """Find functions whose bodies changed in the given diff scope.
-
-    @brief Parse source files and cross-reference with git diff to find changed functions.
-    @version 1.0
-    """
     validate_config = config.get("validate", {})
     comment_style = validate_config.get("comment_style", {})
     comment_start = comment_style.get("start", r"/\*\*(?!\*)")
@@ -128,12 +117,9 @@ def collect_changed_functions(
     return changed_funcs
 
 
+## @brief Read requirements from CSV/JSON/YAML as specified in impact config.
+#  @version 1.0
 def load_requirements(config: dict[str, Any]) -> dict[str, str]:
-    """Load requirement ID → name mapping from configured file.
-
-    @brief Read requirements from CSV/JSON/YAML as specified in impact config.
-    @version 1.0
-    """
     impact_config = config.get("impact", {})
     req_config = impact_config.get("requirements")
     if not req_config:
@@ -159,12 +145,9 @@ def load_requirements(config: dict[str, Any]) -> dict[str, str]:
     return {}
 
 
+## @brief Parse CSV file into req_id -> req_name mapping.
+#  @version 1.0
 def _load_csv_requirements(path: str, id_col: str, name_col: str) -> dict[str, str]:
-    """Load requirements from CSV.
-
-    @brief Parse CSV file into req_id → req_name mapping.
-    @version 1.0
-    """
     reqs: dict[str, str] = {}
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
@@ -176,12 +159,9 @@ def _load_csv_requirements(path: str, id_col: str, name_col: str) -> dict[str, s
     return reqs
 
 
+## @brief Parse JSON array of objects into req_id -> req_name mapping.
+#  @version 1.0
 def _load_json_requirements(path: str, id_col: str, name_col: str) -> dict[str, str]:
-    """Load requirements from JSON array.
-
-    @brief Parse JSON array of objects into req_id → req_name mapping.
-    @version 1.0
-    """
     with open(path) as f:
         data = json.load(f)
     if not isinstance(data, list):
@@ -189,12 +169,9 @@ def _load_json_requirements(path: str, id_col: str, name_col: str) -> dict[str, 
     return {row.get(id_col, ""): row.get(name_col, "") for row in data if row.get(id_col)}
 
 
+## @brief Parse YAML list of mappings into req_id -> req_name mapping.
+#  @version 1.0
 def _load_yaml_requirements(path: str, id_col: str, name_col: str) -> dict[str, str]:
-    """Load requirements from YAML list.
-
-    @brief Parse YAML list of mappings into req_id → req_name mapping.
-    @version 1.0
-    """
     with open(path) as f:
         data = yaml.safe_load(f)
     if not isinstance(data, list):
@@ -202,15 +179,12 @@ def _load_yaml_requirements(path: str, id_col: str, name_col: str) -> dict[str, 
     return {row.get(id_col, ""): row.get(name_col, "") for row in data if row.get(id_col)}
 
 
+## @brief Match each REQ to test_mapping entries and return matched suites.
+#  @version 1.0
 def map_to_test_suites(
     req_ids: set[str],
     config: dict[str, Any],
 ) -> list[dict[str, str]]:
-    """Map requirement IDs to test suites via configured regex patterns.
-
-    @brief Match each REQ to test_mapping entries and return matched suites.
-    @version 1.0
-    """
     impact_config = config.get("impact", {})
     test_mapping = impact_config.get("test_mapping", [])
     if not test_mapping:
@@ -233,15 +207,12 @@ def map_to_test_suites(
     return matched
 
 
+## @brief Group changed functions by requirement and map to test suites.
+#  @version 1.0
 def build_impact_report(
     changed_functions: list[ChangedFunction],
     config: dict[str, Any],
 ) -> list[ImpactEntry]:
-    """Build structured impact report from changed functions.
-
-    @brief Group changed functions by requirement and map to test suites.
-    @version 1.0
-    """
     req_names = load_requirements(config)
 
     # Group by requirement
@@ -266,12 +237,9 @@ def build_impact_report(
     return entries
 
 
+## @brief Render impact entries as a markdown table with summary.
+#  @version 1.0
 def format_markdown(entries: list[ImpactEntry]) -> str:
-    """Format impact report as markdown.
-
-    @brief Render impact entries as a markdown table with summary.
-    @version 1.0
-    """
     if not entries:
         return "No requirements affected.\n"
 
@@ -301,12 +269,9 @@ def format_markdown(entries: list[ImpactEntry]) -> str:
     return "\n".join(lines) + "\n"
 
 
+## @brief Render impact entries as a JSON array.
+#  @version 1.0
 def format_json(entries: list[ImpactEntry]) -> str:
-    """Format impact report as JSON.
-
-    @brief Render impact entries as a JSON array.
-    @version 1.0
-    """
     data = []
     for entry in entries:
         data.append(
@@ -324,12 +289,9 @@ def format_json(entries: list[ImpactEntry]) -> str:
     return json.dumps(data, indent=2) + "\n"
 
 
+## @brief Render impact entries as human-readable text.
+#  @version 1.0
 def format_text(entries: list[ImpactEntry]) -> str:
-    """Format impact report as plain text.
-
-    @brief Render impact entries as human-readable text.
-    @version 1.0
-    """
     if not entries:
         return "No requirements affected.\n"
 
@@ -347,12 +309,9 @@ def format_text(entries: list[ImpactEntry]) -> str:
     return "\n".join(lines) + "\n"
 
 
+## @brief Dispatch to the appropriate formatter based on config.
+#  @version 1.0
 def format_report(entries: list[ImpactEntry], config: dict[str, Any]) -> str:
-    """Format impact report in the configured output format.
-
-    @brief Dispatch to the appropriate formatter based on config.
-    @version 1.0
-    """
     impact_config = config.get("impact", {})
     output_config = impact_config.get("output", {})
     fmt = output_config.get("format", "markdown")
@@ -364,6 +323,8 @@ def format_report(entries: list[ImpactEntry], config: dict[str, Any]) -> str:
     return format_markdown(entries)
 
 
+## @brief Orchestrate diff analysis, requirement mapping, and report generation.
+#  @version 1.0
 def run_impact(
     file_paths: list[str],
     config: dict[str, Any],
@@ -371,11 +332,6 @@ def run_impact(
     diff_range: str | None = None,
     run_command: RunCommand | None = None,
 ) -> str:
-    """Execute the impact command.
-
-    @brief Orchestrate diff analysis, requirement mapping, and report generation.
-    @version 1.0
-    """
     changed = collect_changed_functions(
         file_paths,
         config,

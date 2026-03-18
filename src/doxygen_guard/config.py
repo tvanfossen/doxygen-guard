@@ -138,12 +138,9 @@ CONFIG_DEFAULTS: dict[str, Any] = {
 }
 
 
+## @brief Recursively merge two dicts; override values win for non-dict leaves.
+#  @version 1.0
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    """Deep-merge override into base, returning a new dict.
-
-    @brief Recursively merge two dicts; override values win for non-dict leaves.
-    @version 1.0
-    """
     result = base.copy()
     for key, value in override.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
@@ -153,12 +150,9 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
     return result
 
 
+## @brief Load .doxygen-guard.yaml and merge with built-in defaults.
+#  @version 1.0
 def load_config(config_path: Path | None = None) -> dict[str, Any]:
-    """Load config from YAML file, merging with defaults.
-
-    @brief Load .doxygen-guard.yaml and merge with built-in defaults.
-    @version 1.0
-    """
     if config_path is None:
         config_path = Path(".doxygen-guard.yaml")
 
@@ -177,12 +171,9 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
     return deep_merge(CONFIG_DEFAULTS, user_config)
 
 
+## @brief Match a file path to its language config by extension.
+#  @version 1.0
 def get_language_config(config: dict[str, Any], file_path: str) -> dict[str, Any] | None:
-    """Find the language config matching a file's extension.
-
-    @brief Match a file path to its language config by extension.
-    @version 1.0
-    """
     ext = Path(file_path).suffix
     languages = config.get("validate", {}).get("languages", {})
 

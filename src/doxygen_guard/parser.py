@@ -13,40 +13,29 @@ from dataclasses import dataclass, field
 logger = logging.getLogger(__name__)
 
 
+## @brief Represents a doxygen comment with its location and parsed tags.
+#  @version 1.0
 @dataclass
 class DoxygenBlock:
-    """A parsed doxygen comment block.
-
-    @brief Represents a doxygen comment with its location and parsed tags.
-    @version 1.0
-    """
-
     start_line: int  # 0-indexed
     end_line: int  # 0-indexed
     tags: dict[str, list[str]] = field(default_factory=dict)
     raw: str = ""
 
 
+## @brief Represents a function with its location and optional doxygen block.
+#  @version 1.0
 @dataclass
 class Function:
-    """A detected function/method in source code.
-
-    @brief Represents a function with its location and optional doxygen block.
-    @version 1.0
-    """
-
     name: str
     def_line: int  # 0-indexed
     body_end: int  # 0-indexed
     doxygen: DoxygenBlock | None = None
 
 
+## @brief Parse all @tag entries from doxygen comment text.
+#  @version 1.0
 def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
-    """Extract @tag values from a doxygen block.
-
-    @brief Parse all @tag entries from doxygen comment text.
-    @version 1.0
-    """
     tags: dict[str, list[str]] = {}
     tag_pattern = re.compile(r"@(\w+)\s+(.*?)(?=\s*(?:@\w+\s|\*/|$))", re.DOTALL)
 
@@ -60,21 +49,18 @@ def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     return tags
 
 
+## @brief Find the doxygen comment block immediately before a function definition.
+#  @version 1.0
+#
+#  Scans backward from func_line, skipping blank lines, looking for a comment
+#  block that ends with comment_end and starts with comment_start (/** specifically,
+#  not just /*).
 def find_doxygen_block_before(
     lines: list[str],
     func_line: int,
     comment_start: str,
     comment_end: str,
 ) -> DoxygenBlock | None:
-    """Scan backward from a function to find its preceding doxygen block.
-
-    @brief Find the doxygen comment block immediately before a function definition.
-    @version 1.0
-
-    Scans backward from func_line, skipping blank lines, looking for a comment
-    block that ends with comment_end and starts with comment_start (/** specifically,
-    not just /*).
-    """
     # Compiled patterns — comment_start/comment_end are regex strings from config
     start_re = re.compile(comment_start)
     end_re = re.compile(comment_end)
@@ -124,12 +110,9 @@ def find_doxygen_block_before(
     return None
 
 
+## @brief Locate the end of a function body by matching braces.
+#  @version 1.0
 def find_body_end(lines: list[str], start_line: int) -> int:
-    """Find the closing brace of a function body using brace counting.
-
-    @brief Locate the end of a function body by matching braces.
-    @version 1.0
-    """
     brace_depth = 0
     found_open = False
 
@@ -147,12 +130,9 @@ def find_body_end(lines: list[str], start_line: int) -> int:
     return len(lines) - 1
 
 
+## @brief Locate the last line of a Python function body by tracking indentation.
+#  @version 1.0
 def find_body_end_indent(lines: list[str], start_line: int) -> int:
-    """Find the end of an indentation-based function body (Python).
-
-    @brief Locate the last line of a Python function body by tracking indentation.
-    @version 1.0
-    """
     # Find the indentation of the def line
     def_indent = len(lines[start_line]) - len(lines[start_line].lstrip())
 
@@ -185,12 +165,9 @@ def find_body_end_indent(lines: list[str], start_line: int) -> int:
     return last_body_line
 
 
+## @brief Detect forward declarations to skip them during validation.
+#  @version 1.0
 def is_forward_declaration(lines: list[str], func_line: int) -> bool:
-    """Check if a function match is a forward declaration (ends with semicolon).
-
-    @brief Detect forward declarations to skip them during validation.
-    @version 1.0
-    """
     # Check current line and next few lines for semicolon before opening brace
     for i in range(func_line, min(func_line + 3, len(lines))):
         stripped = lines[i].rstrip()
@@ -202,6 +179,8 @@ def is_forward_declaration(lines: list[str], func_line: int) -> bool:
     return False
 
 
+## @brief Parse source code to find functions and their associated doxygen comments.
+#  @version 1.1
 def parse_functions(
     content: str,
     function_pattern: str,
@@ -211,11 +190,6 @@ def parse_functions(
     skip_forward_declarations: bool = True,
     body_style: str = "braces",
 ) -> list[Function]:
-    """Find all functions in source content and extract their doxygen blocks.
-
-    @brief Parse source code to find functions and their associated doxygen comments.
-    @version 1.1
-    """
     lines = content.splitlines()
     func_re = re.compile(function_pattern, re.MULTILINE)
     functions: list[Function] = []
