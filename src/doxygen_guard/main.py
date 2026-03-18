@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import logging
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -167,7 +168,7 @@ def _source_dirs_from_files(file_paths: list[str]) -> list[str]:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 1.1
+#  @version 1.2
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     rc = _report_violations(_validate_files(file_paths, config))
 
@@ -177,6 +178,7 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
         written = run_trace(source_dirs=source_dirs, config=config, trace_all=True)
         if written:
             output_dir = trace_config.get("output_dir", "docs/generated/sequences/")
+            subprocess.run(["git", "add", output_dir], capture_output=True, check=False)
             print(
                 f"doxygen-guard: {len(written)} diagram(s) written to {output_dir}",
                 file=sys.stderr,
