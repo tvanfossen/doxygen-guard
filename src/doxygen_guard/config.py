@@ -111,12 +111,6 @@ TRACE_DEFAULTS: dict[str, Any] = {
     "format": "plantuml",
     "output_dir": "docs/generated/sequences/",
     "participants": [],
-    "tag_mapping": {
-        "emits": "arrow_to_handler",
-        "handles": "receives_arrow",
-        "ext": "call_arrow",
-        "triggers": "note",
-    },
     "options": {
         "autonumber": True,
     },

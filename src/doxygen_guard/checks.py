@@ -85,6 +85,45 @@ def check_presence(
     return violations
 
 
+EXEMPTION_TAGS = {"utility", "internal", "callback"}
+
+
+## @brief Verify functions have @req or an exemption tag when requirements are configured.
+#  @version 1.0
+def check_req_coverage(
+    functions: list[Function],
+    file_path: str,
+    config: dict[str, Any],
+) -> list[Violation]:
+    req_config = config.get("impact", {}).get("requirements")
+    if not req_config or not req_config.get("file"):
+        return []
+
+    violations: list[Violation] = []
+    for func in functions:
+        if func.doxygen is None:
+            continue
+
+        tags = func.doxygen.tags
+        has_req = bool(tags.get("req"))
+        has_exemption = bool(EXEMPTION_TAGS & set(tags.keys()))
+
+        if not has_req and not has_exemption:
+            violations.append(
+                Violation(
+                    file=file_path,
+                    line=func.def_line + 1,
+                    check="coverage",
+                    message=(
+                        f"Function '{func.name}' has no @req tag and no exemption "
+                        f"(@utility, @internal, @callback)"
+                    ),
+                )
+            )
+
+    return violations
+
+
 ## @brief Detect stale @version tags when function bodies have been modified.
 #  @version 1.0
 def check_version_staleness(

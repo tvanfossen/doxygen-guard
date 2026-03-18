@@ -159,8 +159,8 @@ class TestMain:
         result = main(["--config", str(config_file), "validate", "--no-git", str(c_file)])
         assert result == 0  # Presence check disabled
 
-    def test_trace_no_sources_returns_1(self):
-        result = main(["trace", "--req", "REQ-0001"])
+    def test_trace_nonexistent_req_returns_1(self):
+        result = main(["trace", "--req", "REQ-NONEXISTENT-9999"])
         assert result == 1
 
     def test_impact_no_files_returns_0(self):

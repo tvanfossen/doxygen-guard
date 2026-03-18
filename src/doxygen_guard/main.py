@@ -14,7 +14,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from doxygen_guard.checks import Violation, check_presence, check_tags, check_version_staleness
+from doxygen_guard.checks import (
+    Violation,
+    check_presence,
+    check_req_coverage,
+    check_tags,
+    check_version_staleness,
+)
 from doxygen_guard.config import get_language_config, load_config, resolve_parse_settings
 from doxygen_guard.git import get_changed_lines_for_file
 from doxygen_guard.impact import run_impact
@@ -109,6 +115,7 @@ def validate_file(
     violations: list[Violation] = []
     violations.extend(check_presence(functions, file_path, config))
     violations.extend(check_tags(functions, file_path, config))
+    violations.extend(check_req_coverage(functions, file_path, config))
 
     if not no_git:
         try:
@@ -168,14 +175,20 @@ def _source_dirs_from_files(file_paths: list[str]) -> list[str]:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 1.2
+#  @version 1.3
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     rc = _report_violations(_validate_files(file_paths, config))
 
     trace_config = config.get("trace", {})
     if trace_config.get("participants"):
         source_dirs = _source_dirs_from_files(file_paths) or ["."]
-        written = run_trace(source_dirs=source_dirs, config=config, trace_all=True)
+        written, trace_warnings = run_trace(
+            source_dirs=source_dirs,
+            config=config,
+            trace_all=True,
+        )
+        for w in trace_warnings:
+            print(f"doxygen-guard: [trace] {w}", file=sys.stderr)
         if written:
             output_dir = trace_config.get("output_dir", "docs/generated/sequences/")
             subprocess.run(["git", "add", output_dir], capture_output=True, check=False)
@@ -235,14 +248,16 @@ def _parse_precommit_args(
 
 
 ## @brief Execute the trace subcommand.
-#  @version 1.0
+#  @version 1.1
 def _run_trace_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
-    written = run_trace(
+    written, warnings = run_trace(
         source_dirs=args.source_dirs,
         config=config,
         req_id=args.req,
         trace_all=args.trace_all,
     )
+    for w in warnings:
+        print(f"[trace] {w}", file=sys.stderr)
     if not written:
         print("No diagrams generated", file=sys.stderr)
         return 1

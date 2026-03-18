@@ -1,7 +1,7 @@
 """Sequence diagram generation from doxygen tags.
 
 @brief Scan source files for @emits/@handles/@ext/@triggers tags and generate PlantUML diagrams.
-@version 1.1
+@version 1.3
 """
 
 from __future__ import annotations
@@ -12,27 +12,27 @@ from pathlib import Path
 from typing import Any
 
 from doxygen_guard.config import get_language_config, resolve_parse_settings
+from doxygen_guard.impact import load_requirements_full
 from doxygen_guard.parser import Function, parse_functions
 
 logger = logging.getLogger(__name__)
 
 
-## @brief Maps source path prefixes to diagram participants.
-#  @version 1.0
+## @brief A named actor in a sequence diagram, optionally receiving unhandled events by prefix.
+#  @version 1.2
 @dataclass
 class Participant:
-    id: str
-    label: str
-    match: str
+    name: str
+    receives_prefix: list[str] = field(default_factory=list)
 
 
 ## @brief Function metadata needed for diagram generation.
-#  @version 1.0
+#  @version 1.2
 @dataclass
 class TaggedFunction:
     name: str
     file_path: str
-    participant: Participant | None
+    participant_name: str | None = None
     emits: list[str] = field(default_factory=list)
     handles: list[str] = field(default_factory=list)
     ext: list[str] = field(default_factory=list)
@@ -40,22 +40,98 @@ class TaggedFunction:
     reqs: list[str] = field(default_factory=list)
 
 
-## @brief Find the participant whose match prefix appears in the file path.
-#  @version 1.0
-def resolve_participant(file_path: str, participants: list[Participant]) -> Participant | None:
-    for participant in participants:
-        if participant.match in file_path:
+## @brief Build the REQ ID -> participant name mapping from requirements file.
+#  @version 1.1
+def _build_req_participant_map(
+    config: dict[str, Any],
+) -> dict[str, str]:
+    trace_config = config.get("trace", {})
+    participant_field = trace_config.get("participant_field")
+    if not participant_field:
+        return {}
+
+    full_reqs = load_requirements_full(config)
+    return {
+        req_id: row.get(participant_field, "")
+        for req_id, row in full_reqs.items()
+        if row.get(participant_field)
+    }
+
+
+## @brief Resolve a function's participant from its @req tags via the requirements file.
+#  @version 1.1
+def _resolve_participant_from_reqs(
+    reqs: list[str],
+    req_participant_map: dict[str, str],
+) -> str | None:
+    for req in reqs:
+        participant = req_participant_map.get(req)
+        if participant:
             return participant
     return None
 
 
+## @brief Load external participants from trace config.
+#  @version 1.0
+def _load_external_participants(config: dict[str, Any]) -> list[Participant]:
+    raw = config.get("trace", {}).get("external", [])
+    participants: list[Participant] = []
+    for entry in raw:
+        if isinstance(entry, dict):
+            for pname, pconfig in entry.items():
+                cfg = pconfig or {}
+                participants.append(
+                    Participant(
+                        name=pname,
+                        receives_prefix=cfg.get("receives_prefix", []),
+                    )
+                )
+        elif isinstance(entry, str):
+            participants.append(Participant(name=entry))
+    return participants
+
+
+## @brief Collect all known participant names from requirements and externals.
+#  @version 1.0
+def _collect_all_participants(
+    req_participant_map: dict[str, str],
+    externals: list[Participant],
+) -> list[Participant]:
+    seen: set[str] = set()
+    participants: list[Participant] = []
+
+    for pname in req_participant_map.values():
+        if pname not in seen:
+            seen.add(pname)
+            participants.append(Participant(name=pname))
+
+    for ext in externals:
+        if ext.name not in seen:
+            seen.add(ext.name)
+            participants.append(ext)
+
+    return participants
+
+
+## @brief Route an unhandled event to an external participant via bus prefix.
+#  @version 1.0
+def _resolve_by_prefix(
+    event: str,
+    externals: list[Participant],
+) -> str | None:
+    for p in externals:
+        for prefix in p.receives_prefix:
+            if event.startswith(prefix):
+                return p.name
+    return None
+
+
 ## @brief Parse a single source file and extract tagged functions.
-#  @version 1.1
+#  @version 1.3
 def _process_source_file(
     source_file: Path,
     config: dict[str, Any],
-    participants: list[Participant],
-    req_filter: str | None,
+    req_participant_map: dict[str, str],
 ) -> list[TaggedFunction]:
     lang_config = get_language_config(config, str(source_file))
     if lang_config is None:
@@ -72,35 +148,27 @@ def _process_source_file(
 
     tagged: list[TaggedFunction] = []
     for func in functions:
-        tf = _extract_tagged_function(func, str(source_file), participants)
-        if tf is None:
-            continue
-        if req_filter and req_filter not in tf.reqs:
-            continue
-        if tf.emits or tf.handles or tf.ext or tf.triggers:
+        tf = _extract_tagged_function(func, str(source_file), req_participant_map)
+        if tf is not None:
             tagged.append(tf)
-
     return tagged
 
 
-## @brief Walk source directories, parse functions, extract trace tags.
-#  @version 1.1
-def collect_tagged_functions(
+## @brief Walk source directories and collect ALL tagged functions.
+#  @version 1.3
+def collect_all_tagged_functions(
     source_dirs: list[str],
     config: dict[str, Any],
-    req_filter: str | None = None,
-) -> list[TaggedFunction]:
-    trace_config = config.get("trace", {})
-    participants = [
-        Participant(id=p["id"], label=p["label"], match=p["match"])
-        for p in trace_config.get("participants", [])
-    ]
+) -> tuple[list[TaggedFunction], list[Participant]]:
+    req_participant_map = _build_req_participant_map(config)
+    externals = _load_external_participants(config)
+    all_participants = _collect_all_participants(req_participant_map, externals)
 
     tagged: list[TaggedFunction] = []
     for source_dir in source_dirs:
         for source_file in _find_source_files(source_dir, config):
-            tagged.extend(_process_source_file(source_file, config, participants, req_filter))
-    return tagged
+            tagged.extend(_process_source_file(source_file, config, req_participant_map))
+    return tagged, all_participants
 
 
 ## @brief Recursively find source files with extensions matching language config.
@@ -122,69 +190,101 @@ def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
     return sorted(files)
 
 
-## @brief Build a TaggedFunction from a Function's doxygen tags.
-#  @version 1.0
+## @brief Build a TaggedFunction, resolving participant from @req tags.
+#  @version 1.2
 def _extract_tagged_function(
     func: Function,
     file_path: str,
-    participants: list[Participant],
+    req_participant_map: dict[str, str],
 ) -> TaggedFunction | None:
     if func.doxygen is None:
         return None
 
     tags = func.doxygen.tags
+    reqs = tags.get("req", [])
+    has_trace_tags = (
+        tags.get("emits") or tags.get("handles") or tags.get("ext") or tags.get("triggers")
+    )
+    if not has_trace_tags and not reqs:
+        return None
+
     return TaggedFunction(
         name=func.name,
         file_path=file_path,
-        participant=resolve_participant(file_path, participants),
+        participant_name=_resolve_participant_from_reqs(reqs, req_participant_map),
         emits=tags.get("emits", []),
         handles=tags.get("handles", []),
         ext=tags.get("ext", []),
         triggers=tags.get("triggers", []),
-        reqs=tags.get("req", []),
+        reqs=reqs,
     )
 
 
-## @brief Build edges from @emits events to their @handles participants.
-#  @version 1.1
+## @brief Build the global handler map from ALL tagged functions.
+#  @version 1.0
+def _build_handler_map(
+    all_tagged: list[TaggedFunction],
+) -> dict[str, TaggedFunction]:
+    handler_map: dict[str, TaggedFunction] = {}
+    for tf in all_tagged:
+        for event in tf.handles:
+            handler_map[event] = tf
+    return handler_map
+
+
+## @brief Build emit edges, resolving handlers globally and falling back to prefix routing.
+#  @version 1.3
 def _build_emit_edges(
     tf: TaggedFunction,
-    from_id: str,
+    from_name: str,
     handler_map: dict[str, TaggedFunction],
-) -> list[dict[str, Any]]:
+    externals: list[Participant],
+) -> tuple[list[dict[str, Any]], list[str]]:
     edges: list[dict[str, Any]] = []
+    warnings: list[str] = []
     for event in tf.emits:
         handler = handler_map.get(event)
-        to_id = handler.participant.id if handler and handler.participant else "unknown"
+        if handler and handler.participant_name:
+            to_name = handler.participant_name
+            handler_label = handler.name
+        else:
+            prefix_target = _resolve_by_prefix(event, externals)
+            if prefix_target:
+                to_name = prefix_target
+                handler_label = None
+            else:
+                warnings.append(f"Unresolved event '{event}' emitted by {tf.name}()")
+                continue
+        label = f"{tf.name}() \u2192 {handler_label}()" if handler_label else f"{tf.name}()"
         edges.append(
             {
-                "from_id": from_id,
-                "to_id": to_id,
-                "label": f"{tf.name}()",
+                "from": from_name,
+                "to": to_name,
+                "label": label,
                 "event": event,
                 "style": "-->",
             }
         )
-    return edges
+    return edges, warnings
 
 
-## @brief Build edges from @ext references to their target participants.
-#  @version 1.1
+## @brief Build ext call edges.
+#  @version 1.2
 def _build_ext_edges(
     tf: TaggedFunction,
-    from_id: str,
-    tagged_functions: list[TaggedFunction],
+    from_name: str,
+    all_tagged: list[TaggedFunction],
 ) -> list[dict[str, Any]]:
     edges: list[dict[str, Any]] = []
     for ext_ref in tf.ext:
         parts = ext_ref.split("::", 1)
-        mod = parts[0] if len(parts) == 2 else ext_ref
         func_name = parts[1] if len(parts) == 2 else ext_ref
-        to_id = _resolve_ext_participant(mod, tagged_functions)
+        mod = parts[0] if len(parts) == 2 else ext_ref
+        to_name = _resolve_ext_target(mod, all_tagged) or mod
         edges.append(
             {
-                "from_id": from_id,
-                "to_id": to_id,
+                "from": from_name,
+                "to": to_name,
                 "label": f"{func_name}()",
                 "event": None,
                 "style": "->",
@@ -194,56 +294,62 @@ def _build_ext_edges(
 
 
 ## @brief Build note edges from @triggers annotations.
-#  @version 1.1
-def _build_trigger_edges(tf: TaggedFunction, from_id: str) -> list[dict[str, Any]]:
+#  @version 1.2
+def _build_trigger_edges(
+    tf: TaggedFunction,
+    from_name: str,
+) -> list[dict[str, Any]]:
     return [
-        {"from_id": from_id, "to_id": from_id, "label": t, "event": None, "style": "note"}
+        {"from": from_name, "to": from_name, "label": t, "event": None, "style": "note"}
         for t in tf.triggers
     ]
 
 
-## @brief Resolve @emits->@handles pairs and @ext calls into directed edges.
-#  @version 1.1
-def build_sequence_edges(
-    tagged_functions: list[TaggedFunction],
-) -> list[dict[str, Any]]:
-    handler_map: dict[str, TaggedFunction] = {}
-    for tf in tagged_functions:
-        for event in tf.handles:
-            handler_map[event] = tf
-
-    edges: list[dict[str, Any]] = []
-    for tf in tagged_functions:
-        from_id = tf.participant.id if tf.participant else "unknown"
-        edges.extend(_build_emit_edges(tf, from_id, handler_map))
-        edges.extend(_build_ext_edges(tf, from_id, tagged_functions))
-        edges.extend(_build_trigger_edges(tf, from_id))
-
-    return edges
-
-
-## @brief Find the participant whose file path contains the module name.
-#  @version 1.0
-def _resolve_ext_participant(
+## @brief Resolve an @ext module reference to a participant name.
+#  @version 1.2
+def _resolve_ext_target(
     module: str,
-    tagged_functions: list[TaggedFunction],
-) -> str:
-    for tf in tagged_functions:
-        if tf.participant and module in tf.file_path:
-            return tf.participant.id
-    return "unknown"
+    all_tagged: list[TaggedFunction],
+) -> str | None:
+    for tf in all_tagged:
+        if tf.participant_name and module in tf.file_path:
+            return tf.participant_name
+    return None
+
+
+## @brief Build edges for emitting functions, using global handler resolution.
+#  @version 1.2
+def build_sequence_edges(
+    emitters: list[TaggedFunction],
+    all_tagged: list[TaggedFunction],
+    participants: list[Participant],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    handler_map = _build_handler_map(all_tagged)
+    externals = [p for p in participants if p.receives_prefix]
+    edges: list[dict[str, Any]] = []
+    all_warnings: list[str] = []
+
+    for tf in emitters:
+        from_name = tf.participant_name or tf.name
+        emit_edges, warnings = _build_emit_edges(tf, from_name, handler_map, externals)
+        edges.extend(emit_edges)
+        all_warnings.extend(warnings)
+        edges.extend(_build_ext_edges(tf, from_name, all_tagged))
+        edges.extend(_build_trigger_edges(tf, from_name))
+
+    return edges, all_warnings
 
 
 ## @brief Render edges as a PlantUML @startuml/@enduml block.
-#  @version 1.1
+#  @version 1.3
 def generate_plantuml(
     req_id: str,
     edges: list[dict[str, Any]],
+    participants: list[Participant],
     config: dict[str, Any],
     req_name: str | None = None,
 ) -> str:
-    trace_config = config.get("trace", {})
-    options = trace_config.get("options", {})
+    options = config.get("trace", {}).get("options", {})
     title = f"{req_id} {req_name}" if req_name else req_id
 
     lines = [f"@startuml {title}"]
@@ -251,14 +357,11 @@ def generate_plantuml(
         lines.append("autonumber")
     lines.append("")
 
-    participant_ids = _collect_active_participants(edges)
-    participants = {p["id"]: p for p in trace_config.get("participants", [])}
-    for pid in participant_ids:
-        p = participants.get(pid)
-        if p:
-            lines.append(f'participant "{p["label"]}" as {pid}')
-        elif pid != "unknown":
-            lines.append(f'participant "{pid}" as {pid}')
+    active_names = _collect_active_participants(edges)
+    participant_set = {p.name for p in participants}
+    for pname in active_names:
+        if pname in participant_set:
+            lines.append(f'participant "{pname}" as {_safe_id(pname)}')
 
     lines.append("")
     for edge in edges:
@@ -268,25 +371,35 @@ def generate_plantuml(
     return "\n".join(lines)
 
 
+## @brief Convert a participant name to a safe PlantUML identifier.
+#  @version 1.1
+def _safe_id(name: str) -> str:
+    return name.replace(" ", "_").replace("/", "_")
+
+
 ## @brief Render a single edge as a PlantUML line.
-#  @version 1.0
+#  @version 1.2
 def _render_edge(edge: dict[str, Any]) -> str:
+    f = _safe_id(edge["from"])
+    t = _safe_id(edge["to"])
     if edge["style"] == "note":
-        return f"note right of {edge['from_id']}: {edge['label']}"
-    label = edge.get("event") or edge["label"]
-    return f"{edge['from_id']} {edge['style']} {edge['to_id']}: {label}"
+        return f"note right of {f}: {edge['label']}"
+    label = edge.get("event", edge["label"])
+    if edge.get("event") and edge.get("label"):
+        label = f"{edge['event']}\\n{edge['label']}"
+    return f"{f} {edge['style']} {t}: {label}"
 
 
-## @brief Extract ordered participant list from edges for diagram declaration.
-#  @version 1.0
+## @brief Extract ordered participant names from edges.
+#  @version 1.1
 def _collect_active_participants(edges: list[dict[str, Any]]) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
     for edge in edges:
-        for pid in (edge["from_id"], edge["to_id"]):
-            if pid not in seen and pid != "unknown":
-                seen.add(pid)
-                ordered.append(pid)
+        for pname in (edge["from"], edge["to"]):
+            if pname not in seen:
+                seen.add(pname)
+                ordered.append(pname)
     return ordered
 
 
@@ -312,48 +425,56 @@ def write_diagram(req_id: str, puml_content: str, output_dir: str) -> Path:
     return puml_file
 
 
-## @brief Generate diagrams for a set of tagged functions grouped by requirement.
-#  @version 1.1
+## @brief Generate diagrams, filtering emitters by REQ but resolving handlers globally.
+#  @version 1.3
 def _write_diagrams_for_reqs(
-    tagged: list[TaggedFunction],
+    all_tagged: list[TaggedFunction],
+    participants: list[Participant],
     config: dict[str, Any],
     output_dir: str,
     req_id: str | None = None,
-) -> list[Path]:
+) -> tuple[list[Path], list[str]]:
+    all_warnings: list[str] = []
+
     if req_id:
-        edges = build_sequence_edges(tagged)
-        puml = generate_plantuml(req_id, edges, config)
-        return [write_diagram(req_id, puml, output_dir)]
+        emitters = [tf for tf in all_tagged if req_id in tf.reqs]
+        if not emitters:
+            return [], all_warnings
+        edges, warnings = build_sequence_edges(emitters, all_tagged, participants)
+        all_warnings.extend(warnings)
+        puml = generate_plantuml(req_id, edges, participants, config)
+        return [write_diagram(req_id, puml, output_dir)], all_warnings
 
     req_groups: dict[str, list[TaggedFunction]] = {}
-    for tf in tagged:
+    for tf in all_tagged:
         for req in tf.reqs:
             req_groups.setdefault(req, []).append(tf)
 
     written: list[Path] = []
-    for r, funcs in sorted(req_groups.items()):
-        edges = build_sequence_edges(funcs)
-        puml = generate_plantuml(r, edges, config)
+    for r, emitters in sorted(req_groups.items()):
+        edges, warnings = build_sequence_edges(emitters, all_tagged, participants)
+        all_warnings.extend(warnings)
+        puml = generate_plantuml(r, edges, participants, config)
         written.append(write_diagram(r, puml, output_dir))
-    return written
+    return written, all_warnings
 
 
 ## @brief Orchestrate scanning, edge building, and diagram generation.
-#  @version 1.1
+#  @version 1.3
 def run_trace(
     source_dirs: list[str],
     config: dict[str, Any],
     req_id: str | None = None,
     trace_all: bool = False,
-) -> list[Path]:
+) -> tuple[list[Path], list[str]]:
     if not trace_all and not req_id:
         logger.error("Must specify --req or --all for trace command")
-        return []
+        return [], []
 
-    tagged = collect_tagged_functions(source_dirs, config, req_filter=req_id)
-    if not tagged:
+    all_tagged, participants = collect_all_tagged_functions(source_dirs, config)
+    if not all_tagged:
         logger.warning("No tagged functions found%s", f" for {req_id}" if req_id else "")
-        return []
+        return [], []
 
     output_dir = config.get("trace", {}).get("output_dir", "docs/generated/sequences/")
-    return _write_diagrams_for_reqs(tagged, config, output_dir, req_id)
+    return _write_diagrams_for_reqs(all_tagged, participants, config, output_dir, req_id)

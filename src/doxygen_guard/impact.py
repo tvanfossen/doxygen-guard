@@ -152,58 +152,68 @@ def _get_requirements_config(
     )
 
 
-## @brief Read requirements from CSV/JSON/YAML as specified in impact config.
-#  @version 1.1
-def load_requirements(config: dict[str, Any]) -> dict[str, str]:
+## @brief Load full requirement rows from CSV/JSON/YAML.
+#  @version 1.2
+def load_requirements_full(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     req_info = _get_requirements_config(config)
     if req_info is None:
         return {}
 
-    path, fmt, id_col, name_col = req_info
+    path, fmt, id_col, _name_col = req_info
     loaders = {
-        "csv": _load_csv_requirements,
-        "json": _load_json_requirements,
-        "yaml": _load_yaml_requirements,
+        "csv": _load_csv_full,
+        "json": _load_json_full,
+        "yaml": _load_yaml_full,
     }
     loader = loaders.get(fmt)
     if not loader:
         logger.warning("Unknown requirements format: %s", fmt)
         return {}
-    return loader(path, id_col, name_col)
+    return loader(path, id_col)
 
 
-## @brief Parse CSV file into req_id -> req_name mapping.
-#  @version 1.0
-def _load_csv_requirements(path: str, id_col: str, name_col: str) -> dict[str, str]:
-    reqs: dict[str, str] = {}
+## @brief Load requirement id -> name mapping (convenience wrapper).
+#  @version 1.2
+def load_requirements(config: dict[str, Any]) -> dict[str, str]:
+    req_info = _get_requirements_config(config)
+    if req_info is None:
+        return {}
+    name_col = req_info[3]
+    full = load_requirements_full(config)
+    return {rid: row.get(name_col, "") for rid, row in full.items()}
+
+
+## @brief Parse CSV file into req_id -> full row mapping.
+#  @version 1.1
+def _load_csv_full(path: str, id_col: str) -> dict[str, dict[str, str]]:
+    reqs: dict[str, dict[str, str]] = {}
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             req_id = row.get(id_col, "").strip()
-            req_name = row.get(name_col, "").strip()
             if req_id:
-                reqs[req_id] = req_name
+                reqs[req_id] = {k: v.strip() for k, v in row.items()}
     return reqs
 
 
-## @brief Parse JSON array of objects into req_id -> req_name mapping.
-#  @version 1.0
-def _load_json_requirements(path: str, id_col: str, name_col: str) -> dict[str, str]:
+## @brief Parse JSON array into req_id -> full row mapping.
+#  @version 1.1
+def _load_json_full(path: str, id_col: str) -> dict[str, dict[str, str]]:
     with open(path) as f:
         data = json.load(f)
     if not isinstance(data, list):
         return {}
-    return {row.get(id_col, ""): row.get(name_col, "") for row in data if row.get(id_col)}
+    return {row[id_col]: row for row in data if row.get(id_col)}
 
 
-## @brief Parse YAML list of mappings into req_id -> req_name mapping.
-#  @version 1.0
-def _load_yaml_requirements(path: str, id_col: str, name_col: str) -> dict[str, str]:
+## @brief Parse YAML list into req_id -> full row mapping.
+#  @version 1.1
+def _load_yaml_full(path: str, id_col: str) -> dict[str, dict[str, str]]:
     with open(path) as f:
         data = yaml.safe_load(f)
     if not isinstance(data, list):
         return {}
-    return {row.get(id_col, ""): row.get(name_col, "") for row in data if row.get(id_col)}
+    return {row[id_col]: row for row in data if row.get(id_col)}
 
 
 ## @brief Group changed functions by requirement for the impact report.
