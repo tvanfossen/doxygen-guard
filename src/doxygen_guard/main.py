@@ -196,17 +196,76 @@ def run_validate(args: argparse.Namespace, config: dict[str, Any]) -> int:
     return 0
 
 
-## @brief Parse arguments and dispatch to the appropriate subcommand.
+## @brief Derive unique source directories from a list of file paths.
 #  @version 1.0
+def _source_dirs_from_files(file_paths: list[str]) -> list[str]:
+    dirs: set[str] = set()
+    for f in file_paths:
+        parent = str(Path(f).parent)
+        # Walk up to find a reasonable source root (stop at first non-src-like dir)
+        dirs.add(parent)
+    return sorted(dirs)
+
+
+## @brief Run all configured checks in pre-commit mode (no subcommand).
+#  @version 1.0
+def run_precommit(
+    file_paths: list[str],
+    config: dict[str, Any],
+    config_path: Path | None = None,
+) -> int:
+    rc = 0
+
+    # Always run validate
+    all_violations: list[Violation] = []
+    for file_path in file_paths:
+        if not Path(file_path).exists():
+            logger.warning("File not found: %s", file_path)
+            continue
+        all_violations.extend(validate_file(file_path, config))
+
+    for v in all_violations:
+        print(v, file=sys.stderr)
+
+    if all_violations:
+        print(
+            f"\ndoxygen-guard: {len(all_violations)} violation(s) found",
+            file=sys.stderr,
+        )
+        rc = 1
+
+    # Run trace if configured
+    trace_config = config.get("trace", {})
+    if trace_config.get("participants"):
+        source_dirs = _source_dirs_from_files(file_paths) or ["."]
+        written = run_trace(source_dirs=source_dirs, config=config, trace_all=True)
+        if written:
+            print("\n--- Trace ---", file=sys.stderr)
+            for p in written:
+                print(f"  Wrote: {p}", file=sys.stderr)
+                # Print the .puml content
+                print(Path(p).read_text(), file=sys.stderr)
+
+    # Run impact if configured
+    impact_config = config.get("impact", {})
+    if impact_config.get("test_mapping"):
+        report = run_impact(file_paths=file_paths, config=config, staged=True)
+        if report.strip() and "No requirements affected" not in report:
+            print("\n--- Impact ---", file=sys.stderr)
+            print(report, file=sys.stderr)
+
+    return rc
+
+
+## @brief Parse arguments and dispatch to the appropriate subcommand.
+#  @version 1.1
 def main(argv: list[str] | None = None) -> int:
     raw_argv = list(argv if argv is not None else sys.argv[1:])
 
-    # Pre-commit passes filenames without a subcommand. Detect this and inject "validate".
-    # Find the first arg that looks like a subcommand or a file path.
+    # Detect if a subcommand was given
     subcommands = {"validate", "trace", "impact"}
-    needs_inject = True
-    # Flags that consume the next argument
     flags_with_value = {"--config"}
+    has_subcommand = False
     skip_next = False
     for arg in raw_argv:
         if skip_next:
@@ -217,26 +276,37 @@ def main(argv: list[str] | None = None) -> int:
             continue
         if arg.startswith("-"):
             continue
-        # First positional arg found
         if arg in subcommands:
-            needs_inject = False
+            has_subcommand = True
         break
 
-    if needs_inject:
-        # Find insertion point: after global flags, before first file arg
-        insert_idx = 0
+    # Pre-commit mode: no subcommand, run all configured checks
+    if not has_subcommand:
+        # Extract global flags and file paths
+        config_path = None
+        file_paths = []
         i = 0
+        verbose = False
         while i < len(raw_argv):
-            if raw_argv[i] in flags_with_value and i + 1 < len(raw_argv):
+            if raw_argv[i] == "--config" and i + 1 < len(raw_argv):
+                config_path = Path(raw_argv[i + 1])
                 i += 2
-                insert_idx = i
+            elif raw_argv[i] in ("-v", "--verbose"):
+                verbose = True
+                i += 1
             elif raw_argv[i].startswith("-"):
                 i += 1
-                insert_idx = i
             else:
-                break
-        raw_argv.insert(insert_idx, "validate")
+                file_paths.append(raw_argv[i])
+                i += 1
 
+        log_level = logging.DEBUG if verbose else logging.WARNING
+        logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
+
+        config = load_config(config_path)
+        return run_precommit(file_paths, config, config_path)
+
+    # Explicit subcommand mode
     parser = build_parser()
     args = parser.parse_args(raw_argv)
 
