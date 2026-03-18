@@ -16,9 +16,9 @@ from typing import Any
 from doxygen_guard.checks import Violation, check_presence, check_tags, check_version_staleness
 from doxygen_guard.config import get_language_config, load_config
 from doxygen_guard.git import get_changed_lines_for_file
-from doxygen_guard.parser import parse_functions
 from doxygen_guard.impact import run_impact
-from doxygen_guard.trace import run_trace
+from doxygen_guard.parser import parse_functions
+from doxygen_guard.tracer import run_trace
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to .doxygen-guard.yaml (default: .doxygen-guard.yaml in cwd)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose output",
     )
@@ -155,9 +156,7 @@ def validate_file(
     if not no_git:
         try:
             changed_lines = get_changed_lines_for_file(file_path)
-            violations.extend(
-                check_version_staleness(functions, file_path, config, changed_lines)
-            )
+            violations.extend(check_version_staleness(functions, file_path, config, changed_lines))
         except Exception:
             logger.warning(
                 "Could not get git diff for %s — skipping staleness check",

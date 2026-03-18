@@ -5,9 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from textwrap import dedent
 
-from doxygen_guard.main import main, validate_file
 from doxygen_guard.config import CONFIG_DEFAULTS
-
+from doxygen_guard.main import main, validate_file
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -20,7 +19,9 @@ class TestValidateFile:
         config = CONFIG_DEFAULTS.copy()
         # Use simple.c but only the documented functions will pass
         violations = validate_file(
-            str(FIXTURES_DIR / "simple.c"), config, no_git=True,
+            str(FIXTURES_DIR / "simple.c"),
+            config,
+            no_git=True,
         )
         # simple.c has one undocumented function
         assert len(violations) == 1

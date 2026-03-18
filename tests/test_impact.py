@@ -65,7 +65,10 @@ class TestCollectChangedFunctions:
             return "@@ -6,1 +6,1 @@\n-old\n+new\n"
 
         result = collect_changed_functions(
-            [str(c_file)], CONFIG_DEFAULTS, staged=True, run_command=mock_runner,
+            [str(c_file)],
+            CONFIG_DEFAULTS,
+            staged=True,
+            run_command=mock_runner,
         )
         assert len(result) == 1
         assert result[0].name == "Do_Stuff"
@@ -80,7 +83,10 @@ class TestCollectChangedFunctions:
             return ""
 
         result = collect_changed_functions(
-            [str(c_file)], CONFIG_DEFAULTS, staged=True, run_command=mock_runner,
+            [str(c_file)],
+            CONFIG_DEFAULTS,
+            staged=True,
+            run_command=mock_runner,
         )
         assert result == []
 
@@ -92,7 +98,10 @@ class TestCollectChangedFunctions:
             return "@@ -1,1 +1,1 @@\n-old\n+new\n"
 
         result = collect_changed_functions(
-            [str(py_file)], CONFIG_DEFAULTS, staged=True, run_command=mock_runner,
+            [str(py_file)],
+            CONFIG_DEFAULTS,
+            staged=True,
+            run_command=mock_runner,
         )
         assert result == []
 
@@ -108,19 +117,26 @@ class TestLoadRequirements:
 
     def test_load_json(self, tmp_path):
         req_file = tmp_path / "req.json"
-        req_file.write_text(json.dumps([
-            {"Req ID": "REQ-0001", "Requirement Name": "Test Req"},
-        ]))
-        config = deep_merge(CONFIG_DEFAULTS, {
-            "impact": {
-                "requirements": {
-                    "file": str(req_file),
-                    "id_column": "Req ID",
-                    "name_column": "Requirement Name",
-                    "format": "json",
+        req_file.write_text(
+            json.dumps(
+                [
+                    {"Req ID": "REQ-0001", "Requirement Name": "Test Req"},
+                ]
+            )
+        )
+        config = deep_merge(
+            CONFIG_DEFAULTS,
+            {
+                "impact": {
+                    "requirements": {
+                        "file": str(req_file),
+                        "id_column": "Req ID",
+                        "name_column": "Requirement Name",
+                        "format": "json",
+                    },
                 },
             },
-        })
+        )
         reqs = load_requirements(config)
         assert reqs["REQ-0001"] == "Test Req"
 
@@ -132,16 +148,19 @@ class TestLoadRequirements:
                   Requirement Name: YAML Req
             """)
         )
-        config = deep_merge(CONFIG_DEFAULTS, {
-            "impact": {
-                "requirements": {
-                    "file": str(req_file),
-                    "id_column": "Req ID",
-                    "name_column": "Requirement Name",
-                    "format": "yaml",
+        config = deep_merge(
+            CONFIG_DEFAULTS,
+            {
+                "impact": {
+                    "requirements": {
+                        "file": str(req_file),
+                        "id_column": "Req ID",
+                        "name_column": "Requirement Name",
+                        "format": "yaml",
+                    },
                 },
             },
-        })
+        )
         reqs = load_requirements(config)
         assert reqs["REQ-0001"] == "YAML Req"
 
@@ -150,11 +169,14 @@ class TestLoadRequirements:
         assert reqs == {}
 
     def test_missing_file(self):
-        config = deep_merge(CONFIG_DEFAULTS, {
-            "impact": {
-                "requirements": {"file": "/nonexistent/req.csv", "format": "csv"},
+        config = deep_merge(
+            CONFIG_DEFAULTS,
+            {
+                "impact": {
+                    "requirements": {"file": "/nonexistent/req.csv", "format": "csv"},
+                },
             },
-        })
+        )
         reqs = load_requirements(config)
         assert reqs == {}
 
@@ -290,7 +312,10 @@ class TestRunImpact:
 
         config = _make_impact_config(req_file=FIXTURES_DIR / "impact" / "req.csv")
         result = run_impact(
-            [str(c_file)], config, staged=True, run_command=mock_runner,
+            [str(c_file)],
+            config,
+            staged=True,
+            run_command=mock_runner,
         )
         assert "REQ-0252" in result
         assert "Func" in result

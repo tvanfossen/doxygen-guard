@@ -60,7 +60,12 @@ def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     return tags
 
 
-def find_doxygen_block_before(lines: list[str], func_line: int, comment_start: str, comment_end: str) -> DoxygenBlock | None:
+def find_doxygen_block_before(
+    lines: list[str],
+    func_line: int,
+    comment_start: str,
+    comment_end: str,
+) -> DoxygenBlock | None:
     """Scan backward from a function to find its preceding doxygen block.
 
     @brief Find the doxygen comment block immediately before a function definition.
@@ -148,8 +153,6 @@ def is_forward_declaration(lines: list[str], func_line: int) -> bool:
     @brief Detect forward declarations to skip them during validation.
     @version 1.0
     """
-    line = lines[func_line].rstrip()
-
     # Check current line and next few lines for semicolon before opening brace
     for i in range(func_line, min(func_line + 3, len(lines))):
         stripped = lines[i].rstrip()

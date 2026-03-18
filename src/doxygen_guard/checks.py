@@ -9,9 +9,10 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from doxygen_guard.parser import Function
+if TYPE_CHECKING:
+    from doxygen_guard.parser import Function
 
 logger = logging.getLogger(__name__)
 
@@ -143,8 +144,7 @@ def check_version_staleness(
                     line=func.def_line + 1,
                     check="version",
                     message=(
-                        f"Function '{func.name}' body changed but {version_tag} "
-                        f"was not updated"
+                        f"Function '{func.name}' body changed but {version_tag} was not updated"
                     ),
                 )
             )
@@ -178,9 +178,7 @@ def check_tags(
             tag_values = func.doxygen.tags.get(tag_name, [])
 
             for value in tag_values:
-                violations.extend(
-                    _validate_tag_value(file_path, func, tag_name, value, rules)
-                )
+                violations.extend(_validate_tag_value(file_path, func, tag_name, value, rules))
 
     return violations
 
@@ -220,19 +218,18 @@ def _validate_tag_value(
 
     # Check required prefix
     require_prefix = rules.get("require_prefix")
-    if require_prefix:
-        if not any(value.startswith(p) for p in require_prefix):
-            violations.append(
-                Violation(
-                    file=file_path,
-                    line=line,
-                    check="tag",
-                    message=(
-                        f"Function '{func.name}' @{tag_name} value '{value}' "
-                        f"does not start with any required prefix: {require_prefix}"
-                    ),
-                )
+    if require_prefix and not any(value.startswith(p) for p in require_prefix):
+        violations.append(
+            Violation(
+                file=file_path,
+                line=line,
+                check="tag",
+                message=(
+                    f"Function '{func.name}' @{tag_name} value '{value}' "
+                    f"does not start with any required prefix: {require_prefix}"
+                ),
             )
+        )
 
     # Check required contains
     require_contains = rules.get("require_contains")
@@ -252,9 +249,7 @@ def _validate_tag_value(
     # Check confidence markers
     markers = rules.get("confidence_markers")
     if markers:
-        violations.extend(
-            _check_confidence_marker(file_path, func, tag_name, value, markers, line)
-        )
+        violations.extend(_check_confidence_marker(file_path, func, tag_name, value, markers, line))
 
     return violations
 

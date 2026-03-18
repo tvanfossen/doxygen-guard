@@ -172,9 +172,7 @@ class TestCheckTags:
             }
         }
         funcs = [
-            _make_func(
-                tags={"brief": ["Something."], "version": ["1.0"], "req": ["REQ-0001"]}
-            )
+            _make_func(tags={"brief": ["Something."], "version": ["1.0"], "req": ["REQ-0001"]})
         ]
         violations = check_tags(funcs, "test.c", config)
         assert violations == []
@@ -187,11 +185,7 @@ class TestCheckTags:
                 },
             }
         }
-        funcs = [
-            _make_func(
-                tags={"brief": ["Something."], "version": ["1.0"], "req": ["INVALID"]}
-            )
-        ]
+        funcs = [_make_func(tags={"brief": ["Something."], "version": ["1.0"], "req": ["INVALID"]})]
         violations = check_tags(funcs, "test.c", config)
         assert len(violations) == 1
         assert "does not match pattern" in violations[0].message
@@ -205,19 +199,11 @@ class TestCheckTags:
             }
         }
         # Valid prefix
-        funcs = [
-            _make_func(
-                tags={"brief": ["X."], "version": ["1.0"], "emits": ["EVENT:READY"]}
-            )
-        ]
+        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "emits": ["EVENT:READY"]})]
         assert check_tags(funcs, "test.c", config) == []
 
         # Invalid prefix
-        funcs = [
-            _make_func(
-                tags={"brief": ["X."], "version": ["1.0"], "emits": ["BADPREFIX"]}
-            )
-        ]
+        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "emits": ["BADPREFIX"]})]
         violations = check_tags(funcs, "test.c", config)
         assert len(violations) == 1
         assert "does not start with" in violations[0].message
@@ -231,15 +217,11 @@ class TestCheckTags:
             }
         }
         # Valid
-        funcs = [
-            _make_func(tags={"brief": ["X."], "version": ["1.0"], "ext": ["mod::func"]})
-        ]
+        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "ext": ["mod::func"]})]
         assert check_tags(funcs, "test.c", config) == []
 
         # Invalid
-        funcs = [
-            _make_func(tags={"brief": ["X."], "version": ["1.0"], "ext": ["modfunc"]})
-        ]
+        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "ext": ["modfunc"]})]
         violations = check_tags(funcs, "test.c", config)
         assert len(violations) == 1
         assert "does not contain" in violations[0].message
@@ -278,11 +260,7 @@ class TestCheckTags:
                 },
             }
         }
-        funcs = [
-            _make_func(
-                tags={"brief": ["X."], "version": ["1.0"], "req": ["REQ-0001"]}
-            )
-        ]
+        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "req": ["REQ-0001"]})]
         violations = check_tags(funcs, "test.c", config)
         assert len(violations) == 1
         assert "missing confidence marker" in violations[0].message
@@ -298,9 +276,7 @@ class TestCheckTags:
             }
         }
         funcs = [
-            _make_func(
-                tags={"brief": ["X."], "version": ["1.0"], "req": ["REQ-0001 [bogus]"]}
-            )
+            _make_func(tags={"brief": ["X."], "version": ["1.0"], "req": ["REQ-0001 [bogus]"]})
         ]
         violations = check_tags(funcs, "test.c", config)
         assert len(violations) == 1

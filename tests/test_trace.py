@@ -1,11 +1,11 @@
-"""Tests for doxygen_guard.trace module."""
+"""Tests for doxygen_guard.tracer module."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 from doxygen_guard.config import CONFIG_DEFAULTS, deep_merge
-from doxygen_guard.trace import (
+from doxygen_guard.tracer import (
     Participant,
     TaggedFunction,
     build_sequence_edges,
@@ -143,8 +143,7 @@ class TestBuildSequenceEdges:
 
         # Pairing_Start emits PAIRING_STARTED → wifi handles it
         pairing_to_wifi = [
-            e for e in emit_edges
-            if e["from_id"] == "pairing" and e["to_id"] == "wifi"
+            e for e in emit_edges if e["from_id"] == "pairing" and e["to_id"] == "wifi"
         ]
         assert len(pairing_to_wifi) == 1
 

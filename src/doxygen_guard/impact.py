@@ -18,7 +18,7 @@ import yaml
 
 from doxygen_guard.config import get_language_config
 from doxygen_guard.git import RunCommand, get_diff, get_staged_diff, parse_changed_lines
-from doxygen_guard.parser import Function, parse_functions
+from doxygen_guard.parser import parse_functions
 
 logger = logging.getLogger(__name__)
 
@@ -186,11 +186,7 @@ def _load_json_requirements(path: str, id_col: str, name_col: str) -> dict[str, 
         data = json.load(f)
     if not isinstance(data, list):
         return {}
-    return {
-        row.get(id_col, ""): row.get(name_col, "")
-        for row in data
-        if row.get(id_col)
-    }
+    return {row.get(id_col, ""): row.get(name_col, "") for row in data if row.get(id_col)}
 
 
 def _load_yaml_requirements(path: str, id_col: str, name_col: str) -> dict[str, str]:
@@ -203,11 +199,7 @@ def _load_yaml_requirements(path: str, id_col: str, name_col: str) -> dict[str, 
         data = yaml.safe_load(f)
     if not isinstance(data, list):
         return {}
-    return {
-        row.get(id_col, ""): row.get(name_col, "")
-        for row in data
-        if row.get(id_col)
-    }
+    return {row.get(id_col, ""): row.get(name_col, "") for row in data if row.get(id_col)}
 
 
 def map_to_test_suites(
@@ -258,9 +250,6 @@ def build_impact_report(
         for req in cf.reqs:
             req_funcs.setdefault(req, []).append(cf)
 
-    all_reqs = set(req_funcs.keys())
-    suites = map_to_test_suites(all_reqs, config)
-
     entries: list[ImpactEntry] = []
     for req_id, funcs in sorted(req_funcs.items()):
         req_suites = map_to_test_suites({req_id}, config)
@@ -304,8 +293,7 @@ def format_markdown(entries: list[ImpactEntry]) -> str:
 
     lines.append("")
     lines.append(
-        f"**Total: {len(entries)} requirement(s) affected, "
-        f"{total_funcs} function(s) changed**"
+        f"**Total: {len(entries)} requirement(s) affected, {total_funcs} function(s) changed**"
     )
     if all_suites:
         lines.append(f"**Recommended smoke tests: {', '.join(sorted(all_suites))}**")
@@ -321,16 +309,18 @@ def format_json(entries: list[ImpactEntry]) -> str:
     """
     data = []
     for entry in entries:
-        data.append({
-            "req_id": entry.req_id,
-            "req_name": entry.req_name,
-            "functions": [
-                {"name": f.name, "file": f.file_path, "version": f.new_version}
-                for f in entry.functions
-            ],
-            "test_suites": entry.test_suites,
-            "test_commands": entry.test_commands,
-        })
+        data.append(
+            {
+                "req_id": entry.req_id,
+                "req_name": entry.req_name,
+                "functions": [
+                    {"name": f.name, "file": f.file_path, "version": f.new_version}
+                    for f in entry.functions
+                ],
+                "test_suites": entry.test_suites,
+                "test_commands": entry.test_commands,
+            }
+        )
     return json.dumps(data, indent=2) + "\n"
 
 
@@ -387,7 +377,11 @@ def run_impact(
     @version 1.0
     """
     changed = collect_changed_functions(
-        file_paths, config, diff_range=diff_range, staged=staged, run_command=run_command,
+        file_paths,
+        config,
+        diff_range=diff_range,
+        staged=staged,
+        run_command=run_command,
     )
 
     entries = build_impact_report(changed, config)

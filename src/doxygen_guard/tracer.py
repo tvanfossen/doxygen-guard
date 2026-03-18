@@ -186,13 +186,15 @@ def build_sequence_edges(
         for event in tf.emits:
             handler = handler_map.get(event)
             to_id = handler.participant.id if handler and handler.participant else "unknown"
-            edges.append({
-                "from_id": from_id,
-                "to_id": to_id,
-                "label": f"{tf.name}()",
-                "event": event,
-                "style": "-->",  # dashed for async events
-            })
+            edges.append(
+                {
+                    "from_id": from_id,
+                    "to_id": to_id,
+                    "label": f"{tf.name}()",
+                    "event": event,
+                    "style": "-->",  # dashed for async events
+                }
+            )
 
         # @ext mod::func → arrow to participant matching mod
         for ext_ref in tf.ext:
@@ -201,23 +203,27 @@ def build_sequence_edges(
             func_name = parts[1] if len(parts) == 2 else ext_ref
             # Find participant matching the module
             to_id = _resolve_ext_participant(mod, tagged_functions)
-            edges.append({
-                "from_id": from_id,
-                "to_id": to_id,
-                "label": f"{func_name}()",
-                "event": None,
-                "style": "->",  # solid for direct calls
-            })
+            edges.append(
+                {
+                    "from_id": from_id,
+                    "to_id": to_id,
+                    "label": f"{func_name}()",
+                    "event": None,
+                    "style": "->",  # solid for direct calls
+                }
+            )
 
         # @triggers → notes on the emitting participant
         for trigger in tf.triggers:
-            edges.append({
-                "from_id": from_id,
-                "to_id": from_id,
-                "label": trigger,
-                "event": None,
-                "style": "note",
-            })
+            edges.append(
+                {
+                    "from_id": from_id,
+                    "to_id": from_id,
+                    "label": trigger,
+                    "event": None,
+                    "style": "note",
+                }
+            )
 
     return edges
 
@@ -260,10 +266,7 @@ def generate_plantuml(
 
     # Collect participants that appear in edges
     participant_ids = _collect_active_participants(edges)
-    participants = {
-        p["id"]: p
-        for p in trace_config.get("participants", [])
-    }
+    participants = {p["id"]: p for p in trace_config.get("participants", [])}
 
     for pid in participant_ids:
         p = participants.get(pid)

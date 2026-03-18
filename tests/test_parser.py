@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from doxygen_guard.config import VALIDATE_DEFAULTS
 from doxygen_guard.parser import (
-    DoxygenBlock,
     find_body_end,
     find_doxygen_block_before,
     is_forward_declaration,
@@ -203,7 +202,11 @@ class TestParseFunctions:
     def test_forward_declarations_not_skipped(self, fixtures_dir):
         content = (fixtures_dir / "forward_decl.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
             skip_forward_declarations=False,
         )
 

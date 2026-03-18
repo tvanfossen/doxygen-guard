@@ -25,7 +25,11 @@ class TestDecorativeComments:
     def test_decorative_not_treated_as_doxygen(self):
         content = (FIXTURES_DIR / "mixed_comments.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         names = {f.name: f for f in functions}
 
@@ -39,9 +43,10 @@ class TestDecorativeComments:
         assert names["After_Second_Decorative"].doxygen is None
 
     def test_decorative_triggers_presence_violation(self):
-        content = (FIXTURES_DIR / "mixed_comments.c").read_text()
         violations = validate_file(
-            str(FIXTURES_DIR / "mixed_comments.c"), CONFIG_DEFAULTS, no_git=True,
+            str(FIXTURES_DIR / "mixed_comments.c"),
+            CONFIG_DEFAULTS,
+            no_git=True,
         )
         # 3 undocumented functions: After_Regular_Comment, After_Line_Comment,
         # After_Second_Decorative
@@ -55,7 +60,11 @@ class TestDecorativeComments:
             "void Func(void) {",
         ]
         functions = parse_functions(
-            "\n".join(lines), C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            "\n".join(lines),
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         assert len(functions) == 1
         assert functions[0].doxygen is not None
@@ -75,7 +84,11 @@ class TestJavaLanguageConfig:
     def test_java_public_method(self):
         content = (FIXTURES_DIR / "java_simple.java").read_text()
         functions = parse_functions(
-            content, JAVA_PATTERN, JAVA_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            JAVA_PATTERN,
+            JAVA_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         names = [f.name for f in functions]
         assert "initService" in names
@@ -86,7 +99,11 @@ class TestJavaLanguageConfig:
     def test_java_missing_doxygen_detected(self):
         content = (FIXTURES_DIR / "java_simple.java").read_text()
         functions = parse_functions(
-            content, JAVA_PATTERN, JAVA_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            JAVA_PATTERN,
+            JAVA_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         violations = check_presence(functions, "Main.java", CONFIG_DEFAULTS)
         undoc = [v for v in violations if "no doxygen comment" in v.message]
@@ -104,7 +121,11 @@ class TestJavaLanguageConfig:
             }
         """)
         functions = parse_functions(
-            content, JAVA_PATTERN, JAVA_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            JAVA_PATTERN,
+            JAVA_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         assert len(functions) == 1
         assert functions[0].name == "helper"
@@ -121,7 +142,11 @@ class TestJavaLanguageConfig:
             }
         """)
         functions = parse_functions(
-            content, JAVA_PATTERN, JAVA_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            JAVA_PATTERN,
+            JAVA_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         assert len(functions) == 1
         assert functions[0].name == "getItems"
@@ -133,7 +158,11 @@ class TestVersionStaleness:
     def test_stale_version_detected(self):
         content = (FIXTURES_DIR / "stale_version.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
 
         # Simulate: Stale_Func body changed (line 5), version not touched
@@ -142,7 +171,10 @@ class TestVersionStaleness:
         changed_lines = {stale.def_line + 1}  # A body line changed
 
         violations = check_version_staleness(
-            functions, "stale_version.c", CONFIG_DEFAULTS, changed_lines,
+            functions,
+            "stale_version.c",
+            CONFIG_DEFAULTS,
+            changed_lines,
         )
         assert len(violations) == 1
         assert "Stale_Func" in violations[0].message
@@ -151,7 +183,11 @@ class TestVersionStaleness:
     def test_updated_version_no_violation(self):
         content = (FIXTURES_DIR / "stale_version.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
 
         # Simulate: Updated_Func body AND doxygen both changed
@@ -162,7 +198,10 @@ class TestVersionStaleness:
         }
 
         violations = check_version_staleness(
-            functions, "stale_version.c", CONFIG_DEFAULTS, changed_lines,
+            functions,
+            "stale_version.c",
+            CONFIG_DEFAULTS,
+            changed_lines,
         )
         assert violations == []
 
@@ -171,24 +210,31 @@ class TestTagValidation:
     """Verify tag validation with fixture file."""
 
     def _make_tag_config(self):
-        return deep_merge(CONFIG_DEFAULTS, {
-            "validate": {
-                "tags": {
-                    "req": {
-                        "pattern": r"^REQ-\w+$",
-                        "confidence_markers": ["verified", "inferred"],
+        return deep_merge(
+            CONFIG_DEFAULTS,
+            {
+                "validate": {
+                    "tags": {
+                        "req": {
+                            "pattern": r"^REQ-\w+$",
+                            "confidence_markers": ["verified", "inferred"],
+                        },
+                        "emits": {"require_prefix": ["EVENT:", "FSM:"]},
+                        "ext": {"require_contains": "::"},
                     },
-                    "emits": {"require_prefix": ["EVENT:", "FSM:"]},
-                    "ext": {"require_contains": "::"},
                 },
             },
-        })
+        )
 
     def test_bad_tags_all_fail(self):
         content = (FIXTURES_DIR / "bad_tags.c").read_text()
         config = self._make_tag_config()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
 
         violations = check_tags(functions, "bad_tags.c", config)
@@ -208,7 +254,11 @@ class TestTagValidation:
         content = (FIXTURES_DIR / "bad_tags.c").read_text()
         config = self._make_tag_config()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
 
         violations = check_tags(functions, "bad_tags.c", config)
@@ -228,7 +278,11 @@ class TestBracesInStrings:
         """
         content = (FIXTURES_DIR / "braces_in_strings.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
 
         names = [f.name for f in functions]
@@ -262,7 +316,11 @@ class TestBracesInStrings:
             }
         """)
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
 
         unbal = [f for f in functions if f.name == "Unbalanced"][0]
@@ -276,9 +334,10 @@ class TestForwardDeclarationMix:
     """Verify forward declarations mixed with definitions."""
 
     def test_only_definitions_checked(self):
-        content = (FIXTURES_DIR / "forward_decl.c").read_text()
         violations = validate_file(
-            str(FIXTURES_DIR / "forward_decl.c"), CONFIG_DEFAULTS, no_git=True,
+            str(FIXTURES_DIR / "forward_decl.c"),
+            CONFIG_DEFAULTS,
+            no_git=True,
         )
         # Only the definition (Module_Init with doxygen) should be checked.
         # No violations expected since it has @brief and @version.
@@ -293,7 +352,11 @@ class TestForwardDeclarationMix:
             }
         """)
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         # Forward declaration skipped, definition found
         assert len(functions) == 1
@@ -311,7 +374,11 @@ class TestGccAttributes:
     def test_attribute_visibility_hidden(self):
         content = (FIXTURES_DIR / "attribute.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         names = {f.name: f for f in functions}
 
@@ -322,7 +389,11 @@ class TestGccAttributes:
     def test_attribute_unused(self):
         content = (FIXTURES_DIR / "attribute.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         names = {f.name: f for f in functions}
 
@@ -332,7 +403,9 @@ class TestGccAttributes:
 
     def test_no_false_positives_with_attributes(self):
         violations = validate_file(
-            str(FIXTURES_DIR / "attribute.c"), CONFIG_DEFAULTS, no_git=True,
+            str(FIXTURES_DIR / "attribute.c"),
+            CONFIG_DEFAULTS,
+            no_git=True,
         )
         assert violations == []
 
@@ -349,7 +422,11 @@ class TestGccAttributes:
             }
         """)
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         assert len(functions) == 1
         assert functions[0].doxygen is not None
@@ -368,7 +445,11 @@ class TestGccAttributes:
             }
         """)
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         assert len(functions) == 1
         # Second line of attribute doesn't match attr_re, so backward scan
@@ -382,7 +463,11 @@ class TestTypedefReturnsAndMacroQualifiers:
     def test_lowercase_typedef_return(self):
         content = (FIXTURES_DIR / "typedef_returns.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         names = {f.name: f for f in functions}
         assert "get_status" in names
@@ -391,7 +476,11 @@ class TestTypedefReturnsAndMacroQualifiers:
     def test_typedef_pointer_return(self):
         content = (FIXTURES_DIR / "typedef_returns.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         names = {f.name: f for f in functions}
         assert "find_config" in names
@@ -400,7 +489,11 @@ class TestTypedefReturnsAndMacroQualifiers:
     def test_static_macro_qualifier(self):
         content = (FIXTURES_DIR / "typedef_returns.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         names = {f.name: f for f in functions}
         assert "internal_helper" in names
@@ -409,7 +502,11 @@ class TestTypedefReturnsAndMacroQualifiers:
     def test_weak_macro_qualifier(self):
         content = (FIXTURES_DIR / "typedef_returns.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         names = {f.name: f for f in functions}
         assert "default_handler" in names
@@ -418,7 +515,11 @@ class TestTypedefReturnsAndMacroQualifiers:
     def test_undocumented_typedef_detected(self):
         content = (FIXTURES_DIR / "typedef_returns.c").read_text()
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         names = {f.name: f for f in functions}
         assert "undocumented_func" in names
@@ -426,7 +527,9 @@ class TestTypedefReturnsAndMacroQualifiers:
 
     def test_no_false_positives(self):
         violations = validate_file(
-            str(FIXTURES_DIR / "typedef_returns.c"), CONFIG_DEFAULTS, no_git=True,
+            str(FIXTURES_DIR / "typedef_returns.c"),
+            CONFIG_DEFAULTS,
+            no_git=True,
         )
         # Only undocumented_func should fail
         assert len(violations) == 1
@@ -443,7 +546,11 @@ class TestTypedefReturnsAndMacroQualifiers:
             }
         """)
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         assert len(functions) == 1
         assert functions[0].name == "convert_error"
@@ -460,7 +567,11 @@ class TestTypedefReturnsAndMacroQualifiers:
             }
         """)
         functions = parse_functions(
-            content, C_PATTERN, C_EXCLUDES, COMMENT_START, COMMENT_END,
+            content,
+            C_PATTERN,
+            C_EXCLUDES,
+            COMMENT_START,
+            COMMENT_END,
         )
         assert len(functions) == 1
         assert functions[0].name == "create_node"
