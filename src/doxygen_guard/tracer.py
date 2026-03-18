@@ -29,7 +29,7 @@ class Participant:
 
 
 ## @brief Function metadata needed for diagram generation.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 @dataclass
 class TaggedFunction:
@@ -41,6 +41,7 @@ class TaggedFunction:
     ext: list[str] = field(default_factory=list)
     triggers: list[str] = field(default_factory=list)
     reqs: list[str] = field(default_factory=list)
+    body: str = ""
 
 
 ## @brief Build the REQ ID -> participant name mapping from requirements file.
@@ -155,9 +156,10 @@ def _process_source_file(
         settings=settings,
     )
 
+    lines = content.splitlines()
     tagged: list[TaggedFunction] = []
     for func in functions:
-        tf = _extract_tagged_function(func, str(source_file), req_participant_map)
+        tf = _extract_tagged_function(func, str(source_file), req_participant_map, lines)
         if tf is not None:
             tagged.append(tf)
     return tagged
@@ -205,13 +207,14 @@ def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
     return sorted(files)
 
 
-## @brief Build a TaggedFunction, resolving participant from @req tags.
-#  @version 1.2
+## @brief Build a TaggedFunction, resolving participant and capturing body text.
+#  @version 1.3
 #  @internal
 def _extract_tagged_function(
     func: Function,
     file_path: str,
     req_participant_map: dict[str, str],
+    lines: list[str],
 ) -> TaggedFunction | None:
     if func.doxygen is None:
         return None
@@ -224,6 +227,8 @@ def _extract_tagged_function(
     if not has_trace_tags and not reqs:
         return None
 
+    body_text = "\n".join(lines[func.def_line : func.body_end + 1])
+
     return TaggedFunction(
         name=func.name,
         file_path=file_path,
@@ -233,6 +238,7 @@ def _extract_tagged_function(
         ext=tags.get("ext", []),
         triggers=tags.get("triggers", []),
         reqs=reqs,
+        body=body_text,
     )
 
 
@@ -338,8 +344,34 @@ def _resolve_ext_target(
     return None
 
 
+## @brief Scan function bodies for calls to other known functions.
+#  @version 1.0
+#  @req REQ-TRACE-001
+def _build_call_edges(
+    caller: TaggedFunction,
+    from_name: str,
+    all_tagged: list[TaggedFunction],
+) -> list[dict[str, Any]]:
+    edges: list[dict[str, Any]] = []
+    for target in all_tagged:
+        if target.name == caller.name:
+            continue
+        if f"{target.name}(" in caller.body:
+            to_name = target.participant_name or target.name
+            edges.append(
+                {
+                    "from": from_name,
+                    "to": to_name,
+                    "label": f"{target.name}()",
+                    "event": None,
+                    "style": "->",
+                }
+            )
+    return edges
+
+
 ## @brief Build edges for emitting functions, using global handler resolution.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-001
 def build_sequence_edges(
     emitters: list[TaggedFunction],
@@ -357,6 +389,7 @@ def build_sequence_edges(
         edges.extend(emit_edges)
         all_warnings.extend(warnings)
         edges.extend(_build_ext_edges(tf, from_name, all_tagged))
+        edges.extend(_build_call_edges(tf, from_name, all_tagged))
         edges.extend(_build_trigger_edges(tf, from_name))
 
     return edges, all_warnings
@@ -439,16 +472,19 @@ def _safe_id(name: str) -> str:
 
 
 ## @brief Render a single edge as a PlantUML line.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _render_edge(edge: dict[str, Any]) -> str:
     f = _safe_id(edge["from"])
     t = _safe_id(edge["to"])
     if edge["style"] == "note":
         return f"note right of {f}: {edge['label']}"
-    label = edge.get("event", edge["label"])
-    if edge.get("event") and edge.get("label"):
-        label = f"{edge['event']}\\n{edge['label']}"
+    event = edge.get("event")
+    label = edge["label"]
+    if event and label:
+        label = f"{event}\\n{label}"
+    elif event:
+        label = event
     return f"{f} {edge['style']} {t}: {label}"
 
 

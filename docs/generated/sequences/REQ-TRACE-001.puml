@@ -8,9 +8,11 @@ note over Trace: collect_all_tagged_functions()
 note over Trace: _build_emit_edges()
 note over Trace: _build_ext_edges()
 note over Trace: _build_trigger_edges()
+note over Trace: _build_call_edges()
 note over Trace: build_sequence_edges()
 note over Trace: generate_plantuml()
 note over Trace: write_diagram()
-note over Trace: run_trace()
+
+Trace -> Trace: run_trace()
 
 @enduml

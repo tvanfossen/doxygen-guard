@@ -2,10 +2,18 @@
 autonumber
 
 participant "Validate" as Validate
+participant "Impact" as Impact
+participant "Trace" as Trace
 
 note over Validate: check_presence()
 note over Validate: validate_file()
 note over Validate: run_validate()
 note over Validate: run_precommit()
+
+Validate -> Impact: collect_changed_functions()
+Validate -> Impact: build_impact_report()
+Validate -> Impact: format_markdown()
+Validate -> Impact: format_json()
+Validate -> Trace: run_trace()
 
 @enduml

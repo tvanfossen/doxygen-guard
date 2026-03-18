@@ -4,9 +4,9 @@
     "req_name": "Sequence diagram generation",
     "functions": [
       {
-        "name": "generate_plantuml",
+        "name": "_build_call_edges",
         "file": "src/doxygen_guard/tracer.py",
-        "version": "1.5"
+        "version": "1.0"
       }
     ]
   }
