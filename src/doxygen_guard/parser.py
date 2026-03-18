@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 ## @brief Represents a doxygen comment with its location and parsed tags.
 #  @version 1.0
+#  @internal
 @dataclass
 class DoxygenBlock:
     start_line: int  # 0-indexed
@@ -25,6 +26,7 @@ class DoxygenBlock:
 
 ## @brief Represents a function with its location and optional doxygen block.
 #  @version 1.0
+#  @internal
 @dataclass
 class Function:
     name: str
@@ -35,6 +37,7 @@ class Function:
 
 ## @brief Parse settings for comment style and body detection.
 #  @version 1.0
+#  @req REQ-CONFIG-002
 @dataclass
 class ParseSettings:
     comment_start: str = r"/\*\*(?!\*)"
@@ -43,23 +46,32 @@ class ParseSettings:
 
 
 ## @brief Parse all @tag entries from doxygen comment text.
-#  @version 1.0
+#  @version 1.1
+#  @req REQ-PARSE-002
 def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     tags: dict[str, list[str]] = {}
-    tag_pattern = re.compile(r"@(\w+)\s+(.*?)(?=\s*(?:@\w+\s|\*/|$))", re.DOTALL)
+    # Match tags with values: @tag value...
+    tag_with_value = re.compile(r"@(\w+)\s+(.*?)(?=\s*(?:@\w+[\s\n]|\*/|$))", re.DOTALL)
+    # Match standalone tags with no value: @tag at end of line
+    tag_standalone = re.compile(r"@(\w+)\s*$", re.MULTILINE)
 
-    for match in tag_pattern.finditer(block_text):
+    for match in tag_with_value.finditer(block_text):
         tag_name = match.group(1)
         tag_value = match.group(2).strip()
-        # Clean up multi-line continuation prefixes (C: leading *, Python: leading #)
         tag_value = re.sub(r"\n\s*[*#]\s*", " ", tag_value).strip()
         tags.setdefault(tag_name, []).append(tag_value)
+
+    for match in tag_standalone.finditer(block_text):
+        tag_name = match.group(1)
+        if tag_name not in tags:
+            tags.setdefault(tag_name, []).append("")
 
     return tags
 
 
 ## @brief Scan backward from func_line to find the first non-blank, non-attribute line.
 #  @version 1.1
+#  @internal
 def _skip_blanks_and_attrs(lines: list[str], func_line: int) -> int:
     attr_re = re.compile(r"^\s*__attribute__\s*\(\(")
     scan = func_line - 1
@@ -74,6 +86,7 @@ def _skip_blanks_and_attrs(lines: list[str], func_line: int) -> int:
 
 ## @brief Scan backward from end_line to find the comment start marker.
 #  @version 1.0
+#  @internal
 def _scan_for_comment_start(
     lines: list[str],
     end_line: int,
@@ -98,6 +111,7 @@ def _scan_for_comment_start(
 
 ## @brief Find the doxygen comment block immediately before a function definition.
 #  @version 1.1
+#  @req REQ-PARSE-002
 def find_doxygen_block_before(
     lines: list[str],
     func_line: int,
@@ -120,6 +134,7 @@ def find_doxygen_block_before(
 
 ## @brief Locate the end of a function body by matching braces.
 #  @version 1.0
+#  @req REQ-PARSE-001
 def find_body_end(lines: list[str], start_line: int) -> int:
     brace_depth = 0
     found_open = False
@@ -139,6 +154,7 @@ def find_body_end(lines: list[str], start_line: int) -> int:
 
 ## @brief Locate the last line of a Python function body by tracking indentation.
 #  @version 1.0
+#  @req REQ-PARSE-003
 def find_body_end_indent(lines: list[str], start_line: int) -> int:
     def_indent = len(lines[start_line]) - len(lines[start_line].lstrip())
     body_indent = None
@@ -167,6 +183,7 @@ def find_body_end_indent(lines: list[str], start_line: int) -> int:
 
 ## @brief Detect forward declarations to skip them during validation.
 #  @version 1.0
+#  @req REQ-PARSE-001
 def is_forward_declaration(lines: list[str], func_line: int) -> bool:
     for i in range(func_line, min(func_line + 3, len(lines))):
         stripped = lines[i].rstrip()
@@ -179,6 +196,7 @@ def is_forward_declaration(lines: list[str], func_line: int) -> bool:
 
 ## @brief Parse source code to find functions and their associated doxygen comments.
 #  @version 1.2
+#  @req REQ-PARSE-001
 def parse_functions(
     content: str,
     function_pattern: str,

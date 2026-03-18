@@ -18,6 +18,7 @@ RunCommand = Callable[[list[str]], str]
 
 ## @brief Default command runner using subprocess.
 #  @version 1.0
+#  @internal
 def _default_run_command(cmd: list[str]) -> str:
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     return result.stdout
@@ -25,6 +26,7 @@ def _default_run_command(cmd: list[str]) -> str:
 
 ## @brief Run git diff --cached for a single file.
 #  @version 1.0
+#  @req REQ-GIT-001
 def get_staged_diff(
     file_path: str,
     run_command: RunCommand | None = None,
@@ -35,6 +37,7 @@ def get_staged_diff(
 
 ## @brief Run git diff for a file over a given revision range.
 #  @version 1.0
+#  @req REQ-GIT-001
 def get_diff(
     file_path: str,
     diff_range: str,
@@ -46,6 +49,7 @@ def get_diff(
 
 ## @brief Extract the set of modified line numbers from a unified diff.
 #  @version 1.0
+#  @req REQ-GIT-001
 #
 #  Parses @@ hunk headers to determine which lines in the new file were
 #  added or modified. Returns 0-indexed line numbers to match parser conventions.
@@ -70,6 +74,7 @@ def parse_changed_lines(diff_output: str) -> set[int]:
 
 ## @brief Convenience function combining staged diff retrieval and parsing.
 #  @version 1.0
+#  @req REQ-GIT-001
 def get_changed_lines_for_file(
     file_path: str,
     run_command: RunCommand | None = None,

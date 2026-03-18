@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 ## @brief A named actor in a sequence diagram, optionally receiving unhandled events by prefix.
 #  @version 1.2
+#  @internal
 @dataclass
 class Participant:
     name: str
@@ -28,6 +29,7 @@ class Participant:
 
 ## @brief Function metadata needed for diagram generation.
 #  @version 1.2
+#  @internal
 @dataclass
 class TaggedFunction:
     name: str
@@ -42,6 +44,7 @@ class TaggedFunction:
 
 ## @brief Build the REQ ID -> participant name mapping from requirements file.
 #  @version 1.1
+#  @req REQ-TRACE-002
 def _build_req_participant_map(
     config: dict[str, Any],
 ) -> dict[str, str]:
@@ -60,6 +63,7 @@ def _build_req_participant_map(
 
 ## @brief Resolve a function's participant from its @req tags via the requirements file.
 #  @version 1.1
+#  @req REQ-TRACE-002
 def _resolve_participant_from_reqs(
     reqs: list[str],
     req_participant_map: dict[str, str],
@@ -73,6 +77,7 @@ def _resolve_participant_from_reqs(
 
 ## @brief Load external participants from trace config.
 #  @version 1.0
+#  @req REQ-TRACE-003
 def _load_external_participants(config: dict[str, Any]) -> list[Participant]:
     raw = config.get("trace", {}).get("external", [])
     participants: list[Participant] = []
@@ -93,6 +98,7 @@ def _load_external_participants(config: dict[str, Any]) -> list[Participant]:
 
 ## @brief Collect all known participant names from requirements and externals.
 #  @version 1.0
+#  @internal
 def _collect_all_participants(
     req_participant_map: dict[str, str],
     externals: list[Participant],
@@ -115,6 +121,7 @@ def _collect_all_participants(
 
 ## @brief Route an unhandled event to an external participant via bus prefix.
 #  @version 1.0
+#  @req REQ-TRACE-003
 def _resolve_by_prefix(
     event: str,
     externals: list[Participant],
@@ -128,6 +135,7 @@ def _resolve_by_prefix(
 
 ## @brief Parse a single source file and extract tagged functions.
 #  @version 1.3
+#  @internal
 def _process_source_file(
     source_file: Path,
     config: dict[str, Any],
@@ -156,6 +164,7 @@ def _process_source_file(
 
 ## @brief Walk source directories and collect ALL tagged functions.
 #  @version 1.3
+#  @req REQ-TRACE-001
 def collect_all_tagged_functions(
     source_dirs: list[str],
     config: dict[str, Any],
@@ -173,6 +182,7 @@ def collect_all_tagged_functions(
 
 ## @brief Recursively find source files with extensions matching language config.
 #  @version 1.0
+#  @internal
 def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
     languages = config.get("validate", {}).get("languages", {})
     extensions: set[str] = set()
@@ -192,6 +202,7 @@ def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
 
 ## @brief Build a TaggedFunction, resolving participant from @req tags.
 #  @version 1.2
+#  @internal
 def _extract_tagged_function(
     func: Function,
     file_path: str,
@@ -222,6 +233,7 @@ def _extract_tagged_function(
 
 ## @brief Build the global handler map from ALL tagged functions.
 #  @version 1.0
+#  @internal
 def _build_handler_map(
     all_tagged: list[TaggedFunction],
 ) -> dict[str, TaggedFunction]:
@@ -234,6 +246,7 @@ def _build_handler_map(
 
 ## @brief Build emit edges, resolving handlers globally and falling back to prefix routing.
 #  @version 1.3
+#  @req REQ-TRACE-001
 def _build_emit_edges(
     tf: TaggedFunction,
     from_name: str,
@@ -270,6 +283,7 @@ def _build_emit_edges(
 
 ## @brief Build ext call edges.
 #  @version 1.2
+#  @req REQ-TRACE-001
 def _build_ext_edges(
     tf: TaggedFunction,
     from_name: str,
@@ -295,6 +309,7 @@ def _build_ext_edges(
 
 ## @brief Build note edges from @triggers annotations.
 #  @version 1.2
+#  @req REQ-TRACE-001
 def _build_trigger_edges(
     tf: TaggedFunction,
     from_name: str,
@@ -307,6 +322,7 @@ def _build_trigger_edges(
 
 ## @brief Resolve an @ext module reference to a participant name.
 #  @version 1.2
+#  @internal
 def _resolve_ext_target(
     module: str,
     all_tagged: list[TaggedFunction],
@@ -319,6 +335,7 @@ def _resolve_ext_target(
 
 ## @brief Build edges for emitting functions, using global handler resolution.
 #  @version 1.2
+#  @req REQ-TRACE-001
 def build_sequence_edges(
     emitters: list[TaggedFunction],
     all_tagged: list[TaggedFunction],
@@ -342,6 +359,7 @@ def build_sequence_edges(
 
 ## @brief Render edges as a PlantUML @startuml/@enduml block.
 #  @version 1.3
+#  @req REQ-TRACE-001
 def generate_plantuml(
     req_id: str,
     edges: list[dict[str, Any]],
@@ -373,12 +391,14 @@ def generate_plantuml(
 
 ## @brief Convert a participant name to a safe PlantUML identifier.
 #  @version 1.1
+#  @utility
 def _safe_id(name: str) -> str:
     return name.replace(" ", "_").replace("/", "_")
 
 
 ## @brief Render a single edge as a PlantUML line.
 #  @version 1.2
+#  @internal
 def _render_edge(edge: dict[str, Any]) -> str:
     f = _safe_id(edge["from"])
     t = _safe_id(edge["to"])
@@ -392,6 +412,7 @@ def _render_edge(edge: dict[str, Any]) -> str:
 
 ## @brief Extract ordered participant names from edges.
 #  @version 1.1
+#  @internal
 def _collect_active_participants(edges: list[dict[str, Any]]) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
@@ -405,6 +426,7 @@ def _collect_active_participants(edges: list[dict[str, Any]]) -> list[str]:
 
 ## @brief Reject output paths containing directory traversal components.
 #  @version 1.1
+#  @internal
 def _validate_output_path(path: str) -> Path:
     p = Path(path)
     if ".." in p.parts:
@@ -415,6 +437,7 @@ def _validate_output_path(path: str) -> Path:
 
 ## @brief Save .puml content to the configured output directory.
 #  @version 1.1
+#  @req REQ-TRACE-001
 def write_diagram(req_id: str, puml_content: str, output_dir: str) -> Path:
     out_path = _validate_output_path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
@@ -427,6 +450,7 @@ def write_diagram(req_id: str, puml_content: str, output_dir: str) -> Path:
 
 ## @brief Generate diagrams, filtering emitters by REQ but resolving handlers globally.
 #  @version 1.3
+#  @internal
 def _write_diagrams_for_reqs(
     all_tagged: list[TaggedFunction],
     participants: list[Participant],
@@ -461,6 +485,7 @@ def _write_diagrams_for_reqs(
 
 ## @brief Orchestrate scanning, edge building, and diagram generation.
 #  @version 1.3
+#  @req REQ-TRACE-001
 def run_trace(
     source_dirs: list[str],
     config: dict[str, Any],

@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 ## @brief Represents a check failure with location and description.
 #  @version 1.0
+#  @internal
 @dataclass
 class Violation:
     file: str
@@ -28,12 +29,14 @@ class Violation:
 
     ## @brief Human-readable violation string.
     #  @version 1.0
+    #  @internal
     def __str__(self) -> str:
         return f"{self.file}:{self.line}: [{self.check}] {self.message}"
 
 
 ## @brief Verify every function has a doxygen comment with @brief and @version.
 #  @version 1.0
+#  @req REQ-VAL-001
 def check_presence(
     functions: list[Function],
     file_path: str,
@@ -90,6 +93,7 @@ EXEMPTION_TAGS = {"utility", "internal", "callback"}
 
 ## @brief Verify functions have @req or an exemption tag when requirements are configured.
 #  @version 1.0
+#  @req REQ-VAL-004
 def check_req_coverage(
     functions: list[Function],
     file_path: str,
@@ -99,6 +103,7 @@ def check_req_coverage(
     if not req_config or not req_config.get("file"):
         return []
 
+    req_file = req_config["file"]
     violations: list[Violation] = []
     for func in functions:
         if func.doxygen is None:
@@ -115,7 +120,8 @@ def check_req_coverage(
                     line=func.def_line + 1,
                     check="coverage",
                     message=(
-                        f"Function '{func.name}' has no @req tag and no exemption "
+                        f"Function '{func.name}' has no @req tag "
+                        f"(see {req_file}) and no exemption "
                         f"(@utility, @internal, @callback)"
                     ),
                 )
@@ -126,6 +132,7 @@ def check_req_coverage(
 
 ## @brief Detect stale @version tags when function bodies have been modified.
 #  @version 1.0
+#  @req REQ-VAL-002
 def check_version_staleness(
     functions: list[Function],
     file_path: str,
@@ -188,6 +195,7 @@ def check_version_staleness(
 
 ## @brief Check that doxygen tags match configured patterns, prefixes, and markers.
 #  @version 1.0
+#  @req REQ-VAL-003
 def check_tags(
     functions: list[Function],
     file_path: str,
@@ -216,6 +224,7 @@ def check_tags(
 
 ## @brief Check one tag value against pattern, prefix, contains, and confidence rules.
 #  @version 1.0
+#  @internal
 def _validate_tag_value(
     file_path: str,
     func: Function,
@@ -284,6 +293,7 @@ def _validate_tag_value(
 
 ## @brief Strip [marker] suffix from tag value.
 #  @version 1.0
+#  @internal
 def _strip_confidence_marker(value: str, rules: dict[str, Any]) -> str:
     markers = rules.get("confidence_markers", [])
     if not markers:
@@ -299,6 +309,7 @@ def _strip_confidence_marker(value: str, rules: dict[str, Any]) -> str:
 
 ## @brief Verify confidence marker syntax [marker] is present and valid.
 #  @version 1.0
+#  @internal
 def _check_confidence_marker(
     file_path: str,
     func: Function,

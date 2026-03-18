@@ -9,6 +9,7 @@ from doxygen_guard.config import CONFIG_DEFAULTS
 from doxygen_guard.main import main, validate_file
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
+NO_REQ_CONFIG = str(FIXTURES_DIR / "no_requirements_config.yaml")
 
 
 class TestValidateFile:
@@ -90,7 +91,7 @@ class TestMain:
                 }
             """)
         )
-        result = main(["validate", "--no-git", str(c_file)])
+        result = main(["--config", NO_REQ_CONFIG, "validate", "--no-git", str(c_file)])
         assert result == 0
 
     def test_validate_dirty_file(self, tmp_path):
@@ -123,9 +124,7 @@ class TestMain:
                 }
             """)
         )
-        result = main([str(c_file)])
-        # Should default to validate with no_git=False
-        # Git will likely fail (not a repo), so staleness check is skipped
+        result = main(["--config", NO_REQ_CONFIG, str(c_file)])
         assert result == 0
 
     def test_verbose_flag(self, tmp_path):
@@ -141,7 +140,7 @@ class TestMain:
                 }
             """)
         )
-        result = main(["-v", "validate", "--no-git", str(c_file)])
+        result = main(["--config", NO_REQ_CONFIG, "-v", "validate", "--no-git", str(c_file)])
         assert result == 0
 
     def test_custom_config(self, tmp_path):

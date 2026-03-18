@@ -35,6 +35,7 @@ _FLAGS_WITH_VALUE = {"--config"}
 
 ## @brief Create argparse parser with validate/trace/impact subcommands.
 #  @version 1.1
+#  @internal
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="doxygen-guard",
@@ -57,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 ## @brief Add the validate subcommand to the parser.
 #  @version 1.0
+#  @internal
 def _add_validate_parser(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser("validate", help="Validate doxygen comments (pre-commit gate)")
     p.add_argument("files", nargs="*", help="Files to validate (passed by pre-commit)")
@@ -65,6 +67,7 @@ def _add_validate_parser(subparsers: argparse._SubParsersAction) -> None:
 
 ## @brief Add the trace subcommand to the parser.
 #  @version 1.0
+#  @internal
 def _add_trace_parser(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser("trace", help="Generate sequence diagrams from doxygen tags")
     p.add_argument("--req", help="Requirement ID to trace (e.g., REQ-0252)")
@@ -74,6 +77,7 @@ def _add_trace_parser(subparsers: argparse._SubParsersAction) -> None:
 
 ## @brief Add the impact subcommand to the parser.
 #  @version 1.1
+#  @internal
 def _add_impact_parser(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser("impact", help="Change-impact analysis from git diff")
     group = p.add_mutually_exclusive_group()
@@ -84,6 +88,7 @@ def _add_impact_parser(subparsers: argparse._SubParsersAction) -> None:
 
 ## @brief Orchestrate presence, staleness, and tag checks for one file.
 #  @version 1.1
+#  @req REQ-VAL-001
 def validate_file(
     file_path: str,
     config: dict[str, Any],
@@ -133,6 +138,7 @@ def validate_file(
 
 ## @brief Validate a list of files and report violations.
 #  @version 1.1
+#  @internal
 def _validate_files(
     file_paths: list[str],
     config: dict[str, Any],
@@ -149,6 +155,7 @@ def _validate_files(
 
 ## @brief Print violations to stderr and return exit code.
 #  @version 1.0
+#  @internal
 def _report_violations(violations: list[Violation]) -> int:
     for v in violations:
         print(v, file=sys.stderr)
@@ -160,6 +167,7 @@ def _report_violations(violations: list[Violation]) -> int:
 
 ## @brief Run validation checks on all specified files and report violations.
 #  @version 1.1
+#  @req REQ-VAL-001
 def run_validate(args: argparse.Namespace, config: dict[str, Any]) -> int:
     files = args.files or []
     if not files:
@@ -170,12 +178,14 @@ def run_validate(args: argparse.Namespace, config: dict[str, Any]) -> int:
 
 ## @brief Derive unique source directories from a list of file paths.
 #  @version 1.1
+#  @internal
 def _source_dirs_from_files(file_paths: list[str]) -> list[str]:
     return sorted({str(Path(f).parent) for f in file_paths})
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
 #  @version 1.3
+#  @req REQ-VAL-001
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     rc = _report_violations(_validate_files(file_paths, config))
 
@@ -208,6 +218,7 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
 
 ## @brief Detect whether the first positional arg is a known subcommand.
 #  @version 1.0
+#  @internal
 def _has_subcommand(raw_argv: list[str]) -> bool:
     skip_next = False
     for arg in raw_argv:
@@ -225,6 +236,7 @@ def _has_subcommand(raw_argv: list[str]) -> bool:
 
 ## @brief Parse pre-commit mode args (no subcommand) into components.
 #  @version 1.0
+#  @internal
 def _parse_precommit_args(
     raw_argv: list[str],
 ) -> tuple[Path | None, list[str], bool]:
@@ -249,6 +261,7 @@ def _parse_precommit_args(
 
 ## @brief Execute the trace subcommand.
 #  @version 1.1
+#  @req REQ-TRACE-001
 def _run_trace_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
     written, warnings = run_trace(
         source_dirs=args.source_dirs,
@@ -268,6 +281,7 @@ def _run_trace_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
 
 ## @brief Execute the impact subcommand.
 #  @version 1.0
+#  @req REQ-IMPACT-003
 def _run_impact_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
     file_paths = args.files or []
     report = run_impact(
@@ -292,6 +306,7 @@ def _run_impact_command(args: argparse.Namespace, config: dict[str, Any]) -> int
 
 ## @brief Configure logging based on verbosity flag.
 #  @version 1.0
+#  @internal
 def _setup_logging(verbose: bool) -> None:
     level = logging.DEBUG if verbose else logging.WARNING
     logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
@@ -299,6 +314,7 @@ def _setup_logging(verbose: bool) -> None:
 
 ## @brief Dispatch an explicit subcommand to its handler.
 #  @version 1.0
+#  @internal
 def _dispatch_subcommand(args: argparse.Namespace, config: dict[str, Any]) -> int:
     handlers = {
         "validate": lambda: run_validate(args, config),
@@ -313,6 +329,7 @@ def _dispatch_subcommand(args: argparse.Namespace, config: dict[str, Any]) -> in
 
 ## @brief Parse arguments and dispatch to the appropriate subcommand.
 #  @version 1.2
+#  @internal
 def main(argv: list[str] | None = None) -> int:
     raw_argv = list(argv if argv is not None else sys.argv[1:])
 
@@ -329,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
 
 ## @brief Wrapper for setuptools console_scripts entry point.
 #  @version 1.0
+#  @internal
 def cli_main() -> None:
     sys.exit(main())
 

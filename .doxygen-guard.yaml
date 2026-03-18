@@ -1,0 +1,19 @@
+validate:
+  exclude:
+    - "^tests/"
+
+trace:
+  format: plantuml
+  output_dir: docs/generated/sequences/
+  participant_field: "Subsystem"
+  options:
+    autonumber: true
+
+impact:
+  requirements:
+    file: docs/requirements.csv
+    id_column: "Req ID"
+    name_column: "Name"
+    format: csv
+  output:
+    format: markdown

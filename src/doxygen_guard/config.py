@@ -133,6 +133,7 @@ CONFIG_DEFAULTS: dict[str, Any] = {
 
 ## @brief Recursively merge two dicts; override values win for non-dict leaves.
 #  @version 1.0
+#  @utility
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     result = base.copy()
     for key, value in override.items():
@@ -145,6 +146,7 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
 
 ## @brief Load .doxygen-guard.yaml and merge with built-in defaults.
 #  @version 1.0
+#  @req REQ-CONFIG-001
 def load_config(config_path: Path | None = None) -> dict[str, Any]:
     if config_path is None:
         config_path = Path(".doxygen-guard.yaml")
@@ -166,6 +168,7 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
 
 ## @brief Match a file path to its language config by extension.
 #  @version 1.0
+#  @req REQ-CONFIG-002
 def get_language_config(config: dict[str, Any], file_path: str) -> dict[str, Any] | None:
     ext = Path(file_path).suffix
     languages = config.get("validate", {}).get("languages", {})
@@ -178,6 +181,7 @@ def get_language_config(config: dict[str, Any], file_path: str) -> dict[str, Any
 
 ## @brief Resolve comment style and body style for a given language config.
 #  @version 1.1
+#  @req REQ-CONFIG-002
 def resolve_parse_settings(config: dict[str, Any], lang_config: dict[str, Any]) -> ParseSettings:
     from doxygen_guard.parser import ParseSettings
 

@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 ## @brief Tracks a changed function with its requirement tags and version info.
 #  @version 1.0
+#  @internal
 @dataclass
 class ChangedFunction:
     name: str
@@ -35,6 +36,7 @@ class ChangedFunction:
 
 ## @brief Groups changed functions by requirement for the impact report.
 #  @version 1.1
+#  @internal
 @dataclass
 class ImpactEntry:
     req_id: str
@@ -44,6 +46,7 @@ class ImpactEntry:
 
 ## @brief Get diff output for a single file, handling staged vs range modes.
 #  @version 1.1
+#  @internal
 def _get_file_diff(
     file_path: str,
     staged: bool,
@@ -62,6 +65,7 @@ def _get_file_diff(
 
 ## @brief Find changed functions in a single file given changed line numbers.
 #  @version 1.1
+#  @req REQ-IMPACT-001
 def _extract_changed_functions(
     file_path: str,
     config: dict[str, Any],
@@ -104,6 +108,7 @@ def _extract_changed_functions(
 
 ## @brief Parse source files and cross-reference with git diff to find changed functions.
 #  @version 1.1
+#  @req REQ-IMPACT-001
 def collect_changed_functions(
     file_paths: list[str],
     config: dict[str, Any],
@@ -131,6 +136,7 @@ def collect_changed_functions(
 
 ## @brief Extract requirements config or return None if not configured.
 #  @version 1.1
+#  @internal
 def _get_requirements_config(
     config: dict[str, Any],
 ) -> tuple[str, str, str, str] | None:
@@ -154,6 +160,7 @@ def _get_requirements_config(
 
 ## @brief Load full requirement rows from CSV/JSON/YAML.
 #  @version 1.2
+#  @req REQ-IMPACT-002
 def load_requirements_full(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     req_info = _get_requirements_config(config)
     if req_info is None:
@@ -174,6 +181,7 @@ def load_requirements_full(config: dict[str, Any]) -> dict[str, dict[str, str]]:
 
 ## @brief Load requirement id -> name mapping (convenience wrapper).
 #  @version 1.2
+#  @req REQ-IMPACT-002
 def load_requirements(config: dict[str, Any]) -> dict[str, str]:
     req_info = _get_requirements_config(config)
     if req_info is None:
@@ -185,6 +193,7 @@ def load_requirements(config: dict[str, Any]) -> dict[str, str]:
 
 ## @brief Parse CSV file into req_id -> full row mapping.
 #  @version 1.1
+#  @internal
 def _load_csv_full(path: str, id_col: str) -> dict[str, dict[str, str]]:
     reqs: dict[str, dict[str, str]] = {}
     with open(path, newline="") as f:
@@ -198,6 +207,7 @@ def _load_csv_full(path: str, id_col: str) -> dict[str, dict[str, str]]:
 
 ## @brief Parse JSON array into req_id -> full row mapping.
 #  @version 1.1
+#  @internal
 def _load_json_full(path: str, id_col: str) -> dict[str, dict[str, str]]:
     with open(path) as f:
         data = json.load(f)
@@ -208,6 +218,7 @@ def _load_json_full(path: str, id_col: str) -> dict[str, dict[str, str]]:
 
 ## @brief Parse YAML list into req_id -> full row mapping.
 #  @version 1.1
+#  @internal
 def _load_yaml_full(path: str, id_col: str) -> dict[str, dict[str, str]]:
     with open(path) as f:
         data = yaml.safe_load(f)
@@ -218,6 +229,7 @@ def _load_yaml_full(path: str, id_col: str) -> dict[str, dict[str, str]]:
 
 ## @brief Group changed functions by requirement for the impact report.
 #  @version 1.1
+#  @req REQ-IMPACT-003
 def build_impact_report(
     changed_functions: list[ChangedFunction],
     config: dict[str, Any],
@@ -237,6 +249,7 @@ def build_impact_report(
 
 ## @brief Render impact entries as a markdown table with summary.
 #  @version 1.1
+#  @req REQ-IMPACT-003
 def format_markdown(entries: list[ImpactEntry]) -> str:
     if not entries:
         return "No requirements affected.\n"
@@ -261,6 +274,7 @@ def format_markdown(entries: list[ImpactEntry]) -> str:
 
 ## @brief Render impact entries as a JSON array.
 #  @version 1.1
+#  @req REQ-IMPACT-003
 def format_json(entries: list[ImpactEntry]) -> str:
     data = [
         {
@@ -278,6 +292,7 @@ def format_json(entries: list[ImpactEntry]) -> str:
 
 ## @brief Render impact entries as human-readable text.
 #  @version 1.1
+#  @req REQ-IMPACT-003
 def format_text(entries: list[ImpactEntry]) -> str:
     if not entries:
         return "No requirements affected.\n"
@@ -287,6 +302,7 @@ def format_text(entries: list[ImpactEntry]) -> str:
 
 ## @brief Dispatch to the appropriate formatter based on config.
 #  @version 1.1
+#  @internal
 def format_report(entries: list[ImpactEntry], config: dict[str, Any]) -> str:
     fmt = config.get("impact", {}).get("output", {}).get("format", "markdown")
     formatters = {"json": format_json, "text": format_text}
@@ -295,6 +311,7 @@ def format_report(entries: list[ImpactEntry], config: dict[str, Any]) -> str:
 
 ## @brief Orchestrate diff analysis, requirement mapping, and report generation.
 #  @version 1.1
+#  @req REQ-IMPACT-003
 def run_impact(
     file_paths: list[str],
     config: dict[str, Any],

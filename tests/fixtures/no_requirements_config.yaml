@@ -1,0 +1,3 @@
+validate:
+  presence:
+    require_doxygen: true
