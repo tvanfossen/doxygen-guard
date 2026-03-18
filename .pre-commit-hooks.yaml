@@ -1,0 +1,7 @@
+- id: doxygen-guard
+  name: Doxygen Guard
+  description: Validate doxygen comments for presence, version staleness, and custom tag syntax
+  entry: doxygen-guard
+  language: python
+  types_or: [c, c++, java]
+  require_serial: true
