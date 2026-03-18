@@ -3,10 +3,9 @@ autonumber
 
 participant "Pairing Manager" as Pairing_Manager
 
-Pairing_Manager --> Pairing_Manager: EVENT:PAIRING_STARTED\nPairing_Start() → WIFIMGR_STACONNECTAFTERDELAY()
+Pairing_Manager --> Pairing_Manager: EVENT:PAIRING_STARTED\nPairing_Start() → WiFi_ConnectAfterDelay()
 Pairing_Manager -> Pairing_Manager: None
-note right of Pairing_Manager: BISSELL_CLOUDMGR_DISABLE
-Pairing_Manager --> Pairing_Manager: EVENT:EVENT_MQTT_START_CONNECTION\nContinuePairing() → startMqttConnection()
-Pairing_Manager --> Pairing_Manager: EVENT:EVENT_WIFI_MGR_WIFI_IP_ACQUIRED\nWIFIMGR_STACONNECTAFTERDELAY() → ContinuePairing()
+note right of Pairing_Manager: CLOUD_DISABLE
+Pairing_Manager --> Pairing_Manager: EVENT:WIFI_IP_ACQUIRED\nWiFi_ConnectAfterDelay() → ContinuePairing()
 
 @enduml

@@ -79,7 +79,7 @@ class TestBuildSequenceEdges:
                 triggers=["CLOUDMGR_DISABLE"],
             ),
             TaggedFunction(
-                name="WIFIMGR_Connect",
+                name="WiFi_Connect",
                 file_path="wifi_mgr/wifi.c",
                 participant_name="WiFi",
                 handles=["EVENT:PAIRING_STARTED"],
@@ -172,7 +172,7 @@ class TestBuildSequenceEdges:
         emit_edges = [e for e in edges if e["style"] == "-->"]
         first = emit_edges[0]
         assert "Pairing_Start()" in first["label"]
-        assert "WIFIMGR_Connect()" in first["label"]
+        assert "WiFi_Connect()" in first["label"]
 
 
 class TestGeneratePlantuml:
