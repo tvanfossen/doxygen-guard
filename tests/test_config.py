@@ -119,13 +119,13 @@ class TestLoadConfig:
         config_file.write_text(
             dedent("""\
                 impact:
-                  output:
-                    format: json
+                  requirements:
+                    file: reqs.csv
+                    format: csv
             """)
         )
         config = load_config(config_file)
-        assert config["impact"]["output"]["format"] == "json"
-        assert config["impact"]["output"]["file"] is None
+        assert config["impact"]["requirements"]["file"] == "reqs.csv"
 
     def test_full_config(self, tmp_path):
         config_file = tmp_path / ".doxygen-guard.yaml"

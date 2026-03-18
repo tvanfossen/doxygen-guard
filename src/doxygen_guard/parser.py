@@ -46,25 +46,36 @@ class ParseSettings:
 
 
 ## @brief Parse all @tag entries from doxygen comment text.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-PARSE-002
 def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     tags: dict[str, list[str]] = {}
-    # Match tags with values: @tag value...
-    tag_with_value = re.compile(r"@(\w+)\s+(.*?)(?=\s*(?:@\w+[\s\n]|\*/|$))", re.DOTALL)
-    # Match standalone tags with no value: @tag at end of line
-    tag_standalone = re.compile(r"@(\w+)\s*$", re.MULTILINE)
+    current_tag: str | None = None
+    current_value: list[str] = []
+    # Strip comment prefixes and suffixes per line
+    prefix_re = re.compile(r"^\s*[/*#]+\s?")
+    suffix_re = re.compile(r"\s*\*/\s*$")
+    tag_start_re = re.compile(r"^@(\w+)(?:\s+(.*))?$")
 
-    for match in tag_with_value.finditer(block_text):
-        tag_name = match.group(1)
-        tag_value = match.group(2).strip()
-        tag_value = re.sub(r"\n\s*[*#]\s*", " ", tag_value).strip()
-        tags.setdefault(tag_name, []).append(tag_value)
+    for raw_line in block_text.splitlines():
+        line = prefix_re.sub("", raw_line)
+        line = suffix_re.sub("", line).strip()
+        match = tag_start_re.match(line)
+        if match:
+            if current_tag is not None:
+                tags.setdefault(current_tag, []).append(" ".join(current_value).strip())
+            current_tag = match.group(1)
+            current_value = [match.group(2) or ""]
+        elif not line and current_tag is not None:
+            # Blank line ends the current tag
+            tags.setdefault(current_tag, []).append(" ".join(current_value).strip())
+            current_tag = None
+            current_value = []
+        elif current_tag is not None and line:
+            current_value.append(line)
 
-    for match in tag_standalone.finditer(block_text):
-        tag_name = match.group(1)
-        if tag_name not in tags:
-            tags.setdefault(tag_name, []).append("")
+    if current_tag is not None:
+        tags.setdefault(current_tag, []).append(" ".join(current_value).strip())
 
     return tags
 

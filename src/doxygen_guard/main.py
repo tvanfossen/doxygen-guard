@@ -23,7 +23,13 @@ from doxygen_guard.checks import (
 )
 from doxygen_guard.config import get_language_config, load_config, resolve_parse_settings
 from doxygen_guard.git import get_changed_lines_for_file
-from doxygen_guard.impact import run_impact
+from doxygen_guard.impact import (
+    build_impact_report,
+    collect_changed_functions,
+    format_json,
+    format_markdown,
+    run_impact,
+)
 from doxygen_guard.parser import parse_functions
 from doxygen_guard.tracer import run_trace
 
@@ -184,13 +190,15 @@ def _source_dirs_from_files(file_paths: list[str]) -> list[str]:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-VAL-001
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     rc = _report_violations(_validate_files(file_paths, config))
 
+    base_dir = config.get("output_dir", "docs/generated/")
+
     trace_config = config.get("trace", {})
-    if trace_config.get("participants"):
+    if trace_config.get("participant_field") or trace_config.get("external"):
         source_dirs = _source_dirs_from_files(file_paths) or ["."]
         written, trace_warnings = run_trace(
             source_dirs=source_dirs,
@@ -200,18 +208,23 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
         for w in trace_warnings:
             print(f"doxygen-guard: [trace] {w}", file=sys.stderr)
         if written:
-            output_dir = trace_config.get("output_dir", "docs/generated/sequences/")
-            subprocess.run(["git", "add", output_dir], capture_output=True, check=False)
+            seq_dir = str(Path(base_dir) / "sequences")
+            subprocess.run(["git", "add", seq_dir], capture_output=True, check=False)
             print(
-                f"doxygen-guard: {len(written)} diagram(s) written to {output_dir}",
+                f"doxygen-guard: {len(written)} diagram(s) written to {seq_dir}",
                 file=sys.stderr,
             )
 
     impact_config = config.get("impact", {})
     if impact_config.get("requirements"):
-        report = run_impact(file_paths=file_paths, config=config, staged=True)
-        if report.strip() and "No requirements affected" not in report:
-            print(report, file=sys.stderr)
+        changed = collect_changed_functions(file_paths, config, staged=True)
+        entries = build_impact_report(changed, config)
+        impact_dir = Path(base_dir) / "impact"
+        impact_dir.mkdir(parents=True, exist_ok=True)
+        (impact_dir / "impact.md").write_text(format_markdown(entries))
+        (impact_dir / "impact.json").write_text(format_json(entries))
+        subprocess.run(["git", "add", str(impact_dir)], capture_output=True, check=False)
+        print(format_markdown(entries), file=sys.stderr)
 
     return rc
 

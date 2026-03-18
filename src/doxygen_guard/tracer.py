@@ -478,6 +478,8 @@ def _write_diagrams_for_reqs(
     for r, emitters in sorted(req_groups.items()):
         edges, warnings = build_sequence_edges(emitters, all_tagged, participants)
         all_warnings.extend(warnings)
+        if not edges:
+            continue
         puml = generate_plantuml(r, edges, participants, config)
         written.append(write_diagram(r, puml, output_dir))
     return written, all_warnings
@@ -501,5 +503,6 @@ def run_trace(
         logger.warning("No tagged functions found%s", f" for {req_id}" if req_id else "")
         return [], []
 
-    output_dir = config.get("trace", {}).get("output_dir", "docs/generated/sequences/")
-    return _write_diagrams_for_reqs(all_tagged, participants, config, output_dir, req_id)
+    base_dir = config.get("output_dir", "docs/generated/")
+    seq_dir = str(Path(base_dir) / "sequences")
+    return _write_diagrams_for_reqs(all_tagged, participants, config, seq_dir, req_id)

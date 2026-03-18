@@ -109,8 +109,6 @@ VALIDATE_DEFAULTS: dict[str, Any] = {
 
 TRACE_DEFAULTS: dict[str, Any] = {
     "format": "plantuml",
-    "output_dir": "docs/generated/sequences/",
-    "participants": [],
     "options": {
         "autonumber": True,
     },
@@ -118,13 +116,10 @@ TRACE_DEFAULTS: dict[str, Any] = {
 
 IMPACT_DEFAULTS: dict[str, Any] = {
     "requirements": None,
-    "output": {
-        "format": "markdown",
-        "file": None,
-    },
 }
 
 CONFIG_DEFAULTS: dict[str, Any] = {
+    "output_dir": "docs/generated/",
     "validate": VALIDATE_DEFAULTS,
     "trace": TRACE_DEFAULTS,
     "impact": IMPACT_DEFAULTS,
