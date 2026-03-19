@@ -4,6 +4,9 @@ autonumber
 box "System" #LightBlue
   participant "Parser" as Parser
   participant "Config" as Config
+  participant "Impact" as Impact
+  participant "Validate" as Validate
+  participant "Git" as Git
 end box
 
 header
@@ -12,13 +15,20 @@ header
   //Acceptance Criteria:// Functions matched by pattern with correct name capture; excludes filtered; forward declarations skipped
 end header
 
-note over Parser: parse_source_file()
 note over Parser: find_body_end()
 
+Parser -> Parser: parse_source_file_with_content()
 Parser -> Config: get_language_config()
 Parser -> Config: resolve_parse_settings()
 Parser -> Parser: parse_functions()
 Parser -> Parser: find_doxygen_block_before()
 Parser -> Parser: is_forward_declaration()
+Impact -> Parser: parse_source_file()
+Validate -> Validate: check_presence()
+Validate -> Validate: check_req_coverage()
+Validate -> Validate: check_version_staleness()
+Validate -> Validate: check_tags()
+Validate -> Parser: parse_source_file()
+Validate -> Git: get_changed_lines_for_file()
 
 @enduml

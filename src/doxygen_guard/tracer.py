@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from doxygen_guard.config import parse_source_file
+from doxygen_guard.config import parse_source_file_with_content
 from doxygen_guard.impact import load_requirements_full
 
 if TYPE_CHECKING:
@@ -46,18 +46,18 @@ class TaggedFunction:
     body: str = ""
 
 
-## @brief Build the REQ ID -> participant name mapping from requirements file.
-#  @version 1.1
+## @brief Build the REQ ID -> participant name mapping from requirements data.
+#  @version 1.2
 #  @req REQ-TRACE-002
 def _build_req_participant_map(
     config: dict[str, Any],
+    full_reqs: dict[str, dict[str, str]],
 ) -> dict[str, str]:
     trace_config = config.get("trace", {})
     participant_field = trace_config.get("participant_field")
     if not participant_field:
         return {}
 
-    full_reqs = load_requirements_full(config)
     return {
         req_id: row.get(participant_field, "")
         for req_id, row in full_reqs.items()
@@ -138,14 +138,14 @@ def _resolve_by_prefix(
 
 
 ## @brief Parse a single source file and extract tagged functions.
-#  @version 1.4
+#  @version 1.5
 #  @internal
 def _process_source_file(
     source_file: Path,
     config: dict[str, Any],
     req_participant_map: dict[str, str],
 ) -> list[TaggedFunction]:
-    result = parse_source_file(str(source_file), config, return_content=True)
+    result = parse_source_file_with_content(str(source_file), config)
     if result is None:
         return []
 
@@ -160,20 +160,32 @@ def _process_source_file(
 
 
 ## @brief Walk source directories and collect ALL tagged functions.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
 def collect_all_tagged_functions(
     source_dirs: list[str],
     config: dict[str, Any],
+    full_reqs: dict[str, dict[str, str]] | None = None,
 ) -> tuple[list[TaggedFunction], list[Participant]]:
-    req_participant_map = _build_req_participant_map(config)
+    if full_reqs is None:
+        full_reqs = load_requirements_full(config)
+    req_participant_map = _build_req_participant_map(config, full_reqs)
     externals = _load_external_participants(config)
     all_participants = _collect_all_participants(req_participant_map, externals)
 
     tagged: list[TaggedFunction] = []
+    file_count = 0
     for source_dir in source_dirs:
-        for source_file in _find_source_files(source_dir, config):
+        source_files = _find_source_files(source_dir, config)
+        file_count += len(source_files)
+        for source_file in source_files:
             tagged.extend(_process_source_file(source_file, config, req_participant_map))
+    logger.info(
+        "Trace scan: %d file(s), %d tagged function(s), %d participant(s)",
+        file_count,
+        len(tagged),
+        len(all_participants),
+    )
     return tagged, all_participants
 
 
@@ -237,69 +249,89 @@ def _extract_tagged_function(
 
 
 ## @brief Build the global handler map from ALL tagged functions.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _build_handler_map(
     all_tagged: list[TaggedFunction],
-) -> dict[str, TaggedFunction]:
-    handler_map: dict[str, TaggedFunction] = {}
+) -> dict[str, list[TaggedFunction]]:
+    handler_map: dict[str, list[TaggedFunction]] = {}
     for tf in all_tagged:
         for event in tf.handles:
-            handler_map[event] = tf
+            if event in handler_map:
+                existing = handler_map[event][0]
+                logger.warning(
+                    "Duplicate handler for '%s': %s() and %s()",
+                    event,
+                    existing.name,
+                    tf.name,
+                )
+            handler_map.setdefault(event, []).append(tf)
     return handler_map
 
 
 ## @brief Build emit edges, resolving handlers globally and falling back to prefix routing.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
 def _build_emit_edges(
     tf: TaggedFunction,
     from_name: str,
-    handler_map: dict[str, TaggedFunction],
+    handler_map: dict[str, list[TaggedFunction]],
     externals: list[Participant],
 ) -> tuple[list[dict[str, Any]], list[str]]:
     edges: list[dict[str, Any]] = []
     warnings: list[str] = []
     for event in tf.emits:
-        handler = handler_map.get(event)
-        if handler and handler.participant_name:
-            to_name = handler.participant_name
-            handler_label = handler.name
+        handlers = handler_map.get(event, [])
+        if handlers:
+            for handler in handlers:
+                to_name = handler.participant_name or handler.name
+                label = f"{tf.name}() \u2192 {handler.name}()"
+                edges.append(
+                    {
+                        "from": from_name,
+                        "to": to_name,
+                        "label": label,
+                        "event": event,
+                        "style": "-->",
+                    }
+                )
         else:
             prefix_target = _resolve_by_prefix(event, externals)
             if prefix_target:
-                to_name = prefix_target
-                handler_label = None
+                edges.append(
+                    {
+                        "from": from_name,
+                        "to": prefix_target,
+                        "label": f"{tf.name}()",
+                        "event": event,
+                        "style": "-->",
+                    }
+                )
             else:
                 warnings.append(f"Unresolved event '{event}' emitted by {tf.name}()")
-                continue
-        label = f"{tf.name}() \u2192 {handler_label}()" if handler_label else f"{tf.name}()"
-        edges.append(
-            {
-                "from": from_name,
-                "to": to_name,
-                "label": label,
-                "event": event,
-                "style": "-->",
-            }
-        )
     return edges, warnings
 
 
 ## @brief Build ext call edges.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
 def _build_ext_edges(
     tf: TaggedFunction,
     from_name: str,
     all_tagged: list[TaggedFunction],
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[str]]:
     edges: list[dict[str, Any]] = []
+    warnings: list[str] = []
     for ext_ref in tf.ext:
         parts = ext_ref.split("::", 1)
         func_name = parts[1] if len(parts) == 2 else ext_ref
         mod = parts[0] if len(parts) == 2 else ext_ref
-        to_name = _resolve_ext_target(func_name, mod, all_tagged) or mod
+        resolved = _resolve_ext_target(func_name, mod, all_tagged)
+        if not resolved:
+            warnings.append(
+                f"Unresolved @ext '{ext_ref}' in {tf.name}() — using '{mod}' as participant"
+            )
+        to_name = resolved or mod
         edges.append(
             {
                 "from": from_name,
@@ -309,7 +341,7 @@ def _build_ext_edges(
                 "style": "->",
             }
         )
-    return edges
+    return edges, warnings
 
 
 ## @brief Build note edges from trigger annotations.
@@ -326,7 +358,7 @@ def _build_trigger_edges(
 
 
 ## @brief Resolve an ext reference to a participant via function name or module path.
-#  @version 1.3
+#  @version 1.4
 #  @internal
 def _resolve_ext_target(
     func_name: str,
@@ -337,7 +369,7 @@ def _resolve_ext_target(
         if tf.name == func_name and tf.participant_name:
             return tf.participant_name
     for tf in all_tagged:
-        if tf.participant_name and module in tf.file_path:
+        if tf.participant_name and module in Path(tf.file_path).parts:
             return tf.participant_name
     return None
 
@@ -371,8 +403,8 @@ def _build_call_edges(
     return edges
 
 
-## @brief Find functions that reference any of the target functions via ext or call.
-#  @version 1.0
+## @brief Find functions that reference any of the target functions via ext or body call.
+#  @version 1.1
 #  @internal
 def _find_inbound_callers(
     target_funcs: list[TaggedFunction],
@@ -388,11 +420,17 @@ def _find_inbound_callers(
         if ext_targets & target_names:
             callers.append(tf)
             seen.add(tf.name)
+            continue
+        for target_name in target_names:
+            if re.search(rf"\b{re.escape(target_name)}\s*\(", tf.body):
+                callers.append(tf)
+                seen.add(tf.name)
+                break
     return callers
 
 
 ## @brief Build edges for emitting functions, using global handler resolution.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-TRACE-001
 def build_sequence_edges(
     emitters: list[TaggedFunction],
@@ -412,7 +450,9 @@ def build_sequence_edges(
         emit_edges, warnings = _build_emit_edges(tf, from_name, handler_map, externals)
         edges.extend(emit_edges)
         all_warnings.extend(warnings)
-        edges.extend(_build_ext_edges(tf, from_name, all_tagged))
+        ext_edges, ext_warnings = _build_ext_edges(tf, from_name, all_tagged)
+        edges.extend(ext_edges)
+        all_warnings.extend(ext_warnings)
         edges.extend(_build_call_edges(tf, from_name, all_tagged))
         edges.extend(_build_trigger_edges(tf, from_name))
 
@@ -568,10 +608,10 @@ def generate_plantuml(
 
 
 ## @brief Convert a participant name to a safe PlantUML identifier.
-#  @version 1.1
+#  @version 1.2
 #  @utility
 def _safe_id(name: str) -> str:
-    return name.replace(" ", "_").replace("/", "_")
+    return re.sub(r"[^\w]", "_", name)
 
 
 ## @brief Render a single edge as a PlantUML line.
@@ -627,14 +667,22 @@ def _render_png(puml_file: Path) -> None:
         logger.warning("PNG render failed for %s: %s", puml_file, e)
 
 
+## @brief Sanitize a requirement ID for safe use as a filename.
+#  @version 1.0
+#  @internal
+def _safe_filename(req_id: str) -> str:
+    return re.sub(r"[^\w\-.]", "_", req_id)
+
+
 ## @brief Save .puml content to the configured output directory.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
 def write_diagram(req_id: str, puml_content: str, output_dir: str) -> Path:
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
-    puml_file = out_path / f"{req_id}.puml"
+    safe_name = _safe_filename(req_id)
+    puml_file = out_path / f"{safe_name}.puml"
     puml_file.write_text(puml_content)
     logger.info("Wrote diagram: %s", puml_file)
     _render_png(puml_file)
@@ -642,7 +690,7 @@ def write_diagram(req_id: str, puml_content: str, output_dir: str) -> Path:
 
 
 ## @brief Generate diagrams, filtering emitters by REQ but resolving handlers globally.
-#  @version 1.4
+#  @version 1.5
 #  @internal
 def _write_diagrams_for_reqs(
     all_tagged: list[TaggedFunction],
@@ -650,9 +698,12 @@ def _write_diagrams_for_reqs(
     config: dict[str, Any],
     output_dir: str,
     req_id: str | None = None,
+    req_data: dict[str, dict[str, str]] | None = None,
 ) -> tuple[list[Path], list[str]]:
     all_warnings: list[str] = []
-    req_data = load_requirements_full(config)
+    if req_data is None:
+        req_data = load_requirements_full(config)
+    logger.info("Requirements loaded: %d entries", len(req_data))
 
     if req_id:
         funcs = [tf for tf in all_tagged if req_id in tf.reqs]
@@ -694,7 +745,7 @@ def _write_diagrams_for_reqs(
 
 
 ## @brief Orchestrate scanning, edge building, and diagram generation.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
 def run_trace(
     source_dirs: list[str],
@@ -706,11 +757,19 @@ def run_trace(
         logger.error("Must specify --req or --all for trace command")
         return [], []
 
-    all_tagged, participants = collect_all_tagged_functions(source_dirs, config)
+    full_reqs = load_requirements_full(config)
+    all_tagged, participants = collect_all_tagged_functions(source_dirs, config, full_reqs)
     if not all_tagged:
         logger.warning("No tagged functions found%s", f" for {req_id}" if req_id else "")
         return [], []
 
     base_dir = config.get("output_dir", "docs/generated/")
     seq_dir = str(Path(base_dir) / "sequences")
-    return _write_diagrams_for_reqs(all_tagged, participants, config, seq_dir, req_id)
+    return _write_diagrams_for_reqs(
+        all_tagged,
+        participants,
+        config,
+        seq_dir,
+        req_id,
+        full_reqs,
+    )

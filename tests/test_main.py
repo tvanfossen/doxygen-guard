@@ -166,6 +166,65 @@ class TestMain:
         assert result == 0
 
 
+class TestPrecommitPipeline:
+    """Integration tests for run_precommit with trace+impact."""
+
+    def test_precommit_with_trace_and_impact(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        src = tmp_path / "src"
+        src.mkdir()
+        c_file = src / "test.c"
+        c_file.write_text(
+            dedent("""\
+                /**
+                 * @brief Process data.
+                 * @version 1.0
+                 * @req REQ-001
+                 * @emits EVENT:DATA_READY
+                 */
+                void Process(void) {
+                    event_post(EVENT_DATA_READY);
+                }
+
+                /**
+                 * @brief Handle data event.
+                 * @version 1.0
+                 * @req REQ-001
+                 * @handles EVENT:DATA_READY
+                 */
+                void OnDataReady(void) {
+                    consume();
+                }
+            """)
+        )
+        req_file = tmp_path / "reqs.csv"
+        req_file.write_text("Req ID,Name,Subsystem\nREQ-001,Data Processing,DataSvc\n")
+        config_file = tmp_path / ".doxygen-guard.yaml"
+        config_file.write_text(
+            dedent("""\
+                output_dir: out/
+                trace:
+                  participant_field: "Subsystem"
+                  options:
+                    autonumber: true
+                impact:
+                  requirements:
+                    file: reqs.csv
+                    id_column: "Req ID"
+                    name_column: "Name"
+                    format: csv
+            """)
+        )
+        result = main(["--config", str(config_file), str(c_file)])
+        assert result == 0
+        seq_dir = tmp_path / "out" / "sequences"
+        assert seq_dir.exists()
+        puml_files = list(seq_dir.glob("*.puml"))
+        assert len(puml_files) >= 1
+        content = puml_files[0].read_text()
+        assert "Process()" in content or "OnDataReady()" in content
+
+
 class TestParseSourceFile:
     """Tests for parse_source_file."""
 

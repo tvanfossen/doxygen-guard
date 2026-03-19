@@ -214,12 +214,15 @@ def _detect_current_version(config: dict[str, Any]) -> str | None:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 1.7
+#  @version 1.8
 #  @req REQ-VAL-001
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
-    # Resolve version gate before running checks
+    logger.info("Pre-commit mode: %d file(s)", len(file_paths))
+    logger.info("Config: output_dir=%s", config.get("output_dir", "docs/generated/"))
+
     resolved = _detect_current_version(config)
     if resolved:
+        logger.info("Version gate resolved: %s", resolved)
         config.setdefault("validate", {}).setdefault("version_gate", {})["_resolved"] = resolved
 
     rc = _report_violations(_validate_files(file_paths, config))
@@ -232,7 +235,9 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
         return 1
 
     trace_config = config.get("trace", {})
-    if trace_config.get("participant_field") or trace_config.get("external"):
+    trace_enabled = trace_config.get("participant_field") or trace_config.get("external")
+    logger.info("Trace enabled: %s", bool(trace_enabled))
+    if trace_enabled:
         source_dirs = ["."]
         written, trace_warnings = run_trace(
             source_dirs=source_dirs,
@@ -307,9 +312,15 @@ def _parse_precommit_args(
 
 
 ## @brief Execute the trace subcommand.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-TRACE-001
 def _run_trace_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    base_dir = config.get("output_dir", "docs/generated/")
+    try:
+        validate_output_path(base_dir)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
     written, warnings = run_trace(
         source_dirs=args.source_dirs,
         config=config,

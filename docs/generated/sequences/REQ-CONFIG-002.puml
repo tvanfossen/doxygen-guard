@@ -2,6 +2,7 @@
 autonumber
 
 box "System" #LightBlue
+  participant "Parser" as Parser
   participant "Config" as Config
 end box
 
@@ -11,7 +12,9 @@ header
   //Acceptance Criteria:// Each language gets correct comment start/end patterns and body style (braces vs indent)
 end header
 
-note over Config: get_language_config()
-note over Config: resolve_parse_settings()
+
+Parser -> Config: get_language_config()
+Parser -> Config: resolve_parse_settings()
+Parser -> Parser: parse_functions()
 
 @enduml

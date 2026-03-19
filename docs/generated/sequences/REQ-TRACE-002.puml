@@ -12,9 +12,10 @@ header
   //Acceptance Criteria:// Functions map to participants via their req tags and the configured participant_field
 end header
 
-note over Trace: _build_req_participant_map()
 note over Trace: _resolve_participant_from_reqs()
 
 Trace -> Impact: load_requirements_full()
+Trace -> Trace: _build_req_participant_map()
+Trace -> Trace: _load_external_participants()
 
 @enduml

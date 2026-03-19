@@ -3,6 +3,10 @@ autonumber
 
 box "System" #LightBlue
   participant "Config" as Config
+  participant "Validate" as Validate
+  participant "Git" as Git
+  participant "Impact" as Impact
+  participant "Trace" as Trace
 end box
 
 header
@@ -12,8 +16,18 @@ header
 end header
 
 note over Config: load_config()
-note over Config: validate_output_path()
 
 Config -> Config: validate_config_schema()
+Validate -> Config: validate_output_path()
+Validate -> Git: git_add()
+Validate -> Impact: collect_changed_functions()
+Validate -> Impact: build_impact_report()
+Validate -> Impact: format_markdown()
+Validate -> Impact: format_json()
+Validate -> Trace: run_trace()
+Trace -> Config: validate_output_path()
+Trace -> Trace: run_trace()
+Impact -> Config: validate_output_path()
+Impact -> Impact: run_impact()
 
 @enduml

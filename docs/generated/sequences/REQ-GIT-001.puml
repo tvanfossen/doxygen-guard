@@ -3,6 +3,11 @@ autonumber
 
 box "System" #LightBlue
   participant "Git" as Git
+  participant "Impact" as Impact
+  participant "Validate" as Validate
+  participant "Parser" as Parser
+  participant "Config" as Config
+  participant "Trace" as Trace
 end box
 
 header
@@ -12,10 +17,23 @@ header
 end header
 
 note over Git: get_diff()
-note over Git: git_add()
-note over Git: get_changed_lines_for_file()
 
 Git -> Git: get_staged_diff()
 Git -> Git: parse_changed_lines()
+Impact -> Git: parse_changed_lines()
+Impact -> Impact: _extract_changed_functions()
+Validate -> Validate: check_presence()
+Validate -> Validate: check_req_coverage()
+Validate -> Validate: check_version_staleness()
+Validate -> Validate: check_tags()
+Validate -> Parser: parse_source_file()
+Validate -> Git: get_changed_lines_for_file()
+Validate -> Config: validate_output_path()
+Validate -> Git: git_add()
+Validate -> Impact: collect_changed_functions()
+Validate -> Impact: build_impact_report()
+Validate -> Impact: format_markdown()
+Validate -> Impact: format_json()
+Validate -> Trace: run_trace()
 
 @enduml

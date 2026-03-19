@@ -12,6 +12,8 @@ header
 end header
 
 note over Parser: parse_doxygen_tags()
-note over Parser: find_doxygen_block_before()
+
+Parser -> Parser: find_doxygen_block_before()
+Parser -> Parser: is_forward_declaration()
 
 @enduml

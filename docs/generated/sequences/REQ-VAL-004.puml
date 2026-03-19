@@ -3,6 +3,8 @@ autonumber
 
 box "System" #LightBlue
   participant "Validate" as Validate
+  participant "Parser" as Parser
+  participant "Git" as Git
 end box
 
 header
@@ -11,6 +13,12 @@ header
   //Acceptance Criteria:// Functions without req or utility/internal/callback tags produce coverage violations
 end header
 
-note over Validate: check_req_coverage()
+
+Validate -> Validate: check_presence()
+Validate -> Validate: check_req_coverage()
+Validate -> Validate: check_version_staleness()
+Validate -> Validate: check_tags()
+Validate -> Parser: parse_source_file()
+Validate -> Git: get_changed_lines_for_file()
 
 @enduml

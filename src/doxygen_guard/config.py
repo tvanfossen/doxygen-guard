@@ -310,14 +310,27 @@ def get_language_config(config: dict[str, Any], file_path: str) -> dict[str, Any
 
 
 ## @brief Parse all functions from a source file using language-aware settings.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-PARSE-001
 def parse_source_file(
     file_path: str,
     config: dict[str, Any],
     skip_forward_declarations: bool = True,
-    return_content: bool = False,
-) -> Any:
+) -> list | None:
+    result = parse_source_file_with_content(file_path, config, skip_forward_declarations)
+    if result is None:
+        return None
+    return result[0]
+
+
+## @brief Parse functions and return both the function list and file content.
+#  @version 1.0
+#  @req REQ-PARSE-001
+def parse_source_file_with_content(
+    file_path: str,
+    config: dict[str, Any],
+    skip_forward_declarations: bool = True,
+) -> tuple[list, str] | None:
     from doxygen_guard.parser import parse_functions
 
     lang_config = get_language_config(config, file_path)
@@ -333,9 +346,7 @@ def parse_source_file(
         settings=settings,
         skip_forward_declarations=skip_forward_declarations,
     )
-    if return_content:
-        return functions, content
-    return functions
+    return functions, content
 
 
 ## @brief Resolve comment style and body style for a given language config.

@@ -3,6 +3,10 @@ autonumber
 
 box "System" #LightBlue
   participant "Trace" as Trace
+  participant "Config" as Config
+  participant "Impact" as Impact
+  participant "Validate" as Validate
+  participant "Git" as Git
 end box
 
 header
@@ -16,7 +20,9 @@ note over Trace: build_sequence_edges()
 note over Trace: generate_plantuml()
 note over Trace: write_diagram()
 
+Trace -> Config: validate_output_path()
 Trace -> Trace: run_trace()
+Trace -> Impact: load_requirements_full()
 Trace -> Trace: _build_req_participant_map()
 Trace -> Trace: _load_external_participants()
 Trace -> Trace: _resolve_by_prefix()
@@ -24,6 +30,14 @@ Trace -> Trace: _build_emit_edges()
 Trace -> Trace: _build_ext_edges()
 Trace -> Trace: _build_trigger_edges()
 Trace -> Trace: _build_call_edges()
+Trace -> Impact: load_requirements_full()
 Trace -> Trace: collect_all_tagged_functions()
+Validate -> Config: validate_output_path()
+Validate -> Git: git_add()
+Validate -> Impact: collect_changed_functions()
+Validate -> Impact: build_impact_report()
+Validate -> Impact: format_markdown()
+Validate -> Impact: format_json()
+Validate -> Trace: run_trace()
 
 @enduml

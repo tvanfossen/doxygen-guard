@@ -100,14 +100,15 @@ def _split_inline_tags(line: str) -> list[str]:
 
 
 ## @brief Scan backward from func_line to find the first non-blank, non-attribute line.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _skip_blanks_and_attrs(lines: list[str], func_line: int) -> int:
     attr_re = re.compile(r"^\s*__attribute__\s*\(\(")
+    decorator_re = re.compile(r"^\s*@\w+")
     scan = func_line - 1
     while scan >= 0:
         stripped = lines[scan].strip()
-        if stripped == "" or attr_re.match(lines[scan]):
+        if stripped == "" or attr_re.match(lines[scan]) or decorator_re.match(lines[scan]):
             scan -= 1
             continue
         break
