@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from doxygen_guard.config import CONFIG_DEFAULTS, deep_merge
 from doxygen_guard.tracer import (
+    Edge,
     Participant,
     TaggedFunction,
     _build_call_edges,
@@ -103,10 +104,12 @@ class TestBuildSequenceEdges:
         participants = self._make_participants()
         edges, _warnings = build_sequence_edges(tagged, tagged, participants)
 
-        emit_edges = [e for e in edges if e["style"] == "-->"]
+        emit_edges = [e for e in edges if e.style == "-->"]
         assert len(emit_edges) > 0
 
-        pairing_to_wifi = [e for e in emit_edges if e["from"] == "Pairing" and e["to"] == "WiFi"]
+        pairing_to_wifi = [
+            e for e in emit_edges if e.from_name == "Pairing" and e.to_name == "WiFi"
+        ]
         assert len(pairing_to_wifi) == 1
 
     def test_triggers_creates_note(self):
@@ -114,16 +117,16 @@ class TestBuildSequenceEdges:
         participants = self._make_participants()
         edges, _warnings = build_sequence_edges(tagged, tagged, participants)
 
-        notes = [e for e in edges if e["style"] == "note"]
+        notes = [e for e in edges if e.style == "note"]
         assert len(notes) == 1
-        assert "CLOUDMGR_DISABLE" in notes[0]["label"]
+        assert "CLOUDMGR_DISABLE" in notes[0].label
 
     def test_full_chain_no_unknowns(self):
         tagged = self._make_tagged()
         participants = self._make_participants()
         edges, warnings = build_sequence_edges(tagged, tagged, participants)
 
-        arrow_edges = [e for e in edges if e["style"] != "note"]
+        arrow_edges = [e for e in edges if e.style != "note"]
         assert len(arrow_edges) == 3
         assert warnings == []
 
@@ -159,7 +162,7 @@ class TestBuildSequenceEdges:
         edges, warnings = build_sequence_edges(tagged, tagged, participants)
 
         assert len(edges) == 1
-        assert edges[0]["to"] == "Cloud"
+        assert edges[0].to_name == "Cloud"
         assert warnings == []
 
     def test_edge_labels_include_function_names(self):
@@ -167,10 +170,10 @@ class TestBuildSequenceEdges:
         participants = self._make_participants()
         edges, _warnings = build_sequence_edges(tagged, tagged, participants)
 
-        emit_edges = [e for e in edges if e["style"] == "-->"]
+        emit_edges = [e for e in edges if e.style == "-->"]
         first = emit_edges[0]
-        assert "Pairing_Start()" in first["label"]
-        assert "WiFi_Connect()" in first["label"]
+        assert "Pairing_Start()" in first.label
+        assert "WiFi_Connect()" in first.label
 
 
 class TestBuildCallEdges:
@@ -190,8 +193,8 @@ class TestBuildCallEdges:
         )
         edges = _build_call_edges(caller, "A", [caller, target])
         assert len(edges) == 1
-        assert edges[0]["to"] == "B"
-        assert "helper_func()" in edges[0]["label"]
+        assert edges[0].to_name == "B"
+        assert "helper_func()" in edges[0].label
 
     def test_no_false_positive_in_string(self):
         caller = TaggedFunction(
@@ -247,15 +250,7 @@ class TestGeneratePlantuml:
             Participant(name="Pairing Manager"),
             Participant(name="WiFi Manager"),
         ]
-        edges = [
-            {
-                "from": "Pairing Manager",
-                "to": "WiFi Manager",
-                "label": "Connect()",
-                "event": "EVENT:START",
-                "style": "-->",
-            },
-        ]
+        edges = [Edge("Pairing Manager", "WiFi Manager", "Connect()", "EVENT:START", "-->")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         assert "@startuml REQ-0001" in result
         assert "@enduml" in result
@@ -270,15 +265,7 @@ class TestGeneratePlantuml:
             Participant(name="Sender"),
             Participant(name="Cloud", receives_prefix=["MQTT:"]),
         ]
-        edges = [
-            {
-                "from": "Sender",
-                "to": "Cloud",
-                "label": "publish()",
-                "event": "MQTT:update",
-                "style": "-->",
-            },
-        ]
+        edges = [Edge("Sender", "Cloud", "publish()", "MQTT:update", "-->")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         assert 'entity "Cloud"' in result
         assert 'participant "Sender"' in result
@@ -288,15 +275,7 @@ class TestGeneratePlantuml:
             Participant(name="OTA"),
             Participant(name="Cloud", receives_prefix=["EVENT:CLOUD_"]),
         ]
-        edges = [
-            {
-                "from": "OTA",
-                "to": "Cloud",
-                "label": "report()",
-                "event": "EVENT:CLOUD_RESULT",
-                "style": "-->",
-            },
-        ]
+        edges = [Edge("OTA", "Cloud", "report()", "EVENT:CLOUD_RESULT", "-->")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         lines = result.split("\n")
         entity_line = next(i for i, line in enumerate(lines) if "entity" in line)
@@ -305,9 +284,7 @@ class TestGeneratePlantuml:
 
     def test_custom_box_label(self):
         participants = [Participant(name="A")]
-        edges = [
-            {"from": "A", "to": "A", "label": "x()", "event": None, "style": "->"},
-        ]
+        edges = [Edge("A", "A", "x()")]
         config = deep_merge(TRACE_CONFIG, {"trace": {"options": {"box_label": "IoT Device"}}})
         result = generate_plantuml("REQ-0001", edges, [], participants, config)
         assert 'box "IoT Device"' in result
@@ -316,15 +293,7 @@ class TestGeneratePlantuml:
         participants = [
             Participant(name="Cloud", receives_prefix=["EVENT:CLOUD_"]),
         ]
-        edges = [
-            {
-                "from": "Cloud",
-                "to": "Cloud",
-                "label": "self()",
-                "event": None,
-                "style": "->",
-            },
-        ]
+        edges = [Edge("Cloud", "Cloud", "self()")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         assert "box" not in result
         assert 'entity "Cloud"' in result
@@ -342,15 +311,7 @@ class TestGeneratePlantuml:
 
     def test_note_rendering(self):
         participants = [Participant(name="Pairing")]
-        edges = [
-            {
-                "from": "Pairing",
-                "to": "Pairing",
-                "label": "DISABLE_CLOUD",
-                "event": None,
-                "style": "note",
-            },
-        ]
+        edges = [Edge("Pairing", "Pairing", "DISABLE_CLOUD", style="note")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         assert "note right of Pairing: DISABLE_CLOUD" in result
 

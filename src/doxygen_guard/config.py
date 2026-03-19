@@ -282,6 +282,27 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
     return deep_merge(CONFIG_DEFAULTS, user_config)
 
 
+## @brief Access the validate section of config.
+#  @version 1.0
+#  @internal
+def get_validate(config: dict[str, Any]) -> dict[str, Any]:
+    return config.get("validate", {})
+
+
+## @brief Access the trace section of config.
+#  @version 1.0
+#  @internal
+def get_trace(config: dict[str, Any]) -> dict[str, Any]:
+    return config.get("trace", {})
+
+
+## @brief Access the impact section of config.
+#  @version 1.0
+#  @internal
+def get_impact(config: dict[str, Any]) -> dict[str, Any]:
+    return config.get("impact", {})
+
+
 ## @brief Reject output paths containing directory traversal or absolute components.
 #  @version 1.2
 #  @req REQ-CONFIG-001
@@ -297,11 +318,11 @@ def validate_output_path(path: str) -> Path:
 
 
 ## @brief Match a file path to its language config by extension.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-CONFIG-002
 def get_language_config(config: dict[str, Any], file_path: str) -> dict[str, Any] | None:
     ext = Path(file_path).suffix
-    languages = config.get("validate", {}).get("languages", {})
+    languages = get_validate(config).get("languages", {})
 
     for _lang_name, lang_config in languages.items():
         if ext in lang_config.get("extensions", []):
@@ -350,13 +371,13 @@ def parse_source_file_with_content(
 
 
 ## @brief Resolve comment style and body style for a given language config.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-CONFIG-002
 def resolve_parse_settings(config: dict[str, Any], lang_config: dict[str, Any]) -> ParseSettings:
     from doxygen_guard.parser import ParseSettings
 
     default_style = VALIDATE_DEFAULTS["comment_style"]
-    global_style = config.get("validate", {}).get("comment_style", {})
+    global_style = get_validate(config).get("comment_style", {})
     lang_style = lang_config.get("comment_style", {})
     return ParseSettings(
         comment_start=lang_style.get("start", global_style.get("start", default_style["start"])),

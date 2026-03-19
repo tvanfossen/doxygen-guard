@@ -1,58 +1,37 @@
 [
   {
-    "req_id": "REQ-PARSE-001",
-    "req_name": "Function detection",
-    "functions": [
-      {
-        "name": "parse_source_file",
-        "file": "src/doxygen_guard/config.py",
-        "version": "1.2"
-      },
-      {
-        "name": "parse_source_file_with_content",
-        "file": "src/doxygen_guard/config.py",
-        "version": "1.0"
-      }
-    ]
-  },
-  {
     "req_id": "REQ-TRACE-001",
     "req_name": "Sequence diagram generation",
     "functions": [
       {
-        "name": "_run_trace_command",
-        "file": "src/doxygen_guard/main.py",
-        "version": "1.2"
-      },
-      {
-        "name": "collect_all_tagged_functions",
-        "file": "src/doxygen_guard/tracer.py",
-        "version": "1.4"
-      },
-      {
         "name": "_build_emit_edges",
-        "file": "src/doxygen_guard/tracer.py",
-        "version": "1.4"
-      },
-      {
-        "name": "_build_ext_edges",
-        "file": "src/doxygen_guard/tracer.py",
-        "version": "1.4"
-      },
-      {
-        "name": "build_sequence_edges",
         "file": "src/doxygen_guard/tracer.py",
         "version": "1.5"
       },
       {
-        "name": "write_diagram",
+        "name": "_build_ext_edges",
         "file": "src/doxygen_guard/tracer.py",
-        "version": "1.4"
+        "version": "1.5"
       },
       {
-        "name": "run_trace",
+        "name": "_build_trigger_edges",
         "file": "src/doxygen_guard/tracer.py",
-        "version": "1.4"
+        "version": "1.3"
+      },
+      {
+        "name": "_build_call_edges",
+        "file": "src/doxygen_guard/tracer.py",
+        "version": "1.2"
+      },
+      {
+        "name": "build_sequence_edges",
+        "file": "src/doxygen_guard/tracer.py",
+        "version": "1.6"
+      },
+      {
+        "name": "generate_plantuml",
+        "file": "src/doxygen_guard/tracer.py",
+        "version": "1.8"
       }
     ]
   },
@@ -63,18 +42,18 @@
       {
         "name": "_build_req_participant_map",
         "file": "src/doxygen_guard/tracer.py",
-        "version": "1.2"
+        "version": "1.3"
       }
     ]
   },
   {
-    "req_id": "REQ-VAL-001",
-    "req_name": "Doxygen presence check",
+    "req_id": "REQ-TRACE-003",
+    "req_name": "External participant prefix routing",
     "functions": [
       {
-        "name": "run_precommit",
-        "file": "src/doxygen_guard/main.py",
-        "version": "1.8"
+        "name": "_load_external_participants",
+        "file": "src/doxygen_guard/tracer.py",
+        "version": "1.1"
       }
     ]
   }

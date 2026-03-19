@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from doxygen_guard.config import parse_source_file_with_content
+from doxygen_guard.config import get_impact, get_trace, get_validate, parse_source_file_with_content
 from doxygen_guard.impact import load_requirements_full
 
 if TYPE_CHECKING:
@@ -46,14 +46,26 @@ class TaggedFunction:
     body: str = ""
 
 
+## @brief A directed edge in a sequence diagram.
+#  @version 1.0
+#  @internal
+@dataclass
+class Edge:
+    from_name: str
+    to_name: str
+    label: str
+    event: str | None = None
+    style: str = "->"
+
+
 ## @brief Build the REQ ID -> participant name mapping from requirements data.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-002
 def _build_req_participant_map(
     config: dict[str, Any],
     full_reqs: dict[str, dict[str, str]],
 ) -> dict[str, str]:
-    trace_config = config.get("trace", {})
+    trace_config = get_trace(config)
     participant_field = trace_config.get("participant_field")
     if not participant_field:
         return {}
@@ -80,10 +92,10 @@ def _resolve_participant_from_reqs(
 
 
 ## @brief Load external participants from trace config.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-TRACE-003
 def _load_external_participants(config: dict[str, Any]) -> list[Participant]:
-    raw = config.get("trace", {}).get("external", [])
+    raw = get_trace(config).get("external", [])
     participants: list[Participant] = []
     for entry in raw:
         if isinstance(entry, dict):
@@ -190,11 +202,11 @@ def collect_all_tagged_functions(
 
 
 ## @brief Recursively find source files, respecting validate.exclude patterns.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
-    languages = config.get("validate", {}).get("languages", {})
-    exclude_patterns = config.get("validate", {}).get("exclude", [])
+    languages = get_validate(config).get("languages", {})
+    exclude_patterns = get_validate(config).get("exclude", [])
     extensions: set[str] = set()
     for lang_config in languages.values():
         extensions.update(lang_config.get("extensions", []))
@@ -270,15 +282,15 @@ def _build_handler_map(
 
 
 ## @brief Build emit edges, resolving handlers globally and falling back to prefix routing.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-TRACE-001
 def _build_emit_edges(
     tf: TaggedFunction,
     from_name: str,
     handler_map: dict[str, list[TaggedFunction]],
     externals: list[Participant],
-) -> tuple[list[dict[str, Any]], list[str]]:
-    edges: list[dict[str, Any]] = []
+) -> tuple[list[Edge], list[str]]:
+    edges: list[Edge] = []
     warnings: list[str] = []
     for event in tf.emits:
         handlers = handler_map.get(event, [])
@@ -286,41 +298,25 @@ def _build_emit_edges(
             for handler in handlers:
                 to_name = handler.participant_name or handler.name
                 label = f"{tf.name}() \u2192 {handler.name}()"
-                edges.append(
-                    {
-                        "from": from_name,
-                        "to": to_name,
-                        "label": label,
-                        "event": event,
-                        "style": "-->",
-                    }
-                )
+                edges.append(Edge(from_name, to_name, label, event, "-->"))
         else:
             prefix_target = _resolve_by_prefix(event, externals)
             if prefix_target:
-                edges.append(
-                    {
-                        "from": from_name,
-                        "to": prefix_target,
-                        "label": f"{tf.name}()",
-                        "event": event,
-                        "style": "-->",
-                    }
-                )
+                edges.append(Edge(from_name, prefix_target, f"{tf.name}()", event, "-->"))
             else:
                 warnings.append(f"Unresolved event '{event}' emitted by {tf.name}()")
     return edges, warnings
 
 
 ## @brief Build ext call edges.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-TRACE-001
 def _build_ext_edges(
     tf: TaggedFunction,
     from_name: str,
     all_tagged: list[TaggedFunction],
-) -> tuple[list[dict[str, Any]], list[str]]:
-    edges: list[dict[str, Any]] = []
+) -> tuple[list[Edge], list[str]]:
+    edges: list[Edge] = []
     warnings: list[str] = []
     for ext_ref in tf.ext:
         parts = ext_ref.split("::", 1)
@@ -332,29 +328,18 @@ def _build_ext_edges(
                 f"Unresolved @ext '{ext_ref}' in {tf.name}() — using '{mod}' as participant"
             )
         to_name = resolved or mod
-        edges.append(
-            {
-                "from": from_name,
-                "to": to_name,
-                "label": f"{func_name}()",
-                "event": None,
-                "style": "->",
-            }
-        )
+        edges.append(Edge(from_name, to_name, f"{func_name}()"))
     return edges, warnings
 
 
 ## @brief Build note edges from trigger annotations.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-001
 def _build_trigger_edges(
     tf: TaggedFunction,
     from_name: str,
-) -> list[dict[str, Any]]:
-    return [
-        {"from": from_name, "to": from_name, "label": t, "event": None, "style": "note"}
-        for t in tf.triggers
-    ]
+) -> list[Edge]:
+    return [Edge(from_name, from_name, t, style="note") for t in tf.triggers]
 
 
 ## @brief Resolve an ext reference to a participant via function name or module path.
@@ -375,15 +360,15 @@ def _resolve_ext_target(
 
 
 ## @brief Scan function bodies for calls to other known functions.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-TRACE-001
 def _build_call_edges(
     caller: TaggedFunction,
     from_name: str,
     all_tagged: list[TaggedFunction],
-) -> list[dict[str, Any]]:
+) -> list[Edge]:
     ext_func_names = {ref.split("::", 1)[-1] for ref in caller.ext}
-    edges: list[dict[str, Any]] = []
+    edges: list[Edge] = []
     for target in all_tagged:
         if target.name == caller.name:
             continue
@@ -391,15 +376,7 @@ def _build_call_edges(
             continue
         if re.search(rf"\b{re.escape(target.name)}\s*\(", caller.body):
             to_name = target.participant_name or target.name
-            edges.append(
-                {
-                    "from": from_name,
-                    "to": to_name,
-                    "label": f"{target.name}()",
-                    "event": None,
-                    "style": "->",
-                }
-            )
+            edges.append(Edge(from_name, to_name, f"{target.name}()"))
     return edges
 
 
@@ -430,16 +407,16 @@ def _find_inbound_callers(
 
 
 ## @brief Build edges for emitting functions, using global handler resolution.
-#  @version 1.5
+#  @version 1.6
 #  @req REQ-TRACE-001
 def build_sequence_edges(
     emitters: list[TaggedFunction],
     all_tagged: list[TaggedFunction],
     participants: list[Participant],
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[Edge], list[str]]:
     handler_map = _build_handler_map(all_tagged)
     externals = [p for p in participants if p.receives_prefix]
-    edges: list[dict[str, Any]] = []
+    edges: list[Edge] = []
     all_warnings: list[str] = []
 
     inbound = _find_inbound_callers(emitters, all_tagged)
@@ -460,10 +437,10 @@ def build_sequence_edges(
 
 
 ## @brief Collect all participant names from edges and function listings.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _collect_all_active_names(
-    edges: list[dict[str, Any]],
+    edges: list[Edge],
     functions: list[TaggedFunction],
 ) -> list[str]:
     names = _collect_active_participants(edges)
@@ -475,13 +452,13 @@ def _collect_all_active_names(
 
 
 ## @brief Render function notes for functions not referenced in any edge.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _render_unlisted_functions(
     functions: list[TaggedFunction],
-    edges: list[dict[str, Any]],
+    edges: list[Edge],
 ) -> list[str]:
-    funcs_in_edges = {e.get("label", "") for e in edges}
+    funcs_in_edges = {e.label for e in edges}
     lines: list[str] = []
     for tf in functions:
         if not any(tf.name in label for label in funcs_in_edges):
@@ -534,10 +511,10 @@ def _render_participants(
 
 
 ## @brief Get the requirements name column from config.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _get_name_col(config: dict[str, Any]) -> str:
-    return config.get("impact", {}).get("requirements", {}).get("name_column", "Name")
+    return get_impact(config).get("requirements", {}).get("name_column", "Name")
 
 
 ## @brief Render requirement context as a header note in the diagram.
@@ -569,17 +546,17 @@ def _render_req_header(
 
 
 ## @brief Render edges and function listings as a PlantUML block.
-#  @version 1.7
+#  @version 1.8
 #  @req REQ-TRACE-001
 def generate_plantuml(
     req_id: str,
-    edges: list[dict[str, Any]],
+    edges: list[Edge],
     functions: list[TaggedFunction],
     participants: list[Participant],
     config: dict[str, Any],
     req_row: dict[str, str] | None = None,
 ) -> str:
-    options = config.get("trace", {}).get("options", {})
+    options = get_trace(config).get("options", {})
     name_col = _get_name_col(config)
     req_name = req_row.get(name_col) if req_row else None
     title = f"{req_id} {req_name}" if req_name else req_id
@@ -615,30 +592,29 @@ def _safe_id(name: str) -> str:
 
 
 ## @brief Render a single edge as a PlantUML line.
-#  @version 1.3
+#  @version 1.4
 #  @internal
-def _render_edge(edge: dict[str, Any]) -> str:
-    f = _safe_id(edge["from"])
-    t = _safe_id(edge["to"])
-    if edge["style"] == "note":
-        return f"note right of {f}: {edge['label']}"
-    event = edge.get("event")
-    label = edge["label"]
-    if event and label:
-        label = f"{event}\\n{label}"
-    elif event:
-        label = event
-    return f"{f} {edge['style']} {t}: {label}"
+def _render_edge(edge: Edge) -> str:
+    f = _safe_id(edge.from_name)
+    t = _safe_id(edge.to_name)
+    if edge.style == "note":
+        return f"note right of {f}: {edge.label}"
+    label = edge.label
+    if edge.event and label:
+        label = f"{edge.event}\\n{label}"
+    elif edge.event:
+        label = edge.event
+    return f"{f} {edge.style} {t}: {label}"
 
 
 ## @brief Extract ordered participant names from edges.
-#  @version 1.1
+#  @version 1.2
 #  @internal
-def _collect_active_participants(edges: list[dict[str, Any]]) -> list[str]:
+def _collect_active_participants(edges: list[Edge]) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
     for edge in edges:
-        for pname in (edge["from"], edge["to"]):
+        for pname in (edge.from_name, edge.to_name):
             if pname not in seen:
                 seen.add(pname)
                 ordered.append(pname)

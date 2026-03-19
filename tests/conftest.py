@@ -23,3 +23,17 @@ CPP_SETTINGS = ParseSettings(comment_start=COMMENT_START, comment_end=COMMENT_EN
 def fixtures_dir():
     """Return the path to the test fixtures directory."""
     return FIXTURES_DIR
+
+
+def parse_c(content: str, settings=None, skip_fwd=True):
+    """Parse C source with default settings."""
+    from doxygen_guard.parser import parse_functions
+
+    return parse_functions(content, C_PATTERN, C_EXCLUDES, settings or C_SETTINGS, skip_fwd)
+
+
+def parse_cpp(content: str, settings=None, skip_fwd=True):
+    """Parse C++ source with default settings."""
+    from doxygen_guard.parser import parse_functions
+
+    return parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, settings or CPP_SETTINGS, skip_fwd)

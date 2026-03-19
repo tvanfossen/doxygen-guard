@@ -11,6 +11,8 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from doxygen_guard.config import get_impact, get_validate
+
 if TYPE_CHECKING:
     from doxygen_guard.parser import Function
 
@@ -35,14 +37,14 @@ class Violation:
 
 
 ## @brief Verify every function has a doxygen comment with @brief and @version.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-VAL-001
 def check_presence(
     functions: list[Function],
     file_path: str,
     config: dict[str, Any],
 ) -> list[Violation]:
-    validate = config.get("validate", {})
+    validate = get_validate(config)
     presence_config = validate.get("presence", {})
 
     if not presence_config.get("require_doxygen", True):
@@ -92,10 +94,10 @@ EXEMPTION_TAGS = {"utility", "internal", "callback"}
 
 
 ## @brief Check if version gate is configured.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _has_version_gate(config: dict[str, Any]) -> bool:
-    gate = config.get("validate", {}).get("version_gate", {})
+    gate = get_validate(config).get("version_gate", {})
     return bool(gate.get("current_version") and gate.get("version_field"))
 
 
@@ -111,14 +113,14 @@ def _has_active_requirements(config: dict[str, Any]) -> bool:
 
 
 ## @brief Verify functions have requirement or exemption tags when requirements are configured.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-VAL-004
 def check_req_coverage(
     functions: list[Function],
     file_path: str,
     config: dict[str, Any],
 ) -> list[Violation]:
-    req_config = config.get("impact", {}).get("requirements")
+    req_config = get_impact(config).get("requirements")
     if not req_config or not req_config.get("file"):
         return []
 
@@ -154,7 +156,7 @@ def check_req_coverage(
 
 
 ## @brief Detect stale @version tags when function bodies have been modified.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-VAL-002
 def check_version_staleness(
     functions: list[Function],
@@ -162,7 +164,7 @@ def check_version_staleness(
     config: dict[str, Any],
     changed_lines: set[int],
 ) -> list[Violation]:
-    validate = config.get("validate", {})
+    validate = get_validate(config)
     version_config = validate.get("version", {})
 
     if not version_config.get("require_increment_on_change", True):
@@ -234,14 +236,14 @@ def check_version_staleness(
 
 
 ## @brief Check that doxygen tags match configured patterns, prefixes, and markers.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-VAL-003
 def check_tags(
     functions: list[Function],
     file_path: str,
     config: dict[str, Any],
 ) -> list[Violation]:
-    validate = config.get("validate", {})
+    validate = get_validate(config)
     tag_rules = validate.get("tags", {})
 
     if not tag_rules:

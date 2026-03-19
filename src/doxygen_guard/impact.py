@@ -15,7 +15,7 @@ from typing import Any
 
 import yaml
 
-from doxygen_guard.config import parse_source_file
+from doxygen_guard.config import get_impact, get_validate, parse_source_file
 from doxygen_guard.git import RunCommand, get_diff, get_staged_diff, parse_changed_lines
 
 logger = logging.getLogger(__name__)
@@ -125,12 +125,12 @@ def collect_changed_functions(
 
 
 ## @brief Extract requirements config or return None if not configured.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _get_requirements_config(
     config: dict[str, Any],
 ) -> tuple[str, str, str, str] | None:
-    impact_config = config.get("impact", {})
+    impact_config = get_impact(config)
     req_config = impact_config.get("requirements")
     if not req_config:
         return None
@@ -182,7 +182,7 @@ def load_requirements(config: dict[str, Any]) -> dict[str, str]:
 
 
 ## @brief Filter requirements to those active at the configured current version.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-IMPACT-002
 def filter_requirements_by_version(
     reqs: dict[str, dict[str, str]],
@@ -190,7 +190,7 @@ def filter_requirements_by_version(
 ) -> dict[str, dict[str, str]]:
     from doxygen_guard.config import compare_versions, parse_version
 
-    version_gate = config.get("validate", {}).get("version_gate", {})
+    version_gate = get_validate(config).get("version_gate", {})
     current_str = version_gate.get("_resolved") or version_gate.get("current_version")
     version_field = version_gate.get("version_field")
 
@@ -315,10 +315,10 @@ def format_text(entries: list[ImpactEntry]) -> str:
 
 
 ## @brief Dispatch to the appropriate formatter based on config.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def format_report(entries: list[ImpactEntry], config: dict[str, Any]) -> str:
-    fmt = config.get("impact", {}).get("output", {}).get("format", "markdown")
+    fmt = get_impact(config).get("output", {}).get("format", "markdown")
     formatters = {"json": format_json, "text": format_text}
     return formatters.get(fmt, format_markdown)(entries)
 

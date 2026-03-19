@@ -21,7 +21,14 @@ from doxygen_guard.checks import (
     check_tags,
     check_version_staleness,
 )
-from doxygen_guard.config import load_config, parse_source_file, validate_output_path
+from doxygen_guard.config import (
+    get_impact,
+    get_trace,
+    get_validate,
+    load_config,
+    parse_source_file,
+    validate_output_path,
+)
 from doxygen_guard.git import get_changed_lines_for_file, git_add
 from doxygen_guard.impact import (
     build_impact_report,
@@ -92,14 +99,14 @@ def _add_impact_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 ## @brief Orchestrate presence, staleness, and tag checks for one file.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-VAL-001
 def validate_file(
     file_path: str,
     config: dict[str, Any],
     no_git: bool = False,
 ) -> list[Violation]:
-    validate = config.get("validate", {})
+    validate = get_validate(config)
     for pattern in validate.get("exclude", []):
         if re.search(pattern, file_path):
             logger.debug("Skipping %s — matches exclude pattern '%s'", file_path, pattern)
@@ -201,10 +208,10 @@ def _detect_cmake_version() -> str | None:
 
 
 ## @brief Resolve the current project version from config, git tag, or CMake.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _detect_current_version(config: dict[str, Any]) -> str | None:
-    gate = config.get("validate", {}).get("version_gate", {})
+    gate = get_validate(config).get("version_gate", {})
     version_str = gate.get("current_version")
     if not version_str:
         return None
@@ -214,7 +221,7 @@ def _detect_current_version(config: dict[str, Any]) -> str | None:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 1.8
+#  @version 1.9
 #  @req REQ-VAL-001
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     logger.info("Pre-commit mode: %d file(s)", len(file_paths))
@@ -234,7 +241,7 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    trace_config = config.get("trace", {})
+    trace_config = get_trace(config)
     trace_enabled = trace_config.get("participant_field") or trace_config.get("external")
     logger.info("Trace enabled: %s", bool(trace_enabled))
     if trace_enabled:
@@ -254,7 +261,7 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
                 file=sys.stderr,
             )
 
-    impact_config = config.get("impact", {})
+    impact_config = get_impact(config)
     if impact_config.get("requirements"):
         changed = collect_changed_functions(file_paths, config, staged=True)
         entries = build_impact_report(changed, config)
@@ -338,7 +345,7 @@ def _run_trace_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
 
 
 ## @brief Execute the impact subcommand.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-IMPACT-003
 def _run_impact_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
     file_paths = args.files or []
@@ -348,7 +355,7 @@ def _run_impact_command(args: argparse.Namespace, config: dict[str, Any]) -> int
         staged=args.staged,
         diff_range=args.diff_range,
     )
-    output_file = config.get("impact", {}).get("output", {}).get("file")
+    output_file = get_impact(config).get("output", {}).get("file")
     if output_file:
         try:
             validate_output_path(output_file)

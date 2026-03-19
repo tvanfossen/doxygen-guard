@@ -7,18 +7,8 @@ from doxygen_guard.parser import (
     find_doxygen_block_before,
     is_forward_declaration,
     parse_doxygen_tags,
-    parse_functions,
 )
-from tests.conftest import (
-    C_EXCLUDES,
-    C_PATTERN,
-    C_SETTINGS,
-    COMMENT_END,
-    COMMENT_START,
-    CPP_EXCLUDES,
-    CPP_PATTERN,
-    CPP_SETTINGS,
-)
+from tests.conftest import COMMENT_END, COMMENT_START, parse_c, parse_cpp
 
 
 class TestParseTags:
@@ -179,7 +169,7 @@ class TestParseFunctions:
 
     def test_simple_c_file(self, fixtures_dir):
         content = (fixtures_dir / "simple.c").read_text()
-        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, C_SETTINGS)
+        functions = parse_c(content)
 
         assert len(functions) == 3
         assert functions[0].name == "Module_Init"
@@ -195,7 +185,7 @@ class TestParseFunctions:
 
     def test_forward_declarations_skipped(self, fixtures_dir):
         content = (fixtures_dir / "forward_decl.c").read_text()
-        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, C_SETTINGS)
+        functions = parse_c(content)
 
         # Only the definition should be found, not the forward declarations
         assert len(functions) == 1
@@ -204,13 +194,7 @@ class TestParseFunctions:
 
     def test_forward_declarations_not_skipped(self, fixtures_dir):
         content = (fixtures_dir / "forward_decl.c").read_text()
-        functions = parse_functions(
-            content,
-            C_PATTERN,
-            C_EXCLUDES,
-            C_SETTINGS,
-            skip_forward_declarations=False,
-        )
+        functions = parse_c(content, skip_fwd=False)
 
         # Forward declarations + definition
         assert len(functions) == 3
@@ -227,7 +211,7 @@ void Real_Func(void) {
     }
 }
 """
-        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, C_SETTINGS)
+        functions = parse_c(content)
         names = [f.name for f in functions]
         assert "Real_Func" in names
         # 'if' and 'return' should not appear even though they might match the pattern
@@ -254,7 +238,7 @@ void Func_B(void) {
     z();
 }
 """
-        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, C_SETTINGS)
+        functions = parse_c(content)
         assert len(functions) == 2
         assert functions[0].name == "Func_A"
         assert functions[0].body_end == 8  # closing brace of Func_A
@@ -263,7 +247,7 @@ void Func_B(void) {
 
     def test_tags_parsed_correctly(self, fixtures_dir):
         content = (fixtures_dir / "simple.c").read_text()
-        functions = parse_functions(content, C_PATTERN, C_EXCLUDES, C_SETTINGS)
+        functions = parse_c(content)
 
         process_func = functions[1]
         assert process_func.name == "Module_Process"
@@ -278,7 +262,7 @@ class TestParseFunctionsCpp:
 
     def test_cpp_fixture_file(self, fixtures_dir):
         content = (fixtures_dir / "cpp_methods.cpp").read_text()
-        functions = parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, CPP_SETTINGS)
+        functions = parse_cpp(content)
         names = [f.name for f in functions]
         assert "parse_name" in names
         assert "entropic_free" in names
@@ -289,27 +273,27 @@ class TestParseFunctionsCpp:
 
     def test_namespaced_return_type(self, fixtures_dir):
         content = (fixtures_dir / "cpp_methods.cpp").read_text()
-        functions = parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, CPP_SETTINGS)
+        functions = parse_cpp(content)
         by_name = {f.name: f for f in functions}
         assert by_name["parse_name"].doxygen is not None
         assert "brief" in by_name["parse_name"].doxygen.tags
 
     def test_extern_c_linkage(self, fixtures_dir):
         content = (fixtures_dir / "cpp_methods.cpp").read_text()
-        functions = parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, CPP_SETTINGS)
+        functions = parse_cpp(content)
         by_name = {f.name: f for f in functions}
         assert "entropic_free" in by_name
         assert by_name["entropic_free"].doxygen is not None
 
     def test_class_qualified_method(self, fixtures_dir):
         content = (fixtures_dir / "cpp_methods.cpp").read_text()
-        functions = parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, CPP_SETTINGS)
+        functions = parse_cpp(content)
         by_name = {f.name: f for f in functions}
         assert "contains" in by_name
         assert "getData" in by_name
 
     def test_undocumented_detected(self, fixtures_dir):
         content = (fixtures_dir / "cpp_methods.cpp").read_text()
-        functions = parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, CPP_SETTINGS)
+        functions = parse_cpp(content)
         by_name = {f.name: f for f in functions}
         assert by_name["Undocumented_Method"].doxygen is None
