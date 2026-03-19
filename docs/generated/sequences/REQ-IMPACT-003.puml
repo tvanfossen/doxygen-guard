@@ -1,14 +1,26 @@
-@startuml REQ-IMPACT-003
+@startuml REQ-IMPACT-003 Impact report generation
 autonumber
 
-participant "Impact" as Impact
+box "System" #LightBlue
+  participant "Impact" as Impact
+  participant "Config" as Config
+end box
 
-note over Impact: build_impact_report()
+header
+  **REQ-IMPACT-003: Impact report generation**
+  //Description:// Group changed functions by requirement and render as markdown/JSON/text
+  //Acceptance Criteria:// Impact report lists affected requirements with their changed functions
+end header
+
 note over Impact: format_markdown()
 note over Impact: format_json()
 note over Impact: format_text()
 note over Impact: _run_impact_command()
 
+Impact -> Impact: load_requirements()
+Impact -> Impact: collect_changed_functions()
+Impact -> Impact: build_impact_report()
+Impact -> Config: validate_output_path()
 Impact -> Impact: run_impact()
 
 @enduml

@@ -1,9 +1,20 @@
-@startuml REQ-TRACE-002
+@startuml REQ-TRACE-002 Participant resolution from requirements
 autonumber
 
-participant "Trace" as Trace
+box "System" #LightBlue
+  participant "Trace" as Trace
+  participant "Impact" as Impact
+end box
+
+header
+  **REQ-TRACE-002: Participant resolution from requirements**
+  //Description:// Resolve diagram participants from the requirements file subsystem column
+  //Acceptance Criteria:// Functions map to participants via their req tags and the configured participant_field
+end header
 
 note over Trace: _build_req_participant_map()
 note over Trace: _resolve_participant_from_reqs()
+
+Trace -> Impact: load_requirements_full()
 
 @enduml

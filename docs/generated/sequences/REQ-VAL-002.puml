@@ -1,7 +1,15 @@
-@startuml REQ-VAL-002
+@startuml REQ-VAL-002 Version staleness detection
 autonumber
 
-participant "Validate" as Validate
+box "System" #LightBlue
+  participant "Validate" as Validate
+end box
+
+header
+  **REQ-VAL-002: Version staleness detection**
+  //Description:// Detect when function body changes but version tag is not updated
+  //Acceptance Criteria:// Modified function body without version tag change produces staleness violation
+end header
 
 note over Validate: check_version_staleness()
 

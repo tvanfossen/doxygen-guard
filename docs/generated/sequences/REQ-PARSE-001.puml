@@ -1,11 +1,24 @@
-@startuml REQ-PARSE-001
+@startuml REQ-PARSE-001 Function detection
 autonumber
 
-participant "Parser" as Parser
+box "System" #LightBlue
+  participant "Parser" as Parser
+  participant "Config" as Config
+end box
+
+header
+  **REQ-PARSE-001: Function detection**
+  //Description:// Detect function definitions using language-specific regex patterns
+  //Acceptance Criteria:// Functions matched by pattern with correct name capture; excludes filtered; forward declarations skipped
+end header
 
 note over Parser: parse_source_file()
 note over Parser: find_body_end()
-note over Parser: is_forward_declaration()
-note over Parser: parse_functions()
+
+Parser -> Config: get_language_config()
+Parser -> Config: resolve_parse_settings()
+Parser -> Parser: parse_functions()
+Parser -> Parser: find_doxygen_block_before()
+Parser -> Parser: is_forward_declaration()
 
 @enduml

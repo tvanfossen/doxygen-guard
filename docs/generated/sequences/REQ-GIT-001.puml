@@ -1,11 +1,21 @@
-@startuml REQ-GIT-001
+@startuml REQ-GIT-001 Git diff parsing
 autonumber
 
-participant "Git" as Git
+box "System" #LightBlue
+  participant "Git" as Git
+end box
 
-note over Git: get_staged_diff()
+header
+  **REQ-GIT-001: Git diff parsing**
+  //Description:// Parse unified diff output to extract changed line numbers
+  //Acceptance Criteria:// Hunk headers parsed to 0-indexed line sets; pure deletions excluded; git add supported
+end header
+
 note over Git: get_diff()
-note over Git: parse_changed_lines()
+note over Git: git_add()
 note over Git: get_changed_lines_for_file()
+
+Git -> Git: get_staged_diff()
+Git -> Git: parse_changed_lines()
 
 @enduml

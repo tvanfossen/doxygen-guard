@@ -1,9 +1,22 @@
-@startuml REQ-IMPACT-001
+@startuml REQ-IMPACT-001 Changed function detection from git diff
 autonumber
 
-participant "Impact" as Impact
+box "System" #LightBlue
+  participant "Impact" as Impact
+  participant "Parser" as Parser
+  participant "Git" as Git
+end box
 
-note over Impact: _extract_changed_functions()
+header
+  **REQ-IMPACT-001: Changed function detection from git diff**
+  //Description:// Cross-reference git diff line numbers with parsed functions to find changed functions
+  //Acceptance Criteria:// Functions whose body lines overlap with git diff changed lines are reported as changed
+end header
+
 note over Impact: collect_changed_functions()
+
+Impact -> Parser: parse_source_file()
+Impact -> Git: parse_changed_lines()
+Impact -> Impact: _extract_changed_functions()
 
 @enduml

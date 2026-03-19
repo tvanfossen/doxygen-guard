@@ -1,7 +1,15 @@
-@startuml REQ-TRACE-003
+@startuml REQ-TRACE-003 External participant prefix routing
 autonumber
 
-participant "Trace" as Trace
+box "System" #LightBlue
+  participant "Trace" as Trace
+end box
+
+header
+  **REQ-TRACE-003: External participant prefix routing**
+  //Description:// Route unhandled events to external participants by event prefix
+  //Acceptance Criteria:// Events matching receives_prefix of an external participant produce edges to that participant
+end header
 
 note over Trace: _load_external_participants()
 note over Trace: _resolve_by_prefix()

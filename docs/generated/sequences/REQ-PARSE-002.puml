@@ -1,7 +1,15 @@
-@startuml REQ-PARSE-002
+@startuml REQ-PARSE-002 Doxygen block extraction
 autonumber
 
-participant "Parser" as Parser
+box "System" #LightBlue
+  participant "Parser" as Parser
+end box
+
+header
+  **REQ-PARSE-002: Doxygen block extraction**
+  //Description:// Find and parse doxygen comment blocks immediately before function definitions
+  //Acceptance Criteria:// Doxygen blocks associated with correct functions; all tags parsed including multi-tag single lines
+end header
 
 note over Parser: parse_doxygen_tags()
 note over Parser: find_doxygen_block_before()

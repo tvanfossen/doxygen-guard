@@ -1,7 +1,15 @@
-@startuml REQ-IMPACT-002
+@startuml REQ-IMPACT-002 Requirements file loading
 autonumber
 
-participant "Impact" as Impact
+box "System" #LightBlue
+  participant "Impact" as Impact
+end box
+
+header
+  **REQ-IMPACT-002: Requirements file loading**
+  //Description:// Load requirements from CSV/JSON/YAML with configurable ID and name columns
+  //Acceptance Criteria:// Requirements loaded and accessible by ID for impact report and participant resolution
+end header
 
 note over Impact: filter_requirements_by_version()
 

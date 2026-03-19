@@ -1,9 +1,18 @@
-@startuml REQ-CONFIG-001
+@startuml REQ-CONFIG-001 YAML config loading and merging
 autonumber
 
-participant "Config" as Config
+box "System" #LightBlue
+  participant "Config" as Config
+end box
+
+header
+  **REQ-CONFIG-001: YAML config loading and merging**
+  //Description:// Load .doxygen-guard.yaml and deep-merge with built-in defaults
+  //Acceptance Criteria:// User config overrides defaults; missing keys retain defaults; invalid keys rejected
+end header
 
 note over Config: load_config()
+note over Config: validate_output_path()
 
 Config -> Config: validate_config_schema()
 

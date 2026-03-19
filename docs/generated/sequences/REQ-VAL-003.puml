@@ -1,7 +1,15 @@
-@startuml REQ-VAL-003
+@startuml REQ-VAL-003 Tag syntax validation
 autonumber
 
-participant "Validate" as Validate
+box "System" #LightBlue
+  participant "Validate" as Validate
+end box
+
+header
+  **REQ-VAL-003: Tag syntax validation**
+  //Description:// Validate doxygen tag values against configured patterns and prefixes
+  //Acceptance Criteria:// Tag values not matching configured pattern or prefix produce tag violations
+end header
 
 note over Validate: check_tags()
 

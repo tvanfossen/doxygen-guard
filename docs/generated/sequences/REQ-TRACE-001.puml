@@ -1,18 +1,31 @@
-@startuml REQ-TRACE-001
+@startuml REQ-TRACE-001 Sequence diagram generation
 autonumber
 
-participant "Trace" as Trace
+box "System" #LightBlue
+  participant "Trace" as Trace
+  participant "Config" as Config
+end box
+
+header
+  **REQ-TRACE-001: Sequence diagram generation**
+  //Description:// Generate PlantUML sequence diagrams from emits/handles/ext/triggers tags
+  //Acceptance Criteria:// Each requirement with trace-tagged functions produces a valid .puml and .png file
+end header
 
 note over Trace: _run_trace_command()
-note over Trace: collect_all_tagged_functions()
-note over Trace: _build_emit_edges()
-note over Trace: _build_ext_edges()
-note over Trace: _build_trigger_edges()
-note over Trace: _build_call_edges()
 note over Trace: build_sequence_edges()
 note over Trace: generate_plantuml()
 note over Trace: write_diagram()
 
 Trace -> Trace: run_trace()
+Trace -> Trace: _build_req_participant_map()
+Trace -> Trace: _load_external_participants()
+Trace -> Trace: _resolve_by_prefix()
+Trace -> Trace: _build_emit_edges()
+Trace -> Trace: _build_ext_edges()
+Trace -> Trace: _build_trigger_edges()
+Trace -> Trace: _build_call_edges()
+Trace -> Config: validate_output_path()
+Trace -> Trace: collect_all_tagged_functions()
 
 @enduml
