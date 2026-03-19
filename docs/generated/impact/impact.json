@@ -6,17 +6,6 @@
       {
         "name": "parse_doxygen_tags",
         "file": "src/doxygen_guard/parser.py",
-        "version": "1.3"
-      }
-    ]
-  },
-  {
-    "req_id": "REQ-VAL-001",
-    "req_name": "Doxygen presence check",
-    "functions": [
-      {
-        "name": "run_precommit",
-        "file": "src/doxygen_guard/main.py",
         "version": "1.6"
       }
     ]

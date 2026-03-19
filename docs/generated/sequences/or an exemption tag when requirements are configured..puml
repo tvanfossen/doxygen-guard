@@ -1,8 +1,0 @@
-@startuml or an exemption tag when requirements are configured.
-autonumber
-
-participant "Validate" as Validate
-
-note over Validate: check_req_coverage()
-
-@enduml

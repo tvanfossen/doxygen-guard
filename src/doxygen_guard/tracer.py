@@ -63,7 +63,7 @@ def _build_req_participant_map(
     }
 
 
-## @brief Resolve a function's participant from its @req tags via the requirements file.
+## @brief Resolve a function's participant from its requirement tags via the requirements file.
 #  @version 1.1
 #  @req REQ-TRACE-002
 def _resolve_participant_from_reqs(
@@ -318,7 +318,7 @@ def _build_ext_edges(
     return edges
 
 
-## @brief Build note edges from @triggers annotations.
+## @brief Build note edges from trigger annotations.
 #  @version 1.2
 #  @req REQ-TRACE-001
 def _build_trigger_edges(
@@ -331,7 +331,7 @@ def _build_trigger_edges(
     ]
 
 
-## @brief Resolve an @ext module reference to a participant name.
+## @brief Resolve an ext module reference to a participant name.
 #  @version 1.2
 #  @internal
 def _resolve_ext_target(

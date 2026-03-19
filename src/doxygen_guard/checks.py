@@ -110,7 +110,7 @@ def _has_active_requirements(config: dict[str, Any]) -> bool:
     return bool(filtered)
 
 
-## @brief Verify functions have @req or an exemption tag when requirements are configured.
+## @brief Verify functions have requirement or exemption tags when requirements are configured.
 #  @version 1.1
 #  @req REQ-VAL-004
 def check_req_coverage(
