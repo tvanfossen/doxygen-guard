@@ -1,12 +1,12 @@
 [
   {
-    "req_id": "REQ-PARSE-002",
-    "req_name": "Doxygen block extraction",
+    "req_id": "REQ-PARSE-001",
+    "req_name": "Function detection",
     "functions": [
       {
-        "name": "parse_doxygen_tags",
-        "file": "src/doxygen_guard/parser.py",
-        "version": "1.6"
+        "name": "parse_source_file",
+        "file": "src/doxygen_guard/config.py",
+        "version": "1.0"
       }
     ]
   }

@@ -294,6 +294,31 @@ def get_language_config(config: dict[str, Any], file_path: str) -> dict[str, Any
     return None
 
 
+## @brief Parse all functions from a source file using language-aware settings.
+#  @version 1.0
+#  @req REQ-PARSE-001
+def parse_source_file(
+    file_path: str,
+    config: dict[str, Any],
+    skip_forward_declarations: bool = True,
+) -> list | None:
+    from doxygen_guard.parser import parse_functions
+
+    lang_config = get_language_config(config, file_path)
+    if lang_config is None:
+        return None
+
+    content = Path(file_path).read_text()
+    settings = resolve_parse_settings(config, lang_config)
+    return parse_functions(
+        content=content,
+        function_pattern=lang_config["function_pattern"],
+        exclude_names=lang_config.get("exclude_names", []),
+        settings=settings,
+        skip_forward_declarations=skip_forward_declarations,
+    )
+
+
 ## @brief Resolve comment style and body style for a given language config.
 #  @version 1.1
 #  @req REQ-CONFIG-002

@@ -21,7 +21,7 @@ from doxygen_guard.checks import (
     check_tags,
     check_version_staleness,
 )
-from doxygen_guard.config import get_language_config, load_config, resolve_parse_settings
+from doxygen_guard.config import load_config, parse_source_file
 from doxygen_guard.git import get_changed_lines_for_file
 from doxygen_guard.impact import (
     build_impact_report,
@@ -30,7 +30,6 @@ from doxygen_guard.impact import (
     format_markdown,
     run_impact,
 )
-from doxygen_guard.parser import parse_functions
 from doxygen_guard.tracer import run_trace
 
 logger = logging.getLogger(__name__)
@@ -100,28 +99,17 @@ def validate_file(
     config: dict[str, Any],
     no_git: bool = False,
 ) -> list[Violation]:
-    lang_config = get_language_config(config, file_path)
-    if lang_config is None:
-        logger.debug("Skipping %s — no matching language config", file_path)
-        return []
-
     validate = config.get("validate", {})
     for pattern in validate.get("exclude", []):
         if re.search(pattern, file_path):
             logger.debug("Skipping %s — matches exclude pattern '%s'", file_path, pattern)
             return []
 
-    content = Path(file_path).read_text()
-    settings = resolve_parse_settings(config, lang_config)
     skip_fwd = validate.get("presence", {}).get("skip_forward_declarations", True)
-
-    functions = parse_functions(
-        content=content,
-        function_pattern=lang_config["function_pattern"],
-        exclude_names=lang_config.get("exclude_names", []),
-        settings=settings,
-        skip_forward_declarations=skip_fwd,
-    )
+    functions = parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)
+    if functions is None:
+        logger.debug("Skipping %s — no matching language config", file_path)
+        return []
 
     violations: list[Violation] = []
     violations.extend(check_presence(functions, file_path, config))

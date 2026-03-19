@@ -3,6 +3,7 @@ autonumber
 
 participant "Parser" as Parser
 
+note over Parser: parse_source_file()
 note over Parser: find_body_end()
 note over Parser: is_forward_declaration()
 note over Parser: parse_functions()

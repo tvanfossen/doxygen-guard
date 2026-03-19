@@ -10,11 +10,13 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from doxygen_guard.config import get_language_config, resolve_parse_settings
+from doxygen_guard.config import parse_source_file
 from doxygen_guard.impact import load_requirements_full
-from doxygen_guard.parser import Function, parse_functions
+
+if TYPE_CHECKING:
+    from doxygen_guard.parser import Function
 
 logger = logging.getLogger(__name__)
 
@@ -143,20 +145,11 @@ def _process_source_file(
     config: dict[str, Any],
     req_participant_map: dict[str, str],
 ) -> list[TaggedFunction]:
-    lang_config = get_language_config(config, str(source_file))
-    if lang_config is None:
+    functions = parse_source_file(str(source_file), config)
+    if functions is None:
         return []
 
-    content = source_file.read_text()
-    settings = resolve_parse_settings(config, lang_config)
-    functions = parse_functions(
-        content=content,
-        function_pattern=lang_config["function_pattern"],
-        exclude_names=lang_config.get("exclude_names", []),
-        settings=settings,
-    )
-
-    lines = content.splitlines()
+    lines = source_file.read_text().splitlines()
     tagged: list[TaggedFunction] = []
     for func in functions:
         tf = _extract_tagged_function(func, str(source_file), req_participant_map, lines)

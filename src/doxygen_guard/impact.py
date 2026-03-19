@@ -15,9 +15,8 @@ from typing import Any
 
 import yaml
 
-from doxygen_guard.config import get_language_config, resolve_parse_settings
+from doxygen_guard.config import parse_source_file
 from doxygen_guard.git import RunCommand, get_diff, get_staged_diff, parse_changed_lines
-from doxygen_guard.parser import parse_functions
 
 logger = logging.getLogger(__name__)
 
@@ -71,18 +70,9 @@ def _extract_changed_functions(
     config: dict[str, Any],
     changed_lines: set[int],
 ) -> list[ChangedFunction]:
-    lang_config = get_language_config(config, file_path)
-    if lang_config is None:
+    functions = parse_source_file(file_path, config)
+    if functions is None:
         return []
-
-    content = Path(file_path).read_text()
-    settings = resolve_parse_settings(config, lang_config)
-    functions = parse_functions(
-        content=content,
-        function_pattern=lang_config["function_pattern"],
-        exclude_names=lang_config.get("exclude_names", []),
-        settings=settings,
-    )
 
     result: list[ChangedFunction] = []
     for func in functions:
