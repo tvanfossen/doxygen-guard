@@ -2,22 +2,23 @@
 
 from __future__ import annotations
 
-from doxygen_guard.config import VALIDATE_DEFAULTS
 from doxygen_guard.parser import (
-    ParseSettings,
     find_body_end,
     find_doxygen_block_before,
     is_forward_declaration,
     parse_doxygen_tags,
     parse_functions,
 )
-
-# Default comment style from config
-COMMENT_START = VALIDATE_DEFAULTS["comment_style"]["start"]
-COMMENT_END = VALIDATE_DEFAULTS["comment_style"]["end"]
-C_PATTERN = VALIDATE_DEFAULTS["languages"]["c"]["function_pattern"]
-C_EXCLUDES = VALIDATE_DEFAULTS["languages"]["c"]["exclude_names"]
-C_SETTINGS = ParseSettings(comment_start=COMMENT_START, comment_end=COMMENT_END)
+from tests.conftest import (
+    C_EXCLUDES,
+    C_PATTERN,
+    C_SETTINGS,
+    COMMENT_END,
+    COMMENT_START,
+    CPP_EXCLUDES,
+    CPP_PATTERN,
+    CPP_SETTINGS,
+)
 
 
 class TestParseTags:
@@ -270,3 +271,45 @@ void Func_B(void) {
         assert "handles" in process_func.doxygen.tags
         assert process_func.doxygen.tags["emits"] == ["EVENT:DATA_READY"]
         assert process_func.doxygen.tags["handles"] == ["EVENT:DATA_RECEIVED"]
+
+
+class TestParseFunctionsCpp:
+    """Tests for C++ function pattern matching."""
+
+    def test_cpp_fixture_file(self, fixtures_dir):
+        content = (fixtures_dir / "cpp_methods.cpp").read_text()
+        functions = parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, CPP_SETTINGS)
+        names = [f.name for f in functions]
+        assert "parse_name" in names
+        assert "entropic_free" in names
+        assert "contains" in names
+        assert "getData" in names
+        assert "simple_func" in names
+        assert "Undocumented_Method" in names
+
+    def test_namespaced_return_type(self, fixtures_dir):
+        content = (fixtures_dir / "cpp_methods.cpp").read_text()
+        functions = parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, CPP_SETTINGS)
+        by_name = {f.name: f for f in functions}
+        assert by_name["parse_name"].doxygen is not None
+        assert "brief" in by_name["parse_name"].doxygen.tags
+
+    def test_extern_c_linkage(self, fixtures_dir):
+        content = (fixtures_dir / "cpp_methods.cpp").read_text()
+        functions = parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, CPP_SETTINGS)
+        by_name = {f.name: f for f in functions}
+        assert "entropic_free" in by_name
+        assert by_name["entropic_free"].doxygen is not None
+
+    def test_class_qualified_method(self, fixtures_dir):
+        content = (fixtures_dir / "cpp_methods.cpp").read_text()
+        functions = parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, CPP_SETTINGS)
+        by_name = {f.name: f for f in functions}
+        assert "contains" in by_name
+        assert "getData" in by_name
+
+    def test_undocumented_detected(self, fixtures_dir):
+        content = (fixtures_dir / "cpp_methods.cpp").read_text()
+        functions = parse_functions(content, CPP_PATTERN, CPP_EXCLUDES, CPP_SETTINGS)
+        by_name = {f.name: f for f in functions}
+        assert by_name["Undocumented_Method"].doxygen is None

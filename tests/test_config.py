@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from textwrap import dedent
 
+import pytest
+
 from doxygen_guard.config import (
     CONFIG_DEFAULTS,
     deep_merge,
@@ -11,6 +13,7 @@ from doxygen_guard.config import (
     load_config,
     parse_version,
     validate_config_schema,
+    validate_output_path,
 )
 
 
@@ -261,6 +264,11 @@ class TestValidateConfigSchema:
         errors = validate_config_schema({"validate": {"version_gate": {"current_version": "v1.0"}}})
         assert errors == []
 
+    def test_non_dict_where_dict_expected(self):
+        errors = validate_config_schema({"validate": "garbage"})
+        assert len(errors) == 1
+        assert "expected dict" in errors[0]
+
     def test_multiple_errors(self):
         errors = validate_config_schema({"bogus1": 1, "bogus2": 2})
         assert len(errors) == 2
@@ -281,5 +289,35 @@ class TestParseVersion:
     def test_single_part(self):
         assert parse_version("v3") == (3,)
 
+    def test_prerelease_version(self):
+        assert parse_version("v1.0.0-rc1") == (1, 0, 0)
+
+    def test_build_metadata(self):
+        assert parse_version("v2.1.0+build123") == (2, 1, 0)
+
     def test_invalid(self):
         assert parse_version("not-a-version") == (0,)
+
+
+class TestValidateOutputPath:
+    """Tests for validate_output_path."""
+
+    def test_relative_path_passes(self):
+        result = validate_output_path("docs/generated/")
+        assert result.parts[0] == "docs"
+
+    def test_nested_relative_passes(self):
+        result = validate_output_path("docs/generated/sequences")
+        assert len(result.parts) == 3
+
+    def test_absolute_path_rejected(self):
+        with pytest.raises(ValueError, match="must be relative"):
+            validate_output_path("/etc/cron.d")
+
+    def test_traversal_rejected(self):
+        with pytest.raises(ValueError, match="directory traversal"):
+            validate_output_path("../outside")
+
+    def test_mid_path_traversal_rejected(self):
+        with pytest.raises(ValueError, match="directory traversal"):
+            validate_output_path("docs/../../etc")

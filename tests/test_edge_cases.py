@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from textwrap import dedent
 
 from doxygen_guard.checks import check_presence, check_tags, check_version_staleness
 from doxygen_guard.config import CONFIG_DEFAULTS, VALIDATE_DEFAULTS, deep_merge
 from doxygen_guard.main import validate_file
 from doxygen_guard.parser import ParseSettings, parse_functions
+from tests.conftest import (
+    C_EXCLUDES,
+    C_PATTERN,
+    C_SETTINGS,
+    COMMENT_END,
+    COMMENT_START,
+    FIXTURES_DIR,
+)
 
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
-COMMENT_START = VALIDATE_DEFAULTS["comment_style"]["start"]
-COMMENT_END = VALIDATE_DEFAULTS["comment_style"]["end"]
-C_PATTERN = VALIDATE_DEFAULTS["languages"]["c"]["function_pattern"]
-C_EXCLUDES = VALIDATE_DEFAULTS["languages"]["c"]["exclude_names"]
-C_SETTINGS = ParseSettings(comment_start=COMMENT_START, comment_end=COMMENT_END)
 JAVA_PATTERN = VALIDATE_DEFAULTS["languages"]["java"]["function_pattern"]
 JAVA_EXCLUDES = VALIDATE_DEFAULTS["languages"]["java"]["exclude_names"]
 JAVA_SETTINGS = ParseSettings(comment_start=COMMENT_START, comment_end=COMMENT_END)

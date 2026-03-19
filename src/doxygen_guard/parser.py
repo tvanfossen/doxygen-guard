@@ -45,37 +45,6 @@ class ParseSettings:
     body_style: str = "braces"
 
 
-# Known doxygen tags that signal the start of a new tag entry.
-# Used to split single-line multi-tag blocks like "@brief X. @version 1.0"
-_KNOWN_TAGS = {
-    "brief",
-    "version",
-    "param",
-    "return",
-    "returns",
-    "req",
-    "emits",
-    "handles",
-    "ext",
-    "triggers",
-    "utility",
-    "internal",
-    "callback",
-    "deprecated",
-    "since",
-    "see",
-    "note",
-    "warning",
-    "pre",
-    "post",
-    "throws",
-    "todo",
-    "dispatches",
-    "receives",
-    "ack",
-}
-
-
 ## @brief Store the current tag's value and reset state.
 #  @version 1.1
 #  @internal
@@ -88,29 +57,12 @@ def _finalize_tag(
         tags.setdefault(tag, []).append(" ".join(value).strip())
 
 
-_INLINE_TAG_RE = re.compile(r"\s@(" + "|".join(_KNOWN_TAGS) + r")(?:\s|$)")
 _TAG_RE = re.compile(r"@(\w+)(?:\s+(.*))?$")
-
-
-## @brief Handle a tag match, splitting inline multi-tag values if needed.
-#  @version 1.1
-#  @internal
-def _handle_tag_match(
-    tag_name: str,
-    value_text: str,
-    tags: dict[str, list[str]],
-) -> tuple[str | None, list[str]]:
-    inner = _INLINE_TAG_RE.search(value_text)
-    if not inner:
-        return tag_name, [value_text]
-    _finalize_tag(tags, tag_name, [value_text[: inner.start()].strip()])
-    remainder = value_text[inner.start() :].strip()
-    m2 = _TAG_RE.match(remainder)
-    return (m2.group(1), [m2.group(2) or ""]) if m2 else (None, [])
+_INLINE_SPLIT_RE = re.compile(r"(?=\s@\w+(?:\s|$))")
 
 
 ## @brief Parse all doxygen tag entries from comment text.
-#  @version 1.6
+#  @version 1.7
 #  @req REQ-PARSE-002
 def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     tags: dict[str, list[str]] = {}
@@ -122,23 +74,29 @@ def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     for raw_line in block_text.splitlines():
         line = prefix_re.sub("", raw_line)
         line = suffix_re.sub("", line).strip()
-        match = _TAG_RE.match(line)
-        if match:
-            _finalize_tag(tags, current_tag, current_value)
-            current_tag, current_value = _handle_tag_match(
-                match.group(1),
-                match.group(2) or "",
-                tags,
-            )
-        elif not line and current_tag is not None:
-            _finalize_tag(tags, current_tag, current_value)
-            current_tag = None
-            current_value = []
-        elif current_tag is not None and line:
-            current_value.append(line)
+        for segment in _split_inline_tags(line):
+            match = _TAG_RE.match(segment)
+            if match:
+                _finalize_tag(tags, current_tag, current_value)
+                current_tag = match.group(1)
+                current_value = [match.group(2) or ""]
+            elif not segment and current_tag is not None:
+                _finalize_tag(tags, current_tag, current_value)
+                current_tag = None
+                current_value = []
+            elif current_tag is not None and segment:
+                current_value.append(segment)
 
     _finalize_tag(tags, current_tag, current_value)
     return tags
+
+
+## @brief Split a line into segments at inline @tag boundaries.
+#  @version 1.0
+#  @internal
+def _split_inline_tags(line: str) -> list[str]:
+    parts = _INLINE_SPLIT_RE.split(line)
+    return [p.strip() for p in parts if p.strip()] if len(parts) > 1 else [line]
 
 
 ## @brief Scan backward from func_line to find the first non-blank, non-attribute line.
@@ -225,14 +183,15 @@ def find_body_end(lines: list[str], start_line: int) -> int:
 
 
 ## @brief Locate the last line of a Python function body by tracking indentation.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-PARSE-003
 def find_body_end_indent(lines: list[str], start_line: int) -> int:
     def_indent = len(lines[start_line]) - len(lines[start_line].lstrip())
+    body_start = _find_body_start(lines, start_line)
     body_indent = None
-    last_body_line = start_line
+    last_body_line = body_start
 
-    for i in range(start_line + 1, len(lines)):
+    for i in range(body_start + 1, len(lines)):
         stripped = lines[i].strip()
         if not stripped:
             continue
@@ -244,13 +203,29 @@ def find_body_end_indent(lines: list[str], start_line: int) -> int:
                 body_indent = current_indent
                 last_body_line = i
             else:
-                return start_line
+                return body_start
         elif current_indent >= body_indent:
             last_body_line = i
         else:
             break
 
     return last_body_line
+
+
+## @brief Find the first line of the actual body, skipping multi-line signatures.
+#  @version 1.0
+#  @internal
+def _find_body_start(lines: list[str], start_line: int) -> int:
+    paren_depth = 0
+    for i in range(start_line, len(lines)):
+        for ch in lines[i]:
+            if ch == "(":
+                paren_depth += 1
+            elif ch == ")":
+                paren_depth -= 1
+        if paren_depth == 0 and ":" in lines[i]:
+            return i
+    return start_line
 
 
 ## @brief Detect forward declarations to skip them during validation.

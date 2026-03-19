@@ -4,6 +4,7 @@ validate:
   exclude:
     - "^tests/"
     - "^examples/"
+    - "^\\.venv/"
   version_gate:
     current_version: "v0.1.0"
     version_field: "Min Version"

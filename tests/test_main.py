@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from textwrap import dedent
 
-from doxygen_guard.config import CONFIG_DEFAULTS
+from doxygen_guard.config import CONFIG_DEFAULTS, parse_source_file
 from doxygen_guard.main import main, validate_file
+from tests.conftest import FIXTURES_DIR
 
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
 NO_REQ_CONFIG = str(FIXTURES_DIR / "no_requirements_config.yaml")
 
 
@@ -165,3 +164,13 @@ class TestMain:
     def test_impact_no_files_returns_0(self):
         result = main(["impact", "--staged"])
         assert result == 0
+
+
+class TestParseSourceFile:
+    """Tests for parse_source_file."""
+
+    def test_unsupported_extension_returns_none(self, tmp_path):
+        rs_file = tmp_path / "lib.rs"
+        rs_file.write_text("fn main() {}")
+        result = parse_source_file(str(rs_file), CONFIG_DEFAULTS)
+        assert result is None

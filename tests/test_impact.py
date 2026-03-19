@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from textwrap import dedent
 
 from doxygen_guard.config import CONFIG_DEFAULTS, deep_merge
@@ -19,8 +18,7 @@ from doxygen_guard.impact import (
     load_requirements,
     run_impact,
 )
-
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
+from tests.conftest import FIXTURES_DIR
 
 
 def _make_impact_config(req_file=None):

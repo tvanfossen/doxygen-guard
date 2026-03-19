@@ -3,7 +3,6 @@ autonumber
 
 box "System" #LightBlue
   participant "Trace" as Trace
-  participant "Config" as Config
 end box
 
 header
@@ -25,7 +24,6 @@ Trace -> Trace: _build_emit_edges()
 Trace -> Trace: _build_ext_edges()
 Trace -> Trace: _build_trigger_edges()
 Trace -> Trace: _build_call_edges()
-Trace -> Config: validate_output_path()
 Trace -> Trace: collect_all_tagged_functions()
 
 @enduml

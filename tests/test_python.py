@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from textwrap import dedent
 
 from doxygen_guard.config import CONFIG_DEFAULTS, VALIDATE_DEFAULTS
 from doxygen_guard.main import validate_file
 from doxygen_guard.parser import ParseSettings, find_body_end_indent, parse_functions
+from tests.conftest import FIXTURES_DIR
 
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
 PY_CONFIG = VALIDATE_DEFAULTS["languages"]["python"]
 PY_PATTERN = PY_CONFIG["function_pattern"]
 PY_EXCLUDES = PY_CONFIG["exclude_names"]
@@ -156,6 +155,42 @@ class TestPythonDoxygenBlocks:
         assert len(functions) == 1
         assert functions[0].doxygen is not None
         assert "brief" in functions[0].doxygen.tags
+        assert "version" in functions[0].doxygen.tags
+
+    def test_three_tags_single_line(self):
+        content = dedent("""\
+            ## @brief Helper. @version 1.0 @req REQ-001
+            def helper():
+                pass
+        """)
+        functions = parse_functions(
+            content,
+            PY_PATTERN,
+            PY_EXCLUDES,
+            PY_SETTINGS,
+        )
+        assert len(functions) == 1
+        tags = functions[0].doxygen.tags
+        assert tags["brief"] == ["Helper."]
+        assert tags["version"] == ["1.0"]
+        assert tags["req"] == ["REQ-001"]
+
+    def test_custom_tag_single_line(self):
+        content = dedent("""\
+            ## @brief Func. @mycustomtag some-value
+            def func():
+                pass
+        """)
+        functions = parse_functions(
+            content,
+            PY_PATTERN,
+            PY_EXCLUDES,
+            PY_SETTINGS,
+        )
+        assert len(functions) == 1
+        tags = functions[0].doxygen.tags
+        assert tags["brief"] == ["Func."]
+        assert tags["mycustomtag"] == ["some-value"]
 
 
 class TestPythonBodyEnd:

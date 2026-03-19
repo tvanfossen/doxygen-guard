@@ -72,6 +72,22 @@ def parse_changed_lines(diff_output: str) -> set[int]:
     return changed
 
 
+## @brief Stage a file or directory for the next git commit.
+#  @version 1.1
+#  @req REQ-GIT-001
+def git_add(
+    path: str,
+    run_command: RunCommand | None = None,
+) -> bool:
+    try:
+        runner = run_command or _default_run_command
+        runner(["git", "add", path])
+    except (subprocess.CalledProcessError, OSError) as e:
+        logger.warning("git add %s failed: %s", path, e)
+        return False
+    return True
+
+
 ## @brief Convenience function combining staged diff retrieval and parsing.
 #  @version 1.0
 #  @req REQ-GIT-001

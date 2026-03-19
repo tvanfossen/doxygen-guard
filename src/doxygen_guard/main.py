@@ -21,8 +21,8 @@ from doxygen_guard.checks import (
     check_tags,
     check_version_staleness,
 )
-from doxygen_guard.config import load_config, parse_source_file
-from doxygen_guard.git import get_changed_lines_for_file
+from doxygen_guard.config import load_config, parse_source_file, validate_output_path
+from doxygen_guard.git import get_changed_lines_for_file, git_add
 from doxygen_guard.impact import (
     build_impact_report,
     collect_changed_functions,
@@ -214,7 +214,7 @@ def _detect_current_version(config: dict[str, Any]) -> str | None:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 1.6
+#  @version 1.7
 #  @req REQ-VAL-001
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     # Resolve version gate before running checks
@@ -225,8 +225,10 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     rc = _report_violations(_validate_files(file_paths, config))
 
     base_dir = config.get("output_dir", "docs/generated/")
-    if ".." in Path(base_dir).parts:
-        print(f"Error: output_dir '{base_dir}' contains traversal", file=sys.stderr)
+    try:
+        validate_output_path(base_dir)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
     trace_config = config.get("trace", {})
@@ -241,7 +243,7 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
             print(f"doxygen-guard: [trace] {w}", file=sys.stderr)
         if written:
             seq_dir = str(Path(base_dir) / "sequences")
-            subprocess.run(["git", "add", seq_dir], capture_output=True, check=False)
+            git_add(seq_dir)
             print(
                 f"doxygen-guard: {len(written)} diagram(s) written to {seq_dir}",
                 file=sys.stderr,
@@ -255,7 +257,7 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
         impact_dir.mkdir(parents=True, exist_ok=True)
         (impact_dir / "impact.md").write_text(format_markdown(entries))
         (impact_dir / "impact.json").write_text(format_json(entries))
-        subprocess.run(["git", "add", str(impact_dir)], capture_output=True, check=False)
+        git_add(str(impact_dir))
         print(format_markdown(entries), file=sys.stderr)
 
     return rc
@@ -325,7 +327,7 @@ def _run_trace_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
 
 
 ## @brief Execute the impact subcommand.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-IMPACT-003
 def _run_impact_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
     file_paths = args.files or []
@@ -337,10 +339,12 @@ def _run_impact_command(args: argparse.Namespace, config: dict[str, Any]) -> int
     )
     output_file = config.get("impact", {}).get("output", {}).get("file")
     if output_file:
-        out_path = Path(output_file).resolve()
-        if ".." in Path(output_file).parts:
-            print(f"Error: output path '{output_file}' contains traversal", file=sys.stderr)
+        try:
+            validate_output_path(output_file)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
             return 1
+        out_path = Path(output_file).resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(report)
         print(f"Wrote report: {out_path}")

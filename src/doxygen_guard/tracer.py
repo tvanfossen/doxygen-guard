@@ -138,18 +138,19 @@ def _resolve_by_prefix(
 
 
 ## @brief Parse a single source file and extract tagged functions.
-#  @version 1.3
+#  @version 1.4
 #  @internal
 def _process_source_file(
     source_file: Path,
     config: dict[str, Any],
     req_participant_map: dict[str, str],
 ) -> list[TaggedFunction]:
-    functions = parse_source_file(str(source_file), config)
-    if functions is None:
+    result = parse_source_file(str(source_file), config, return_content=True)
+    if result is None:
         return []
 
-    lines = source_file.read_text().splitlines()
+    functions, content = result
+    lines = content.splitlines()
     tagged: list[TaggedFunction] = []
     for func in functions:
         tf = _extract_tagged_function(func, str(source_file), req_participant_map, lines)
@@ -286,7 +287,7 @@ def _build_emit_edges(
 
 
 ## @brief Build ext call edges.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-001
 def _build_ext_edges(
     tf: TaggedFunction,
@@ -298,7 +299,7 @@ def _build_ext_edges(
         parts = ext_ref.split("::", 1)
         func_name = parts[1] if len(parts) == 2 else ext_ref
         mod = parts[0] if len(parts) == 2 else ext_ref
-        to_name = _resolve_ext_target(mod, all_tagged) or mod
+        to_name = _resolve_ext_target(func_name, mod, all_tagged) or mod
         edges.append(
             {
                 "from": from_name,
@@ -324,13 +325,17 @@ def _build_trigger_edges(
     ]
 
 
-## @brief Resolve an ext module reference to a participant name.
-#  @version 1.2
+## @brief Resolve an ext reference to a participant via function name or module path.
+#  @version 1.3
 #  @internal
 def _resolve_ext_target(
+    func_name: str,
     module: str,
     all_tagged: list[TaggedFunction],
 ) -> str | None:
+    for tf in all_tagged:
+        if tf.name == func_name and tf.participant_name:
+            return tf.participant_name
     for tf in all_tagged:
         if tf.participant_name and module in tf.file_path:
             return tf.participant_name
@@ -338,16 +343,19 @@ def _resolve_ext_target(
 
 
 ## @brief Scan function bodies for calls to other known functions.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-TRACE-001
 def _build_call_edges(
     caller: TaggedFunction,
     from_name: str,
     all_tagged: list[TaggedFunction],
 ) -> list[dict[str, Any]]:
+    ext_func_names = {ref.split("::", 1)[-1] for ref in caller.ext}
     edges: list[dict[str, Any]] = []
     for target in all_tagged:
         if target.name == caller.name:
+            continue
+        if target.name in ext_func_names:
             continue
         if re.search(rf"\b{re.escape(target.name)}\s*\(", caller.body):
             to_name = target.participant_name or target.name
@@ -363,8 +371,28 @@ def _build_call_edges(
     return edges
 
 
+## @brief Find functions that reference any of the target functions via ext or call.
+#  @version 1.0
+#  @internal
+def _find_inbound_callers(
+    target_funcs: list[TaggedFunction],
+    all_tagged: list[TaggedFunction],
+) -> list[TaggedFunction]:
+    target_names = {tf.name for tf in target_funcs}
+    callers: list[TaggedFunction] = []
+    seen: set[str] = set()
+    for tf in all_tagged:
+        if tf.name in target_names or tf.name in seen:
+            continue
+        ext_targets = {ref.split("::", 1)[-1] for ref in tf.ext}
+        if ext_targets & target_names:
+            callers.append(tf)
+            seen.add(tf.name)
+    return callers
+
+
 ## @brief Build edges for emitting functions, using global handler resolution.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
 def build_sequence_edges(
     emitters: list[TaggedFunction],
@@ -376,7 +404,10 @@ def build_sequence_edges(
     edges: list[dict[str, Any]] = []
     all_warnings: list[str] = []
 
-    for tf in emitters:
+    inbound = _find_inbound_callers(emitters, all_tagged)
+    all_emitters = list(emitters) + inbound
+
+    for tf in all_emitters:
         from_name = tf.participant_name or tf.name
         emit_edges, warnings = _build_emit_edges(tf, from_name, handler_map, externals)
         edges.extend(emit_edges)
@@ -419,8 +450,86 @@ def _render_unlisted_functions(
     return lines
 
 
+## @brief Partition active participant names into internal and external groups.
+#  @version 1.0
+#  @internal
+def _partition_participants(
+    active_names: list[str],
+    participants: list[Participant],
+) -> tuple[list[str], list[str]]:
+    external_names = {p.name for p in participants if p.receives_prefix}
+    internal = [n for n in active_names if n not in external_names]
+    external = [n for n in active_names if n in external_names]
+    return internal, external
+
+
+## @brief Render participant declarations with box grouping and entity stereotypes.
+#  @version 1.0
+#  @internal
+def _render_participants(
+    active_names: list[str],
+    participants: list[Participant],
+    participant_set: set[str],
+    options: dict[str, Any],
+) -> list[str]:
+    internal, external = _partition_participants(active_names, participants)
+    lines: list[str] = []
+
+    for pname in external:
+        if pname in participant_set:
+            lines.append(f'entity "{pname}" as {_safe_id(pname)}')
+
+    if external and internal:
+        lines.append("")
+
+    box_label = options.get("box_label", "System")
+    if internal:
+        lines.append(f'box "{box_label}" #LightBlue')
+        for pname in internal:
+            if pname in participant_set:
+                lines.append(f'  participant "{pname}" as {_safe_id(pname)}')
+        lines.append("end box")
+
+    return lines
+
+
+## @brief Get the requirements name column from config.
+#  @version 1.0
+#  @internal
+def _get_name_col(config: dict[str, Any]) -> str:
+    return config.get("impact", {}).get("requirements", {}).get("name_column", "Name")
+
+
+## @brief Render requirement context as a header note in the diagram.
+#  @version 1.0
+#  @internal
+def _render_req_header(
+    req_id: str,
+    req_row: dict[str, str] | None,
+    name_col: str,
+) -> list[str]:
+    if not req_row:
+        return []
+    parts = [f"**{req_id}**"]
+    name = req_row.get(name_col, "")
+    if name:
+        parts[0] = f"**{req_id}: {name}**"
+    for key in ("Description", "description", "Acceptance Criteria", "acceptance_criteria"):
+        value = req_row.get(key, "").strip()
+        if value:
+            label = key.replace("_", " ").title()
+            parts.append(f"//{label}:// {value}")
+    if len(parts) <= 1:
+        return []
+    lines = ["header"]
+    lines.extend(f"  {p}" for p in parts)
+    lines.append("end header")
+    lines.append("")
+    return lines
+
+
 ## @brief Render edges and function listings as a PlantUML block.
-#  @version 1.5
+#  @version 1.7
 #  @req REQ-TRACE-001
 def generate_plantuml(
     req_id: str,
@@ -428,9 +537,11 @@ def generate_plantuml(
     functions: list[TaggedFunction],
     participants: list[Participant],
     config: dict[str, Any],
-    req_name: str | None = None,
+    req_row: dict[str, str] | None = None,
 ) -> str:
     options = config.get("trace", {}).get("options", {})
+    name_col = _get_name_col(config)
+    req_name = req_row.get(name_col) if req_row else None
     title = f"{req_id} {req_name}" if req_name else req_id
 
     lines = [f"@startuml {title}"]
@@ -440,11 +551,10 @@ def generate_plantuml(
 
     active_names = _collect_all_active_names(edges, functions)
     participant_set = {p.name for p in participants}
-    for pname in active_names:
-        if pname in participant_set:
-            lines.append(f'participant "{pname}" as {_safe_id(pname)}')
+    lines.extend(_render_participants(active_names, participants, participant_set, options))
 
     lines.append("")
+    lines.extend(_render_req_header(req_id, req_row, name_col))
     lines.extend(_render_unlisted_functions(functions, edges))
 
     if functions and edges:
@@ -495,32 +605,44 @@ def _collect_active_participants(edges: list[dict[str, Any]]) -> list[str]:
     return ordered
 
 
-## @brief Reject output paths containing directory traversal components.
-#  @version 1.1
+## @brief Render a .puml file to PNG if plantuml is available.
+#  @version 1.0
 #  @internal
-def _validate_output_path(path: str) -> Path:
-    p = Path(path)
-    if ".." in p.parts:
-        msg = f"Output path '{path}' contains directory traversal"
-        raise ValueError(msg)
-    return p
+def _render_png(puml_file: Path) -> None:
+    import shutil
+    import subprocess
+
+    plantuml = shutil.which("plantuml")
+    if not plantuml:
+        logger.debug("plantuml not found, skipping PNG render")
+        return
+    try:
+        subprocess.run(
+            [plantuml, str(puml_file)],
+            capture_output=True,
+            check=True,
+        )
+        logger.info("Rendered PNG: %s", puml_file.with_suffix(".png"))
+    except (subprocess.CalledProcessError, OSError) as e:
+        logger.warning("PNG render failed for %s: %s", puml_file, e)
 
 
 ## @brief Save .puml content to the configured output directory.
-#  @version 1.1
+#  @version 1.3
 #  @req REQ-TRACE-001
 def write_diagram(req_id: str, puml_content: str, output_dir: str) -> Path:
-    out_path = _validate_output_path(output_dir)
+    out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
     puml_file = out_path / f"{req_id}.puml"
     puml_file.write_text(puml_content)
     logger.info("Wrote diagram: %s", puml_file)
+    _render_png(puml_file)
     return puml_file
 
 
 ## @brief Generate diagrams, filtering emitters by REQ but resolving handlers globally.
-#  @version 1.3
+#  @version 1.4
 #  @internal
 def _write_diagrams_for_reqs(
     all_tagged: list[TaggedFunction],
@@ -530,14 +652,23 @@ def _write_diagrams_for_reqs(
     req_id: str | None = None,
 ) -> tuple[list[Path], list[str]]:
     all_warnings: list[str] = []
+    req_data = load_requirements_full(config)
 
     if req_id:
         funcs = [tf for tf in all_tagged if req_id in tf.reqs]
         if not funcs:
             return [], all_warnings
+        row = req_data.get(req_id)
         edges, warnings = build_sequence_edges(funcs, all_tagged, participants)
         all_warnings.extend(warnings)
-        puml = generate_plantuml(req_id, edges, funcs, participants, config)
+        puml = generate_plantuml(
+            req_id,
+            edges,
+            funcs,
+            participants,
+            config,
+            req_row=row,
+        )
         return [write_diagram(req_id, puml, output_dir)], all_warnings
 
     req_groups: dict[str, list[TaggedFunction]] = {}
@@ -547,9 +678,17 @@ def _write_diagrams_for_reqs(
 
     written: list[Path] = []
     for r, funcs in sorted(req_groups.items()):
+        row = req_data.get(r)
         edges, warnings = build_sequence_edges(funcs, all_tagged, participants)
         all_warnings.extend(warnings)
-        puml = generate_plantuml(r, edges, funcs, participants, config)
+        puml = generate_plantuml(
+            r,
+            edges,
+            funcs,
+            participants,
+            config,
+            req_row=row,
+        )
         written.append(write_diagram(r, puml, output_dir))
     return written, all_warnings
 

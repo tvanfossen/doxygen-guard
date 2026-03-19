@@ -47,11 +47,11 @@ VALIDATE_DEFAULTS: dict[str, Any] = {
         "cpp": {
             "extensions": [".cpp", ".hpp", ".cc", ".cxx"],
             "function_pattern": (
-                r"^(?:(?:static|inline|extern|virtual|explicit|constexpr)\s+)*"
+                r"^(?:(?:static|inline|extern(?:\s+\"C\")?|virtual|explicit|constexpr)\s+)*"
                 r"(?:template\s*<[^>]*>\s*)?"
                 r"(?:(?:const|volatile|unsigned|signed|long|short|struct|enum)\s+)*"
-                r"(?:[A-Za-z_]\w*(?:<[^>]*>)?)[\s*&]+"
-                r"(\w+)\s*\("
+                r"(?:[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*(?:<[^>]*>)?)[\s*&]+"
+                r"(?:[A-Za-z_]\w*::)*(\w+)\s*\("
             ),
             "exclude_names": [
                 "if",
@@ -112,6 +112,7 @@ TRACE_DEFAULTS: dict[str, Any] = {
     "format": "plantuml",
     "options": {
         "autonumber": True,
+        "box_label": "System",
     },
 }
 
@@ -148,7 +149,7 @@ CONFIG_SCHEMA: dict[str, Any] = {
         "format": str,
         "participant_field": str,
         "external": list,
-        "options": {"autonumber": bool},
+        "options": {"autonumber": bool, "box_label": str},
     },
     "impact": {
         "requirements": {
@@ -281,6 +282,20 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
     return deep_merge(CONFIG_DEFAULTS, user_config)
 
 
+## @brief Reject output paths containing directory traversal or absolute components.
+#  @version 1.2
+#  @req REQ-CONFIG-001
+def validate_output_path(path: str) -> Path:
+    p = Path(path)
+    if p.is_absolute():
+        msg = f"Output path '{path}' must be relative"
+        raise ValueError(msg)
+    if ".." in p.parts:
+        msg = f"Output path '{path}' contains directory traversal"
+        raise ValueError(msg)
+    return p
+
+
 ## @brief Match a file path to its language config by extension.
 #  @version 1.0
 #  @req REQ-CONFIG-002
@@ -295,13 +310,14 @@ def get_language_config(config: dict[str, Any], file_path: str) -> dict[str, Any
 
 
 ## @brief Parse all functions from a source file using language-aware settings.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-PARSE-001
 def parse_source_file(
     file_path: str,
     config: dict[str, Any],
     skip_forward_declarations: bool = True,
-) -> list | None:
+    return_content: bool = False,
+) -> Any:
     from doxygen_guard.parser import parse_functions
 
     lang_config = get_language_config(config, file_path)
@@ -310,25 +326,29 @@ def parse_source_file(
 
     content = Path(file_path).read_text()
     settings = resolve_parse_settings(config, lang_config)
-    return parse_functions(
+    functions = parse_functions(
         content=content,
         function_pattern=lang_config["function_pattern"],
         exclude_names=lang_config.get("exclude_names", []),
         settings=settings,
         skip_forward_declarations=skip_forward_declarations,
     )
+    if return_content:
+        return functions, content
+    return functions
 
 
 ## @brief Resolve comment style and body style for a given language config.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-CONFIG-002
 def resolve_parse_settings(config: dict[str, Any], lang_config: dict[str, Any]) -> ParseSettings:
     from doxygen_guard.parser import ParseSettings
 
+    default_style = VALIDATE_DEFAULTS["comment_style"]
     global_style = config.get("validate", {}).get("comment_style", {})
     lang_style = lang_config.get("comment_style", {})
     return ParseSettings(
-        comment_start=lang_style.get("start", global_style.get("start", r"/\*\*(?!\*)")),
-        comment_end=lang_style.get("end", global_style.get("end", r"\*/")),
+        comment_start=lang_style.get("start", global_style.get("start", default_style["start"])),
+        comment_end=lang_style.get("end", global_style.get("end", default_style["end"])),
         body_style=lang_config.get("body_style", "braces"),
     )

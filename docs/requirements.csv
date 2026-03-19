@@ -1,17 +1,17 @@
-Req ID,Name,Subsystem,Min Version
-REQ-VAL-001,Doxygen presence check,Validate,v0.1.0
-REQ-VAL-002,Version staleness detection,Validate,v0.1.0
-REQ-VAL-003,Tag syntax validation,Validate,v0.1.0
-REQ-VAL-004,Req coverage enforcement,Validate,v0.1.0
-REQ-TRACE-001,Sequence diagram generation,Trace,v0.1.0
-REQ-TRACE-002,Participant resolution from requirements,Trace,v0.1.0
-REQ-TRACE-003,External participant prefix routing,Trace,v0.1.0
-REQ-IMPACT-001,Changed function detection from git diff,Impact,v0.1.0
-REQ-IMPACT-002,Requirements file loading,Impact,v0.1.0
-REQ-IMPACT-003,Impact report generation,Impact,v0.1.0
-REQ-CONFIG-001,YAML config loading and merging,Config,v0.1.0
-REQ-CONFIG-002,Per-language parse settings,Config,v0.1.0
-REQ-PARSE-001,Function detection,Parser,v0.1.0
-REQ-PARSE-002,Doxygen block extraction,Parser,v0.1.0
-REQ-PARSE-003,Python indent-based body detection,Parser,v0.1.0
-REQ-GIT-001,Git diff parsing,Git,v0.1.0
+Req ID,Name,Subsystem,Min Version,Description,Acceptance Criteria
+REQ-VAL-001,Doxygen presence check,Validate,v0.1.0,Every function must have a doxygen comment with brief and version tags,Undocumented functions produce presence violations; documented functions pass clean
+REQ-VAL-002,Version staleness detection,Validate,v0.1.0,Detect when function body changes but version tag is not updated,Modified function body without version tag change produces staleness violation
+REQ-VAL-003,Tag syntax validation,Validate,v0.1.0,Validate doxygen tag values against configured patterns and prefixes,Tag values not matching configured pattern or prefix produce tag violations
+REQ-VAL-004,Req coverage enforcement,Validate,v0.1.0,Functions must have requirement or exemption tags when requirements are configured,Functions without req or utility/internal/callback tags produce coverage violations
+REQ-TRACE-001,Sequence diagram generation,Trace,v0.1.0,Generate PlantUML sequence diagrams from emits/handles/ext/triggers tags,Each requirement with trace-tagged functions produces a valid .puml and .png file
+REQ-TRACE-002,Participant resolution from requirements,Trace,v0.1.0,Resolve diagram participants from the requirements file subsystem column,Functions map to participants via their req tags and the configured participant_field
+REQ-TRACE-003,External participant prefix routing,Trace,v0.1.0,Route unhandled events to external participants by event prefix,Events matching receives_prefix of an external participant produce edges to that participant
+REQ-IMPACT-001,Changed function detection from git diff,Impact,v0.1.0,Cross-reference git diff line numbers with parsed functions to find changed functions,Functions whose body lines overlap with git diff changed lines are reported as changed
+REQ-IMPACT-002,Requirements file loading,Impact,v0.1.0,Load requirements from CSV/JSON/YAML with configurable ID and name columns,Requirements loaded and accessible by ID for impact report and participant resolution
+REQ-IMPACT-003,Impact report generation,Impact,v0.1.0,Group changed functions by requirement and render as markdown/JSON/text,Impact report lists affected requirements with their changed functions
+REQ-CONFIG-001,YAML config loading and merging,Config,v0.1.0,Load .doxygen-guard.yaml and deep-merge with built-in defaults,User config overrides defaults; missing keys retain defaults; invalid keys rejected
+REQ-CONFIG-002,Per-language parse settings,Config,v0.1.0,Resolve comment style and body detection per language from config,Each language gets correct comment start/end patterns and body style (braces vs indent)
+REQ-PARSE-001,Function detection,Parser,v0.1.0,Detect function definitions using language-specific regex patterns,Functions matched by pattern with correct name capture; excludes filtered; forward declarations skipped
+REQ-PARSE-002,Doxygen block extraction,Parser,v0.1.0,Find and parse doxygen comment blocks immediately before function definitions,Doxygen blocks associated with correct functions; all tags parsed including multi-tag single lines
+REQ-PARSE-003,Python indent-based body detection,Parser,v0.1.0,Detect Python function body extent by tracking indentation levels,Body end correctly identified for simple functions and multi-line signatures and nested blocks
+REQ-GIT-001,Git diff parsing,Git,v0.1.0,Parse unified diff output to extract changed line numbers,Hunk headers parsed to 0-indexed line sets; pure deletions excluded; git add supported

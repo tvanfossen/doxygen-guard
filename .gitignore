@@ -18,3 +18,4 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 .claude/tmp/
+docs/generated/**/*.png

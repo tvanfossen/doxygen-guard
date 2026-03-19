@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from doxygen_guard.config import CONFIG_DEFAULTS, deep_merge
 from doxygen_guard.tracer import (
     Participant,
@@ -15,8 +13,7 @@ from doxygen_guard.tracer import (
     run_trace,
     write_diagram,
 )
-
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
+from tests.conftest import FIXTURES_DIR
 
 TRACE_CONFIG = deep_merge(
     CONFIG_DEFAULTS,
@@ -265,6 +262,72 @@ class TestGeneratePlantuml:
         assert "autonumber" in result
         assert "Pairing_Manager" in result
         assert "WiFi_Manager" in result
+        assert 'box "System"' in result
+        assert "end box" in result
+
+    def test_external_rendered_as_entity(self):
+        participants = [
+            Participant(name="Sender"),
+            Participant(name="Cloud", receives_prefix=["MQTT:"]),
+        ]
+        edges = [
+            {
+                "from": "Sender",
+                "to": "Cloud",
+                "label": "publish()",
+                "event": "MQTT:update",
+                "style": "-->",
+            },
+        ]
+        result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
+        assert 'entity "Cloud"' in result
+        assert 'participant "Sender"' in result
+
+    def test_internal_in_box_external_outside(self):
+        participants = [
+            Participant(name="OTA"),
+            Participant(name="Cloud", receives_prefix=["EVENT:CLOUD_"]),
+        ]
+        edges = [
+            {
+                "from": "OTA",
+                "to": "Cloud",
+                "label": "report()",
+                "event": "EVENT:CLOUD_RESULT",
+                "style": "-->",
+            },
+        ]
+        result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
+        lines = result.split("\n")
+        entity_line = next(i for i, line in enumerate(lines) if "entity" in line)
+        box_line = next(i for i, line in enumerate(lines) if "box" in line)
+        assert entity_line < box_line
+
+    def test_custom_box_label(self):
+        participants = [Participant(name="A")]
+        edges = [
+            {"from": "A", "to": "A", "label": "x()", "event": None, "style": "->"},
+        ]
+        config = deep_merge(TRACE_CONFIG, {"trace": {"options": {"box_label": "IoT Device"}}})
+        result = generate_plantuml("REQ-0001", edges, [], participants, config)
+        assert 'box "IoT Device"' in result
+
+    def test_no_box_when_only_externals(self):
+        participants = [
+            Participant(name="Cloud", receives_prefix=["EVENT:CLOUD_"]),
+        ]
+        edges = [
+            {
+                "from": "Cloud",
+                "to": "Cloud",
+                "label": "self()",
+                "event": None,
+                "style": "->",
+            },
+        ]
+        result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
+        assert "box" not in result
+        assert 'entity "Cloud"' in result
 
     def test_with_req_name(self):
         result = generate_plantuml(
@@ -273,7 +336,7 @@ class TestGeneratePlantuml:
             [],
             [],
             TRACE_CONFIG,
-            req_name="BLE Pairing",
+            req_row={"Name": "BLE Pairing"},
         )
         assert "@startuml REQ-0252 BLE Pairing" in result
 
@@ -317,11 +380,11 @@ class TestWriteDiagram:
 class TestRunTrace:
     """Integration tests for run_trace."""
 
+    def _trace_config_with_tmp(self, tmp_path):
+        return deep_merge(TRACE_CONFIG, {"output_dir": str(tmp_path / "out")})
+
     def test_single_req(self, tmp_path):
-        config = deep_merge(
-            TRACE_CONFIG,
-            {"trace": {"output_dir": str(tmp_path / "out")}},
-        )
+        config = self._trace_config_with_tmp(tmp_path)
         source_dir = str(FIXTURES_DIR / "trace")
         written, _warnings = run_trace([source_dir], config, req_id="REQ-0252")
         assert len(written) == 1
@@ -331,10 +394,7 @@ class TestRunTrace:
         assert "@enduml" in content
 
     def test_trace_all(self, tmp_path):
-        config = deep_merge(
-            TRACE_CONFIG,
-            {"trace": {"output_dir": str(tmp_path / "out")}},
-        )
+        config = self._trace_config_with_tmp(tmp_path)
         source_dir = str(FIXTURES_DIR / "trace")
         written, _warnings = run_trace([source_dir], config, trace_all=True)
         assert len(written) >= 1
@@ -344,10 +404,7 @@ class TestRunTrace:
         assert written == []
 
     def test_nonexistent_req_returns_empty(self, tmp_path):
-        config = deep_merge(
-            TRACE_CONFIG,
-            {"trace": {"output_dir": str(tmp_path / "out")}},
-        )
+        config = self._trace_config_with_tmp(tmp_path)
         source_dir = str(FIXTURES_DIR / "trace")
         written, _warnings = run_trace([source_dir], config, req_id="REQ-9999")
         assert written == []
