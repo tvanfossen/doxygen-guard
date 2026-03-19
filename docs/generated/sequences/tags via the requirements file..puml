@@ -1,0 +1,8 @@
+@startuml tags via the requirements file.
+autonumber
+
+participant "Trace" as Trace
+
+note over Trace: _resolve_participant_from_reqs()
+
+@enduml

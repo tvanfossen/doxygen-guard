@@ -356,7 +356,7 @@ def _build_call_edges(
     for target in all_tagged:
         if target.name == caller.name:
             continue
-        if f"{target.name}(" in caller.body:
+        if re.search(rf"\b{re.escape(target.name)}\s*\(", caller.body):
             to_name = target.participant_name or target.name
             edges.append(
                 {

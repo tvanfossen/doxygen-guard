@@ -14,5 +14,6 @@ note over Trace: generate_plantuml()
 note over Trace: write_diagram()
 
 Trace -> Trace: run_trace()
+note right of Trace: annotations.
 
 @enduml

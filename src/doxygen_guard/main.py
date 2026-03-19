@@ -136,7 +136,7 @@ def validate_file(
             logger.warning(
                 "Could not get git diff for %s — skipping staleness check",
                 file_path,
-                exc_info=True,
+                exc_info=False,
             )
 
     return violations
@@ -180,13 +180,6 @@ def run_validate(args: argparse.Namespace, config: dict[str, Any]) -> int:
         logger.warning("No files specified for validation")
         return 0
     return _report_violations(_validate_files(files, config, no_git=args.no_git))
-
-
-## @brief Derive unique source directories from a list of file paths.
-#  @version 1.1
-#  @internal
-def _source_dirs_from_files(file_paths: list[str]) -> list[str]:
-    return sorted({str(Path(f).parent) for f in file_paths})
 
 
 ## @brief Detect version from git describe --tags.
@@ -233,7 +226,7 @@ def _detect_current_version(config: dict[str, Any]) -> str | None:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 1.5
+#  @version 1.6
 #  @req REQ-VAL-001
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     # Resolve version gate before running checks
@@ -244,10 +237,13 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     rc = _report_violations(_validate_files(file_paths, config))
 
     base_dir = config.get("output_dir", "docs/generated/")
+    if ".." in Path(base_dir).parts:
+        print(f"Error: output_dir '{base_dir}' contains traversal", file=sys.stderr)
+        return 1
 
     trace_config = config.get("trace", {})
     if trace_config.get("participant_field") or trace_config.get("external"):
-        source_dirs = _source_dirs_from_files(file_paths) or ["."]
+        source_dirs = ["."]
         written, trace_warnings = run_trace(
             source_dirs=source_dirs,
             config=config,

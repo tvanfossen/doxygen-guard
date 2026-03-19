@@ -157,6 +157,10 @@ CONFIG_SCHEMA: dict[str, Any] = {
             "id_column": str,
             "name_column": str,
         },
+        "output": {
+            "format": str,
+            "file": str,
+        },
     },
 }
 
@@ -183,17 +187,21 @@ def _validate_dict_node(user: dict, schema: dict, path: str) -> list[str]:
 
 
 ## @brief Validate a single config node against its schema spec.
-#  @version 1.3
+#  @version 1.4
 #  @internal
 def _validate_node(user: Any, schema: Any, path: str) -> list[str]:
-    if schema is _OPEN_DICT or isinstance(schema, type) and isinstance(user, schema):
+    if schema is _OPEN_DICT or not isinstance(schema, type | dict):
         return []
     if isinstance(schema, type):
-        return [f"{path}: expected {schema.__name__}, got {type(user).__name__}"]
+        return (
+            []
+            if isinstance(user, schema)
+            else [f"{path}: expected {schema.__name__}, got {type(user).__name__}"]
+        )
     return (
-        _validate_dict_node(user, schema, path)
-        if isinstance(schema, dict) and isinstance(user, dict)
-        else []
+        [f"{path}: expected dict, got {type(user).__name__}"]
+        if not isinstance(user, dict)
+        else _validate_dict_node(user, schema, path)
     )
 
 
@@ -205,10 +213,12 @@ def validate_config_schema(user_config: dict[str, Any]) -> list[str]:
 
 
 ## @brief Parse a version string like "v1.8.2" into a comparable tuple.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def parse_version(version_str: str) -> tuple[int, ...]:
     cleaned = version_str.strip().lstrip("vV")
+    # Strip pre-release and build metadata (e.g., -rc1, +build123)
+    cleaned = cleaned.split("-")[0].split("+")[0]
     try:
         return tuple(int(p) for p in cleaned.split("."))
     except ValueError:

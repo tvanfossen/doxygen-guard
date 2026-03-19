@@ -45,14 +45,44 @@ class ParseSettings:
     body_style: str = "braces"
 
 
+## @brief Split a line containing multiple @tag entries into separate segments.
+#  @version 1.0
+#  @internal
+def _split_inline_tags(line: str) -> list[str]:
+    parts = re.split(r"(?=\s@\w+)", line)
+    return [p.strip() for p in parts if p.strip()]
+
+
+## @brief Process a single cleaned line, updating current tag state.
+#  @version 1.0
+#  @internal
+def _process_tag_line(
+    line: str,
+    tags: dict[str, list[str]],
+    current_tag: str | None,
+    current_value: list[str],
+    tag_start_re: re.Pattern,
+) -> tuple[str | None, list[str]]:
+    match = tag_start_re.match(line)
+    if match:
+        if current_tag is not None:
+            tags.setdefault(current_tag, []).append(" ".join(current_value).strip())
+        return match.group(1), [match.group(2) or ""]
+    if not line and current_tag is not None:
+        tags.setdefault(current_tag, []).append(" ".join(current_value).strip())
+        return None, []
+    if current_tag is not None and line:
+        current_value.append(line)
+    return current_tag, current_value
+
+
 ## @brief Parse all @tag entries from doxygen comment text.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-PARSE-002
 def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     tags: dict[str, list[str]] = {}
     current_tag: str | None = None
     current_value: list[str] = []
-    # Strip comment prefixes and suffixes per line
     prefix_re = re.compile(r"^\s*[/*#]+\s?")
     suffix_re = re.compile(r"\s*\*/\s*$")
     tag_start_re = re.compile(r"^@(\w+)(?:\s+(.*))?$")
@@ -60,19 +90,17 @@ def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     for raw_line in block_text.splitlines():
         line = prefix_re.sub("", raw_line)
         line = suffix_re.sub("", line).strip()
-        match = tag_start_re.match(line)
-        if match:
-            if current_tag is not None:
-                tags.setdefault(current_tag, []).append(" ".join(current_value).strip())
-            current_tag = match.group(1)
-            current_value = [match.group(2) or ""]
-        elif not line and current_tag is not None:
-            # Blank line ends the current tag
-            tags.setdefault(current_tag, []).append(" ".join(current_value).strip())
-            current_tag = None
-            current_value = []
-        elif current_tag is not None and line:
-            current_value.append(line)
+
+        # Split lines with multiple @tags (e.g., "@brief X. @version 1.0")
+        segments = _split_inline_tags(line) if line.count("@") > 1 else [line]
+        for segment in segments:
+            current_tag, current_value = _process_tag_line(
+                segment,
+                tags,
+                current_tag,
+                current_value,
+                tag_start_re,
+            )
 
     if current_tag is not None:
         tags.setdefault(current_tag, []).append(" ".join(current_value).strip())

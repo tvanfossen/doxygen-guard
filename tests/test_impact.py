@@ -12,6 +12,7 @@ from doxygen_guard.impact import (
     ImpactEntry,
     build_impact_report,
     collect_changed_functions,
+    filter_requirements_by_version,
     format_json,
     format_markdown,
     format_text,
@@ -282,3 +283,52 @@ class TestRunImpact:
         )
         assert "REQ-0252" in result
         assert "Func" in result
+
+
+class TestFilterRequirementsByVersion:
+    """Tests for filter_requirements_by_version."""
+
+    def test_no_version_gate_returns_all(self):
+        reqs = {"REQ-001": {"Min Version": "v0.1.0"}, "REQ-002": {"Min Version": "v2.0.0"}}
+        result = filter_requirements_by_version(reqs, CONFIG_DEFAULTS)
+        assert result == reqs
+
+    def test_future_reqs_filtered(self):
+        reqs = {"REQ-001": {"Min Version": "v0.1.0"}, "REQ-002": {"Min Version": "v2.0.0"}}
+        config = deep_merge(
+            CONFIG_DEFAULTS,
+            {
+                "validate": {
+                    "version_gate": {"current_version": "v1.0.0", "version_field": "Min Version"},
+                },
+            },
+        )
+        result = filter_requirements_by_version(reqs, config)
+        assert "REQ-001" in result
+        assert "REQ-002" not in result
+
+    def test_current_reqs_kept(self):
+        reqs = {"REQ-001": {"Min Version": "v0.5.0"}}
+        config = deep_merge(
+            CONFIG_DEFAULTS,
+            {
+                "validate": {
+                    "version_gate": {"current_version": "v1.0.0", "version_field": "Min Version"},
+                },
+            },
+        )
+        result = filter_requirements_by_version(reqs, config)
+        assert "REQ-001" in result
+
+    def test_equal_version_kept(self):
+        reqs = {"REQ-001": {"Min Version": "v1.0.0"}}
+        config = deep_merge(
+            CONFIG_DEFAULTS,
+            {
+                "validate": {
+                    "version_gate": {"current_version": "v1.0.0", "version_field": "Min Version"},
+                },
+            },
+        )
+        result = filter_requirements_by_version(reqs, config)
+        assert "REQ-001" in result
