@@ -1,0 +1,8 @@
+@startuml REQ-VAL-003
+autonumber
+
+participant "Validate" as Validate
+
+note over Validate: check_tags()
+
+@enduml

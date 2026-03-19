@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -126,6 +127,109 @@ CONFIG_DEFAULTS: dict[str, Any] = {
 }
 
 
+_OPEN_DICT = object()
+
+CONFIG_SCHEMA: dict[str, Any] = {
+    "output_dir": str,
+    "validate": {
+        "languages": _OPEN_DICT,
+        "comment_style": {"start": str, "end": str},
+        "presence": {"require_doxygen": bool, "skip_forward_declarations": bool},
+        "version": {
+            "tag": str,
+            "require_present": bool,
+            "require_increment_on_change": bool,
+        },
+        "tags": _OPEN_DICT,
+        "exclude": list,
+        "version_gate": {"current_version": str, "version_field": str},
+    },
+    "trace": {
+        "format": str,
+        "participant_field": str,
+        "external": list,
+        "options": {"autonumber": bool},
+    },
+    "impact": {
+        "requirements": {
+            "file": str,
+            "format": str,
+            "id_column": str,
+            "name_column": str,
+        },
+    },
+}
+
+
+## @brief Build a dotted config path from parent path and key.
+#  @version 1.0
+#  @internal
+def _config_path(parent: str, key: str) -> str:
+    return f"{parent}.{key}" if parent else key
+
+
+## @brief Validate dict keys against schema, recursing into sub-nodes.
+#  @version 1.0
+#  @internal
+def _validate_dict_node(user: dict, schema: dict, path: str) -> list[str]:
+    errors: list[str] = []
+    for key in user:
+        child_path = _config_path(path, key)
+        if key not in schema:
+            errors.append(f"Unknown config key: {child_path}")
+        else:
+            errors.extend(_validate_node(user[key], schema[key], child_path))
+    return errors
+
+
+## @brief Validate a single config node against its schema spec.
+#  @version 1.3
+#  @internal
+def _validate_node(user: Any, schema: Any, path: str) -> list[str]:
+    if schema is _OPEN_DICT or isinstance(schema, type) and isinstance(user, schema):
+        return []
+    if isinstance(schema, type):
+        return [f"{path}: expected {schema.__name__}, got {type(user).__name__}"]
+    return (
+        _validate_dict_node(user, schema, path)
+        if isinstance(schema, dict) and isinstance(user, dict)
+        else []
+    )
+
+
+## @brief Validate user config keys and types against CONFIG_SCHEMA.
+#  @version 1.0
+#  @req REQ-CONFIG-001
+def validate_config_schema(user_config: dict[str, Any]) -> list[str]:
+    return _validate_node(user_config, CONFIG_SCHEMA, "")
+
+
+## @brief Parse a version string like "v1.8.2" into a comparable tuple.
+#  @version 1.0
+#  @internal
+def parse_version(version_str: str) -> tuple[int, ...]:
+    cleaned = version_str.strip().lstrip("vV")
+    try:
+        return tuple(int(p) for p in cleaned.split("."))
+    except ValueError:
+        logger.warning("Could not parse version: %s", version_str)
+        return (0,)
+
+
+## @brief Compare two version tuples, padding shorter one with zeros.
+#  @version 1.0
+#  @internal
+def compare_versions(a: tuple[int, ...], b: tuple[int, ...]) -> int:
+    max_len = max(len(a), len(b))
+    a_padded = a + (0,) * (max_len - len(a))
+    b_padded = b + (0,) * (max_len - len(b))
+    if a_padded < b_padded:
+        return -1
+    if a_padded > b_padded:
+        return 1
+    return 0
+
+
 ## @brief Recursively merge two dicts; override values win for non-dict leaves.
 #  @version 1.0
 #  @utility
@@ -140,7 +244,7 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
 
 
 ## @brief Load .doxygen-guard.yaml and merge with built-in defaults.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-CONFIG-001
 def load_config(config_path: Path | None = None) -> dict[str, Any]:
     if config_path is None:
@@ -157,6 +261,12 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
     if not isinstance(user_config, dict):
         logger.warning("Config file %s is not a mapping, using defaults", config_path)
         return deep_merge(CONFIG_DEFAULTS, {})
+
+    errors = validate_config_schema(user_config)
+    if errors:
+        for err in errors:
+            print(f"doxygen-guard config error: {err}", file=sys.stderr)
+        sys.exit(1)
 
     return deep_merge(CONFIG_DEFAULTS, user_config)
 

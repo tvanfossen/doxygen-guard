@@ -91,8 +91,27 @@ def check_presence(
 EXEMPTION_TAGS = {"utility", "internal", "callback"}
 
 
+## @brief Check if version gate is configured.
+#  @version 1.1
+#  @internal
+def _has_version_gate(config: dict[str, Any]) -> bool:
+    gate = config.get("validate", {}).get("version_gate", {})
+    return bool(gate.get("current_version") and gate.get("version_field"))
+
+
+## @brief Check if any requirements pass the version gate filter.
+#  @version 1.1
+#  @internal
+def _has_active_requirements(config: dict[str, Any]) -> bool:
+    from doxygen_guard.impact import filter_requirements_by_version, load_requirements_full
+
+    full = load_requirements_full(config)
+    filtered = filter_requirements_by_version(full, config)
+    return bool(filtered)
+
+
 ## @brief Verify functions have @req or an exemption tag when requirements are configured.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-VAL-004
 def check_req_coverage(
     functions: list[Function],
@@ -101,6 +120,10 @@ def check_req_coverage(
 ) -> list[Violation]:
     req_config = config.get("impact", {}).get("requirements")
     if not req_config or not req_config.get("file"):
+        return []
+
+    # If version gate is configured, check if any active requirements exist
+    if _has_version_gate(config) and not _has_active_requirements(config):
         return []
 
     req_file = req_config["file"]
@@ -186,6 +209,23 @@ def check_version_staleness(
                     check="version",
                     message=(
                         f"Function '{func.name}' body changed but {version_tag} was not updated"
+                    ),
+                )
+            )
+            continue
+
+        # Validate version marker if present (only [reviewed] is valid)
+        version_value = func.doxygen.tags.get(tag_key, [""])[0]
+        marker_match = re.search(r"\[(\w+)\]$", version_value.strip())
+        if marker_match and marker_match.group(1) != "reviewed":
+            violations.append(
+                Violation(
+                    file=file_path,
+                    line=func.def_line + 1,
+                    check="version",
+                    message=(
+                        f"Function '{func.name}' has unrecognized version marker "
+                        f"'[{marker_match.group(1)}]' (use [reviewed])"
                     ),
                 )
             )

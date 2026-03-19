@@ -189,10 +189,58 @@ def _source_dirs_from_files(file_paths: list[str]) -> list[str]:
     return sorted({str(Path(f).parent) for f in file_paths})
 
 
+## @brief Detect version from git describe --tags.
+#  @version 1.0
+#  @internal
+def _detect_git_version() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--tags", "--abbrev=0"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except Exception:
+        logger.warning("Could not detect version from git tags")
+        return None
+
+
+## @brief Detect version from CMakeLists.txt project() directive.
+#  @version 1.0
+#  @internal
+def _detect_cmake_version() -> str | None:
+    try:
+        cmake = Path("CMakeLists.txt").read_text()
+        match = re.search(r"project\s*\([^)]*VERSION\s+([\d.]+)", cmake)
+        return f"v{match.group(1)}" if match else None
+    except Exception:
+        logger.warning("Could not detect version from CMakeLists.txt")
+        return None
+
+
+## @brief Resolve the current project version from config, git tag, or CMake.
+#  @version 1.1
+#  @internal
+def _detect_current_version(config: dict[str, Any]) -> str | None:
+    gate = config.get("validate", {}).get("version_gate", {})
+    version_str = gate.get("current_version")
+    if not version_str:
+        return None
+    detectors = {"auto:git": _detect_git_version, "auto:cmake": _detect_cmake_version}
+    detector = detectors.get(version_str)
+    return detector() if detector else version_str
+
+
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-VAL-001
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
+    # Resolve version gate before running checks
+    resolved = _detect_current_version(config)
+    if resolved:
+        config.setdefault("validate", {}).setdefault("version_gate", {})["_resolved"] = resolved
+
     rc = _report_violations(_validate_files(file_paths, config))
 
     base_dir = config.get("output_dir", "docs/generated/")

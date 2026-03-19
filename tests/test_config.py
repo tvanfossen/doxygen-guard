@@ -9,6 +9,8 @@ from doxygen_guard.config import (
     deep_merge,
     get_language_config,
     load_config,
+    parse_version,
+    validate_config_schema,
 )
 
 
@@ -105,13 +107,10 @@ class TestLoadConfig:
             dedent("""\
                 trace:
                   format: mermaid
-                  output_dir: diagrams/
             """)
         )
         config = load_config(config_file)
         assert config["trace"]["format"] == "mermaid"
-        assert config["trace"]["output_dir"] == "diagrams/"
-        # Defaults preserved
         assert config["trace"]["options"]["autonumber"] is True
 
     def test_impact_section_override(self, tmp_path):
@@ -131,6 +130,7 @@ class TestLoadConfig:
         config_file = tmp_path / ".doxygen-guard.yaml"
         config_file.write_text(
             dedent("""\
+                output_dir: docs/out/
                 validate:
                   languages:
                     java:
@@ -142,23 +142,19 @@ class TestLoadConfig:
                   exclude:
                     - "^gen/"
                 trace:
-                  participants:
-                    - id: app
-                      label: "App"
-                      match: "src/app/"
+                  format: plantuml
+                  participant_field: "Subsystem"
                 impact:
-                  test_mapping:
-                    - match: "REQ-.*"
-                      suite: "All"
-                      command: "pytest"
+                  requirements:
+                    file: reqs.csv
+                    format: csv
             """)
         )
         config = load_config(config_file)
         assert "java" in config["validate"]["languages"]
         assert config["validate"]["version"]["tag"] == "@ver"
         assert config["validate"]["exclude"] == ["^gen/"]
-        assert len(config["trace"]["participants"]) == 1
-        assert len(config["impact"]["test_mapping"]) == 1
+        assert config["output_dir"] == "docs/out/"
 
     def test_non_mapping_config_returns_defaults(self, tmp_path):
         config_file = tmp_path / ".doxygen-guard.yaml"
@@ -210,3 +206,80 @@ class TestGetLanguageConfig:
         config = CONFIG_DEFAULTS
         result = get_language_config(config, "Makefile")
         assert result is None
+
+
+class TestValidateConfigSchema:
+    """Tests for validate_config_schema."""
+
+    def test_empty_config_passes(self):
+        assert validate_config_schema({}) == []
+
+    def test_valid_output_dir(self):
+        assert validate_config_schema({"output_dir": "docs/"}) == []
+
+    def test_unknown_top_level_key(self):
+        errors = validate_config_schema({"bogus": 1})
+        assert len(errors) == 1
+        assert "bogus" in errors[0]
+
+    def test_unknown_nested_key(self):
+        errors = validate_config_schema({"validate": {"bogus": 1}})
+        assert len(errors) == 1
+        assert "validate.bogus" in errors[0]
+
+    def test_wrong_type_string(self):
+        errors = validate_config_schema({"output_dir": 123})
+        assert len(errors) == 1
+        assert "expected str" in errors[0]
+
+    def test_wrong_type_bool(self):
+        errors = validate_config_schema({"validate": {"presence": {"require_doxygen": "yes"}}})
+        assert len(errors) == 1
+        assert "expected bool" in errors[0]
+
+    def test_open_dict_allows_custom_languages(self):
+        errors = validate_config_schema(
+            {"validate": {"languages": {"rust": {"extensions": [".rs"]}}}}
+        )
+        assert errors == []
+
+    def test_open_dict_allows_custom_tags(self):
+        errors = validate_config_schema({"validate": {"tags": {"custom_tag": {"pattern": ".*"}}}})
+        assert errors == []
+
+    def test_stale_participants_rejected(self):
+        errors = validate_config_schema({"trace": {"participants": [{"id": "x"}]}})
+        assert len(errors) == 1
+        assert "participants" in errors[0]
+
+    def test_stale_test_mapping_rejected(self):
+        errors = validate_config_schema({"impact": {"test_mapping": []}})
+        assert len(errors) == 1
+        assert "test_mapping" in errors[0]
+
+    def test_version_gate_accepted(self):
+        errors = validate_config_schema({"validate": {"version_gate": {"current_version": "v1.0"}}})
+        assert errors == []
+
+    def test_multiple_errors(self):
+        errors = validate_config_schema({"bogus1": 1, "bogus2": 2})
+        assert len(errors) == 2
+
+
+class TestParseVersion:
+    """Tests for parse_version."""
+
+    def test_basic(self):
+        assert parse_version("v1.8.2") == (1, 8, 2)
+
+    def test_no_prefix(self):
+        assert parse_version("1.8.2") == (1, 8, 2)
+
+    def test_two_parts(self):
+        assert parse_version("v1.0") == (1, 0)
+
+    def test_single_part(self):
+        assert parse_version("v3") == (3,)
+
+    def test_invalid(self):
+        assert parse_version("not-a-version") == (0,)

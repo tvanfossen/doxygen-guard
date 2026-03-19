@@ -191,6 +191,30 @@ def load_requirements(config: dict[str, Any]) -> dict[str, str]:
     return {rid: row.get(name_col, "") for rid, row in full.items()}
 
 
+## @brief Filter requirements to those active at the configured current version.
+#  @version 1.0
+#  @req REQ-IMPACT-002
+def filter_requirements_by_version(
+    reqs: dict[str, dict[str, str]],
+    config: dict[str, Any],
+) -> dict[str, dict[str, str]]:
+    from doxygen_guard.config import compare_versions, parse_version
+
+    version_gate = config.get("validate", {}).get("version_gate", {})
+    current_str = version_gate.get("_resolved") or version_gate.get("current_version")
+    version_field = version_gate.get("version_field")
+
+    if not current_str or not version_field:
+        return reqs
+
+    current = parse_version(current_str)
+    return {
+        rid: row
+        for rid, row in reqs.items()
+        if compare_versions(parse_version(row.get(version_field, "v0.0.0")), current) <= 0
+    }
+
+
 ## @brief Parse CSV file into req_id -> full row mapping.
 #  @version 1.1
 #  @internal

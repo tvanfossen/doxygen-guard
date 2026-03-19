@@ -154,6 +154,45 @@ class TestCheckVersionStaleness:
         violations = check_version_staleness(funcs, "test.c", CONFIG_DEFAULTS, changed_lines)
         assert violations == []
 
+    def test_reviewed_marker_clears_staleness(self):
+        """Adding [reviewed] to @version line counts as updating the version."""
+        func = _make_func(
+            def_line=5,
+            body_end=10,
+            tags={"brief": ["Something."], "version": ["1.0 [reviewed]"]},
+        )
+        # Override raw to include [reviewed] on the version line
+        func.doxygen.raw = "/**\n * @brief Something.\n * @version 1.0 [reviewed]\n */"
+        # Both body and version line changed
+        changed_lines = {3, 7}  # line 3 has @version, line 7 is body
+        violations = check_version_staleness([func], "test.c", CONFIG_DEFAULTS, changed_lines)
+        assert violations == []
+
+    def test_unknown_version_marker_rejected(self):
+        """Unknown markers like [typo] are rejected."""
+        func = _make_func(
+            def_line=5,
+            body_end=10,
+            tags={"brief": ["Something."], "version": ["1.0 [typo]"]},
+        )
+        func.doxygen.raw = "/**\n * @brief Something.\n * @version 1.0 [typo]\n */"
+        changed_lines = {3, 7}
+        violations = check_version_staleness([func], "test.c", CONFIG_DEFAULTS, changed_lines)
+        assert len(violations) == 1
+        assert "unrecognized version marker" in violations[0].message
+
+    def test_version_bump_still_works(self):
+        """Normal version bump (no marker) still passes."""
+        func = _make_func(
+            def_line=5,
+            body_end=10,
+            tags={"brief": ["Something."], "version": ["1.1"]},
+        )
+        func.doxygen.raw = "/**\n * @brief Something.\n * @version 1.1\n */"
+        changed_lines = {3, 7}
+        violations = check_version_staleness([func], "test.c", CONFIG_DEFAULTS, changed_lines)
+        assert violations == []
+
 
 class TestCheckTags:
     """Tests for check_tags."""

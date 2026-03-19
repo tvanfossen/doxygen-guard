@@ -1,17 +1,17 @@
-Req ID,Name,Subsystem
-REQ-VAL-001,Doxygen presence check,Validate
-REQ-VAL-002,Version staleness detection,Validate
-REQ-VAL-003,Tag syntax validation,Validate
-REQ-VAL-004,Req coverage enforcement,Validate
-REQ-TRACE-001,Sequence diagram generation,Trace
-REQ-TRACE-002,Participant resolution from requirements,Trace
-REQ-TRACE-003,External participant prefix routing,Trace
-REQ-IMPACT-001,Changed function detection from git diff,Impact
-REQ-IMPACT-002,Requirements file loading,Impact
-REQ-IMPACT-003,Impact report generation,Impact
-REQ-CONFIG-001,YAML config loading and merging,Config
-REQ-CONFIG-002,Per-language parse settings,Config
-REQ-PARSE-001,Function detection,Parser
-REQ-PARSE-002,Doxygen block extraction,Parser
-REQ-PARSE-003,Python indent-based body detection,Parser
-REQ-GIT-001,Git diff parsing,Git
+Req ID,Name,Subsystem,Min Version
+REQ-VAL-001,Doxygen presence check,Validate,v0.1.0
+REQ-VAL-002,Version staleness detection,Validate,v0.1.0
+REQ-VAL-003,Tag syntax validation,Validate,v0.1.0
+REQ-VAL-004,Req coverage enforcement,Validate,v0.1.0
+REQ-TRACE-001,Sequence diagram generation,Trace,v0.1.0
+REQ-TRACE-002,Participant resolution from requirements,Trace,v0.1.0
+REQ-TRACE-003,External participant prefix routing,Trace,v0.1.0
+REQ-IMPACT-001,Changed function detection from git diff,Impact,v0.1.0
+REQ-IMPACT-002,Requirements file loading,Impact,v0.1.0
+REQ-IMPACT-003,Impact report generation,Impact,v0.1.0
+REQ-CONFIG-001,YAML config loading and merging,Config,v0.1.0
+REQ-CONFIG-002,Per-language parse settings,Config,v0.1.0
+REQ-PARSE-001,Function detection,Parser,v0.1.0
+REQ-PARSE-002,Doxygen block extraction,Parser,v0.1.0
+REQ-PARSE-003,Python indent-based body detection,Parser,v0.1.0
+REQ-GIT-001,Git diff parsing,Git,v0.1.0

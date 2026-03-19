@@ -1,0 +1,40 @@
+[
+  {
+    "req_id": "REQ-CONFIG-001",
+    "req_name": "YAML config loading and merging",
+    "functions": [
+      {
+        "name": "validate_config_schema",
+        "file": "src/doxygen_guard/config.py",
+        "version": "1.0"
+      },
+      {
+        "name": "load_config",
+        "file": "src/doxygen_guard/config.py",
+        "version": "1.1"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-IMPACT-002",
+    "req_name": "Requirements file loading",
+    "functions": [
+      {
+        "name": "filter_requirements_by_version",
+        "file": "src/doxygen_guard/impact.py",
+        "version": "1.0"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-VAL-001",
+    "req_name": "Doxygen presence check",
+    "functions": [
+      {
+        "name": "run_precommit",
+        "file": "src/doxygen_guard/main.py",
+        "version": "1.5"
+      }
+    ]
+  }
+]
