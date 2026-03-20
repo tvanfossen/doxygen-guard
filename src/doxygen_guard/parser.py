@@ -116,7 +116,7 @@ def _skip_blanks_and_attrs(lines: list[str], func_line: int) -> int:
 
 
 ## @brief Scan backward from end_line to find the comment start marker.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _scan_for_comment_start(
     lines: list[str],
@@ -134,7 +134,8 @@ def _scan_for_comment_start(
                 tags=tags,
                 raw=block_text,
             )
-        if "}" in lines[scan].strip():
+        stripped = lines[scan].strip()
+        if "}" in stripped and not stripped.startswith("*") and not stripped.startswith("//"):
             return None
         scan -= 1
     return None
