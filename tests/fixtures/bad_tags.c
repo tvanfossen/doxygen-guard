@@ -12,7 +12,7 @@ void Bad_Tags(void) {
 /**
  * @brief Function with valid tag values.
  * @version 1.0
- * @req REQ-0001 [verified]
+ * @req REQ-0001
  * @emits EVENT:DATA_READY
  * @ext mod::func
  */

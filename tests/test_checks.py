@@ -265,62 +265,6 @@ class TestCheckTags:
         assert len(violations) == 1
         assert "does not contain" in violations[0].message
 
-    def test_confidence_markers_valid(self):
-        config = {
-            "validate": {
-                "tags": {
-                    "req": {
-                        "pattern": r"^REQ-\w+$",
-                        "confidence_markers": ["verified", "inferred"],
-                    },
-                },
-            }
-        }
-        funcs = [
-            _make_func(
-                tags={
-                    "brief": ["X."],
-                    "version": ["1.0"],
-                    "req": ["REQ-0001 [verified]"],
-                }
-            )
-        ]
-        violations = check_tags(funcs, "test.c", config)
-        assert violations == []
-
-    def test_confidence_markers_missing(self):
-        config = {
-            "validate": {
-                "tags": {
-                    "req": {
-                        "pattern": r"^REQ-\w+$",
-                        "confidence_markers": ["verified", "inferred"],
-                    },
-                },
-            }
-        }
-        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "req": ["REQ-0001"]})]
-        violations = check_tags(funcs, "test.c", config)
-        assert len(violations) == 1
-        assert "missing confidence marker" in violations[0].message
-
-    def test_confidence_markers_invalid(self):
-        config = {
-            "validate": {
-                "tags": {
-                    "req": {
-                        "confidence_markers": ["verified", "inferred"],
-                    },
-                },
-            }
-        }
-        funcs = [
-            _make_func(tags={"brief": ["X."], "version": ["1.0"], "req": ["REQ-0001 [bogus]"]})
-        ]
-        violations = check_tags(funcs, "test.c", config)
-        assert len(violations) == 1
-        assert "invalid confidence marker" in violations[0].message
-
     def test_no_doxygen_skipped(self):
         config = {
             "validate": {

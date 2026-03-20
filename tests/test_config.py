@@ -97,7 +97,6 @@ class TestLoadConfig:
                   tags:
                     req:
                       pattern: "^REQ-\\\\w+$"
-                      confidence_markers: [verified, inferred]
             """)
         )
         config = load_config(config_file)

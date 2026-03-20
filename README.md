@@ -138,7 +138,6 @@ validate:
   tags:
     req:
       pattern: "^REQ-\\w+$"
-      confidence_markers: [verified, inferred]
     emits:
       require_prefix: ["EVENT:"]
     handles:

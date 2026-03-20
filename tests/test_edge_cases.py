@@ -215,7 +215,6 @@ class TestTagValidation:
                     "tags": {
                         "req": {
                             "pattern": r"^REQ-\w+$",
-                            "confidence_markers": ["verified", "inferred"],
                         },
                         "emits": {"require_prefix": ["EVENT:", "FSM:"]},
                         "ext": {"require_contains": "::"},

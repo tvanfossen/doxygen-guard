@@ -264,8 +264,8 @@ def check_tags(
     return violations
 
 
-## @brief Check one tag value against pattern, prefix, contains, and confidence rules.
-#  @version 1.0
+## @brief Check one tag value against pattern, prefix, and contains rules.
+#  @version 1.1
 #  @internal
 def _validate_tag_value(
     file_path: str,
@@ -279,21 +279,18 @@ def _validate_tag_value(
 
     # Check pattern match
     pattern = rules.get("pattern")
-    if pattern:
-        # Strip confidence markers before pattern check
-        check_value = _strip_confidence_marker(value, rules)
-        if not re.match(pattern, check_value):
-            violations.append(
-                Violation(
-                    file=file_path,
-                    line=line,
-                    check="tag",
-                    message=(
-                        f"Function '{func.name}' @{tag_name} value '{value}' "
-                        f"does not match pattern '{pattern}'"
-                    ),
-                )
+    if pattern and not re.match(pattern, value):
+        violations.append(
+            Violation(
+                file=file_path,
+                line=line,
+                check="tag",
+                message=(
+                    f"Function '{func.name}' @{tag_name} value '{value}' "
+                    f"does not match pattern '{pattern}'"
+                ),
             )
+        )
 
     # Check required prefix
     require_prefix = rules.get("require_prefix")
@@ -325,70 +322,4 @@ def _validate_tag_value(
             )
         )
 
-    # Check confidence markers
-    markers = rules.get("confidence_markers")
-    if markers:
-        violations.extend(_check_confidence_marker(file_path, func, tag_name, value, markers, line))
-
     return violations
-
-
-## @brief Strip [marker] suffix from tag value.
-#  @version 1.0
-#  @internal
-def _strip_confidence_marker(value: str, rules: dict[str, Any]) -> str:
-    markers = rules.get("confidence_markers", [])
-    if not markers:
-        return value
-
-    for marker in markers:
-        suffix = f" [{marker}]"
-        if value.endswith(suffix):
-            return value[: -len(suffix)]
-
-    return value
-
-
-## @brief Verify confidence marker syntax [marker] is present and valid.
-#  @version 1.0
-#  @internal
-def _check_confidence_marker(
-    file_path: str,
-    func: Function,
-    tag_name: str,
-    value: str,
-    markers: list[str],
-    line: int,
-) -> list[Violation]:
-    marker_pattern = re.compile(r"\[(\w+)\]$")
-    match = marker_pattern.search(value)
-
-    if not match:
-        return [
-            Violation(
-                file=file_path,
-                line=line,
-                check="tag",
-                message=(
-                    f"Function '{func.name}' @{tag_name} value '{value}' "
-                    f"missing confidence marker (expected one of: {markers})"
-                ),
-            )
-        ]
-
-    marker = match.group(1)
-    if marker not in markers:
-        return [
-            Violation(
-                file=file_path,
-                line=line,
-                check="tag",
-                message=(
-                    f"Function '{func.name}' @{tag_name} value '{value}' "
-                    f"has invalid confidence marker '{marker}' "
-                    f"(expected one of: {markers})"
-                ),
-            )
-        ]
-
-    return []
