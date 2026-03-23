@@ -3,11 +3,6 @@ autonumber
 
 box "System" #LightBlue
   participant "Impact" as Impact
-  participant "Parser" as Parser
-  participant "Git" as Git
-  participant "Validate" as Validate
-  participant "Config" as Config
-  participant "Trace" as Trace
 end box
 
 header
@@ -17,17 +12,9 @@ header
 end header
 
 
-Impact -> Parser: parse_source_file()
-Impact -> Git: parse_changed_lines()
-Impact -> Impact: _extract_changed_functions()
-Impact -> Impact: collect_changed_functions()
-Impact -> Impact: build_impact_report()
-Validate -> Config: validate_output_path()
-Validate -> Git: git_add()
-Validate -> Impact: collect_changed_functions()
-Validate -> Impact: build_impact_report()
-Validate -> Impact: format_markdown()
-Validate -> Impact: format_json()
-Validate -> Trace: run_trace()
+loop
+alt changed_lines
+end alt
+end loop
 
 @enduml

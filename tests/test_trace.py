@@ -4,15 +4,21 @@ from __future__ import annotations
 
 from doxygen_guard.config import CONFIG_DEFAULTS, deep_merge
 from doxygen_guard.tracer import (
+    DiagramContext,
     Edge,
     Participant,
     TaggedFunction,
     _build_call_edges,
+    _build_inbound_edges,
+    _collect_assumes,
+    _is_req_relevant_target,
     build_sequence_edges,
     collect_all_tagged_functions,
+    generate_infrastructure_table,
     generate_plantuml,
     run_trace,
     write_diagram,
+    write_infrastructure_table,
 )
 from tests.conftest import FIXTURES_DIR
 
@@ -42,7 +48,7 @@ class TestCollectAllTaggedFunctions:
 
     def test_collects_from_fixture_dir(self):
         source_dir = str(FIXTURES_DIR / "trace")
-        tagged, participants = collect_all_tagged_functions([source_dir], TRACE_CONFIG)
+        tagged, participants, _cache = collect_all_tagged_functions([source_dir], TRACE_CONFIG)
         assert len(tagged) > 0
 
         names = [tf.name for tf in tagged]
@@ -51,7 +57,7 @@ class TestCollectAllTaggedFunctions:
 
     def test_participant_resolved_from_requirements(self):
         source_dir = str(FIXTURES_DIR / "trace")
-        tagged, _participants = collect_all_tagged_functions([source_dir], TRACE_CONFIG)
+        tagged, _participants, _cache = collect_all_tagged_functions([source_dir], TRACE_CONFIG)
 
         pairing_funcs = [tf for tf in tagged if tf.name == "Pairing_Start"]
         assert len(pairing_funcs) == 1
@@ -299,14 +305,8 @@ class TestGeneratePlantuml:
         assert 'entity "Cloud"' in result
 
     def test_with_req_name(self):
-        result = generate_plantuml(
-            "REQ-0252",
-            [],
-            [],
-            [],
-            TRACE_CONFIG,
-            req_row={"Name": "BLE Pairing"},
-        )
+        ctx = DiagramContext(req_row={"Name": "BLE Pairing"})
+        result = generate_plantuml("REQ-0252", [], [], [], TRACE_CONFIG, context=ctx)
         assert "@startuml REQ-0252 BLE Pairing" in result
 
     def test_note_rendering(self):
@@ -369,3 +369,293 @@ class TestRunTrace:
         source_dir = str(FIXTURES_DIR / "trace")
         written, _warnings = run_trace([source_dir], config, req_id="REQ-9999")
         assert written == []
+
+
+class TestInboundCallerScoping:
+    """Tests for Phase 1A: inbound callers produce only edges to target functions."""
+
+    def test_inbound_caller_only_edges_to_target(self):
+        """Inbound callers should NOT get full edge expansion."""
+        # hub calls both target and unrelated
+        hub = TaggedFunction(
+            name="hub",
+            file_path="hub.c",
+            participant_name="Hub",
+            emits=["EVENT:UNRELATED"],
+            body="void hub() {\n    target_func();\n    unrelated();\n}",
+        )
+        target = TaggedFunction(
+            name="target_func",
+            file_path="target.c",
+            participant_name="Target",
+            reqs=["REQ-001"],
+        )
+        unrelated = TaggedFunction(
+            name="unrelated",
+            file_path="other.c",
+            participant_name="Other",
+            reqs=["REQ-002"],
+        )
+        handler = TaggedFunction(
+            name="handler",
+            file_path="handler.c",
+            participant_name="Handler",
+            handles=["EVENT:UNRELATED"],
+        )
+        all_tagged = [hub, target, unrelated, handler]
+        participants = [Participant(name="Hub"), Participant(name="Target")]
+
+        # hub is NOT a direct emitter — it's an inbound caller of target
+        edges, _warnings = build_sequence_edges(
+            [target], all_tagged, participants, req_id="REQ-001"
+        )
+
+        edge_labels = [e.label for e in edges]
+        # Should have edge from hub to target
+        assert any("target_func()" in label for label in edge_labels)
+        # Should NOT have hub's emit edge to handler
+        assert not any("handler()" in label for label in edge_labels)
+        # Should NOT have hub's call edge to unrelated
+        assert not any("unrelated()" in label for label in edge_labels)
+
+    def test_build_inbound_edges_only_targets(self):
+        """_build_inbound_edges only creates edges to specified target names."""
+        caller = TaggedFunction(
+            name="caller",
+            file_path="a.c",
+            participant_name="A",
+            body="void caller() {\n    alpha();\n    beta();\n}",
+        )
+        alpha = TaggedFunction(name="alpha", file_path="b.c", participant_name="B")
+        beta = TaggedFunction(name="beta", file_path="c.c", participant_name="C")
+
+        edges = _build_inbound_edges(caller, "A", {"alpha"}, [alpha, beta])
+        assert len(edges) == 1
+        assert edges[0].to_name == "B"
+        assert "alpha()" in edges[0].label
+
+
+class TestCallEdgeReqFiltering:
+    """Tests for Phase 1B: call edges filtered by shared @req tag."""
+
+    def test_filters_out_different_req(self):
+        """Call edge targets with different @req are excluded."""
+        caller = TaggedFunction(
+            name="run_precommit",
+            file_path="main.py",
+            participant_name="Validate",
+            reqs=["REQ-VAL-001"],
+            body="def run_precommit():\n    run_trace()\n    validate_file()\n",
+        )
+        same_req = TaggedFunction(
+            name="validate_file",
+            file_path="main.py",
+            participant_name="Validate",
+            reqs=["REQ-VAL-001"],
+        )
+        different_req = TaggedFunction(
+            name="run_trace",
+            file_path="tracer.py",
+            participant_name="Trace",
+            reqs=["REQ-TRACE-001"],
+        )
+        edges = _build_call_edges(
+            caller, "Validate", [caller, same_req, different_req], req_id="REQ-VAL-001"
+        )
+        target_names = {e.label for e in edges}
+        assert "validate_file()" in target_names
+        assert "run_trace()" not in target_names
+
+    def test_allows_handler_targets(self):
+        """Targets with @handles are always allowed (trace-relevant)."""
+        caller = TaggedFunction(
+            name="emitter",
+            file_path="a.c",
+            participant_name="A",
+            reqs=["REQ-001"],
+            body="void emitter() {\n    handler_func();\n}",
+        )
+        handler = TaggedFunction(
+            name="handler_func",
+            file_path="b.c",
+            participant_name="B",
+            handles=["EVENT:X"],
+        )
+        edges = _build_call_edges(caller, "A", [caller, handler], req_id="REQ-001")
+        assert len(edges) == 1
+
+    def test_no_filter_without_req_id(self):
+        """Without req_id, all targets are allowed (backward compat)."""
+        caller = TaggedFunction(
+            name="caller",
+            file_path="a.c",
+            participant_name="A",
+            body="void caller() {\n    other();\n}",
+        )
+        other = TaggedFunction(
+            name="other",
+            file_path="b.c",
+            participant_name="B",
+            reqs=["REQ-OTHER"],
+        )
+        edges = _build_call_edges(caller, "A", [caller, other])
+        assert len(edges) == 1
+
+    def test_is_req_relevant_excludes_supports_only(self):
+        """@supports REQ-X without @req REQ-X is excluded."""
+        target = TaggedFunction(
+            name="util",
+            file_path="util.c",
+            supports=["REQ-001"],
+        )
+        assert not _is_req_relevant_target(target, "REQ-001")
+
+    def test_is_req_relevant_allows_req_match(self):
+        """@req REQ-X is allowed."""
+        target = TaggedFunction(
+            name="func",
+            file_path="a.c",
+            reqs=["REQ-001"],
+        )
+        assert _is_req_relevant_target(target, "REQ-001")
+
+    def test_is_req_relevant_allows_dual_role(self):
+        """Function with both @req and @supports for same REQ is allowed."""
+        target = TaggedFunction(
+            name="func",
+            file_path="a.c",
+            reqs=["REQ-001"],
+            supports=["REQ-001"],
+        )
+        assert _is_req_relevant_target(target, "REQ-001")
+
+
+class TestSupportsAndAssumes:
+    """Tests for Phase 2: @supports and @assumes tag handling."""
+
+    def test_tagged_function_has_supports_assumes(self):
+        """TaggedFunction stores supports and assumes fields."""
+        tf = TaggedFunction(
+            name="func",
+            file_path="a.c",
+            supports=["REQ-001", "REQ-002"],
+            assumes=["REQ-003"],
+        )
+        assert tf.supports == ["REQ-001", "REQ-002"]
+        assert tf.assumes == ["REQ-003"]
+
+    def test_collect_assumes_deduplicates(self):
+        """_collect_assumes returns unique values preserving order."""
+        funcs = [
+            TaggedFunction(name="a", file_path="a.c", assumes=["REQ-001", "REQ-002"]),
+            TaggedFunction(name="b", file_path="b.c", assumes=["REQ-002", "REQ-003"]),
+        ]
+        result = _collect_assumes(funcs)
+        assert result == ["REQ-001", "REQ-002", "REQ-003"]
+
+    def test_assumes_rendered_in_header(self):
+        """@assumes produces Preconditions line in diagram header."""
+        participants = [Participant(name="OTA")]
+        edges = [Edge("OTA", "OTA", "check()")]
+        ctx = DiagramContext(
+            req_row={"Name": "OTA Updates", "Description": "Firmware OTA"},
+            preconditions=["REQ-PAIR-001 (Device Pairing)"],
+        )
+        result = generate_plantuml(
+            "REQ-OTA-001", edges, [], participants, TRACE_CONFIG, context=ctx
+        )
+        assert "Preconditions" in result
+        assert "REQ-PAIR-001" in result
+        assert "Device Pairing" in result
+
+    def test_assumes_without_name(self):
+        """@assumes renders REQ ID even without name lookup."""
+        ctx = DiagramContext(
+            req_row={"Name": "OTA", "Description": "FW updates"},
+            preconditions=["REQ-PAIR-001"],
+        )
+        result = generate_plantuml("REQ-OTA-001", [], [], [], TRACE_CONFIG, context=ctx)
+        assert "Preconditions" in result
+        assert "REQ-PAIR-001" in result
+
+    def test_supports_function_excluded_from_diagram(self):
+        """Function with @supports REQ-X but no @req REQ-X is excluded from edges."""
+        caller = TaggedFunction(
+            name="load_config",
+            file_path="config.py",
+            participant_name="Config",
+            reqs=["REQ-CONFIG-001"],
+            body="def load_config():\n    validate_output_path()\n",
+        )
+        supports_only = TaggedFunction(
+            name="validate_output_path",
+            file_path="config.py",
+            participant_name="Config",
+            supports=["REQ-CONFIG-001"],
+        )
+        edges = _build_call_edges(
+            caller, "Config", [caller, supports_only], req_id="REQ-CONFIG-001"
+        )
+        assert len(edges) == 0
+
+
+class TestInfrastructureTable:
+    """Tests for Phase 4: infrastructure overview table generation."""
+
+    def test_generates_markdown_table(self):
+        """Infrastructure table includes @supports functions."""
+        tagged = [
+            TaggedFunction(
+                name="validate_output_path",
+                file_path="src/config.py",
+                supports=["REQ-CONFIG-001", "REQ-TRACE-001"],
+            ),
+            TaggedFunction(
+                name="git_add",
+                file_path="src/git.py",
+                supports=["REQ-GIT-001"],
+            ),
+            TaggedFunction(
+                name="load_config",
+                file_path="src/config.py",
+                reqs=["REQ-CONFIG-001"],
+            ),
+        ]
+        result = generate_infrastructure_table(tagged)
+        assert "## Infrastructure Overview" in result
+        assert "validate_output_path" in result
+        assert "git_add" in result
+        assert "REQ-CONFIG-001, REQ-TRACE-001" in result
+        # load_config has no @supports so should NOT appear
+        assert "load_config" not in result
+
+    def test_empty_when_no_supports(self):
+        """Returns empty string when no functions have @supports."""
+        tagged = [
+            TaggedFunction(name="func", file_path="a.c", reqs=["REQ-001"]),
+        ]
+        assert generate_infrastructure_table(tagged) == ""
+
+    def test_sorted_by_module_then_name(self):
+        """Table rows sorted by module then function name."""
+        tagged = [
+            TaggedFunction(name="z_func", file_path="src/b.py", supports=["REQ-1"]),
+            TaggedFunction(name="a_func", file_path="src/a.py", supports=["REQ-2"]),
+        ]
+        result = generate_infrastructure_table(tagged)
+        lines = result.strip().split("\n")
+        data_lines = [line for line in lines if line.startswith("| ") and "---" not in line][1:]
+        assert "a_func" in data_lines[0]
+        assert "z_func" in data_lines[1]
+
+    def test_writes_file(self, tmp_path):
+        """write_infrastructure_table creates the file."""
+        tagged = [
+            TaggedFunction(name="helper", file_path="src/util.py", supports=["REQ-001"]),
+        ]
+        result = write_infrastructure_table(tagged, str(tmp_path))
+        assert result is not None
+        assert result.exists()
+        assert result.name == "infrastructure.md"
+        content = result.read_text()
+        assert "helper" in content

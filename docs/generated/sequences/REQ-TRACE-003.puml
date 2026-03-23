@@ -3,7 +3,6 @@ autonumber
 
 box "System" #LightBlue
   participant "Trace" as Trace
-  participant "Impact" as Impact
 end box
 
 header
@@ -12,10 +11,5 @@ header
   //Acceptance Criteria:// Events matching receives_prefix of an external participant produce edges to that participant
 end header
 
-
-Trace -> Impact: load_requirements_full()
-Trace -> Trace: _build_req_participant_map()
-Trace -> Trace: _load_external_participants()
-Trace -> Trace: _resolve_by_prefix()
 
 @enduml

@@ -221,8 +221,10 @@ def _detect_current_version(config: dict[str, Any]) -> str | None:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 1.9
+#  @version 2.0
 #  @req REQ-VAL-001
+#  @supports REQ-TRACE-001
+#  @supports REQ-IMPACT-003
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     logger.info("Pre-commit mode: %d file(s)", len(file_paths))
     logger.info("Config: output_dir=%s", config.get("output_dir", "docs/generated/"))
@@ -254,10 +256,9 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
         for w in trace_warnings:
             print(f"doxygen-guard: [trace] {w}", file=sys.stderr)
         if written:
-            seq_dir = str(Path(base_dir) / "sequences")
-            git_add(seq_dir)
+            git_add(base_dir)
             print(
-                f"doxygen-guard: {len(written)} diagram(s) written to {seq_dir}",
+                f"doxygen-guard: {len(written)} artifact(s) written to {base_dir}",
                 file=sys.stderr,
             )
 

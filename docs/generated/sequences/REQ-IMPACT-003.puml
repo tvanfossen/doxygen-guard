@@ -3,10 +3,6 @@ autonumber
 
 box "System" #LightBlue
   participant "Impact" as Impact
-  participant "Config" as Config
-  participant "Validate" as Validate
-  participant "Git" as Git
-  participant "Trace" as Trace
 end box
 
 header
@@ -15,20 +11,8 @@ header
   //Acceptance Criteria:// Impact report lists affected requirements with their changed functions
 end header
 
-note over Impact: format_text()
-note over Impact: _run_impact_command()
 
-Impact -> Impact: load_requirements()
-Impact -> Impact: collect_changed_functions()
 Impact -> Impact: build_impact_report()
-Impact -> Config: validate_output_path()
 Impact -> Impact: run_impact()
-Validate -> Config: validate_output_path()
-Validate -> Git: git_add()
-Validate -> Impact: collect_changed_functions()
-Validate -> Impact: build_impact_report()
-Validate -> Impact: format_markdown()
-Validate -> Impact: format_json()
-Validate -> Trace: run_trace()
 
 @enduml

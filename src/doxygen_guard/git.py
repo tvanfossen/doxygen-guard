@@ -73,8 +73,11 @@ def parse_changed_lines(diff_output: str) -> set[int]:
 
 
 ## @brief Stage a file or directory for the next git commit.
-#  @version 1.1
-#  @req REQ-GIT-001
+#  @version 1.2
+#  @utility
+#  @supports REQ-GIT-001
+#  @supports REQ-TRACE-001
+#  @supports REQ-IMPACT-003
 def git_add(
     path: str,
     run_command: RunCommand | None = None,

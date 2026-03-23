@@ -11,9 +11,5 @@ header
   //Acceptance Criteria:// Doxygen blocks associated with correct functions; all tags parsed including multi-tag single lines
 end header
 
-note over Parser: parse_doxygen_tags()
-
-Parser -> Parser: find_doxygen_block_before()
-Parser -> Parser: is_forward_declaration()
 
 @enduml

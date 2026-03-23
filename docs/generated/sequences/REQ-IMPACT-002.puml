@@ -3,7 +3,6 @@ autonumber
 
 box "System" #LightBlue
   participant "Impact" as Impact
-  participant "Trace" as Trace
 end box
 
 header
@@ -12,14 +11,5 @@ header
   //Acceptance Criteria:// Requirements loaded and accessible by ID for impact report and participant resolution
 end header
 
-note over Impact: filter_requirements_by_version()
-
-Impact -> Impact: load_requirements_full()
-Impact -> Impact: load_requirements()
-Trace -> Impact: load_requirements_full()
-Trace -> Trace: _build_req_participant_map()
-Trace -> Trace: _load_external_participants()
-Trace -> Impact: load_requirements_full()
-Trace -> Trace: collect_all_tagged_functions()
 
 @enduml

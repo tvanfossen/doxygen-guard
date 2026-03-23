@@ -244,9 +244,52 @@ def is_forward_declaration(lines: list[str], func_line: int) -> bool:
 
 
 ## @brief Parse source code to find functions and their associated doxygen comments.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-PARSE-001
 def parse_functions(
+    content: str,
+    function_pattern: str,
+    exclude_names: list[str],
+    settings: ParseSettings | None = None,
+    skip_forward_declarations: bool = True,
+    *,
+    lang_name: str | None = None,
+) -> list[Function]:
+    if lang_name is not None:
+        return _parse_functions_treesitter(content, lang_name, exclude_names, settings)
+
+    return _parse_functions_regex(
+        content, function_pattern, exclude_names, settings, skip_forward_declarations
+    )
+
+
+## @brief Dispatch to tree-sitter parser for known languages.
+#  @version 1.0
+#  @internal
+def _parse_functions_treesitter(
+    content: str,
+    lang_name: str,
+    exclude_names: list[str],
+    settings: ParseSettings | None = None,
+) -> list[Function]:
+    from doxygen_guard.ts_parser import parse_functions_ts
+
+    s = settings or ParseSettings()
+    result = parse_functions_ts(
+        content,
+        lang_name,
+        exclude_names=exclude_names,
+        comment_start_pattern=s.comment_start,
+    )
+    if not result:
+        logger.debug("Tree-sitter found no functions for language %s", lang_name)
+    return result
+
+
+## @brief Parse functions using regex patterns (original implementation).
+#  @version 1.0
+#  @internal
+def _parse_functions_regex(
     content: str,
     function_pattern: str,
     exclude_names: list[str],

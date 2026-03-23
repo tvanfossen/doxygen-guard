@@ -304,8 +304,11 @@ def get_impact(config: dict[str, Any]) -> dict[str, Any]:
 
 
 ## @brief Reject output paths containing directory traversal or absolute components.
-#  @version 1.2
-#  @req REQ-CONFIG-001
+#  @version 1.3
+#  @utility
+#  @supports REQ-CONFIG-001
+#  @supports REQ-TRACE-001
+#  @supports REQ-IMPACT-003
 def validate_output_path(path: str) -> Path:
     p = Path(path)
     if p.is_absolute():
@@ -345,7 +348,7 @@ def parse_source_file(
 
 
 ## @brief Parse functions and return both the function list and file content.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-PARSE-001
 def parse_source_file_with_content(
     file_path: str,
@@ -353,6 +356,7 @@ def parse_source_file_with_content(
     skip_forward_declarations: bool = True,
 ) -> tuple[list, str] | None:
     from doxygen_guard.parser import parse_functions
+    from doxygen_guard.ts_languages import language_for_file
 
     lang_config = get_language_config(config, file_path)
     if lang_config is None:
@@ -360,12 +364,14 @@ def parse_source_file_with_content(
 
     content = Path(file_path).read_text()
     settings = resolve_parse_settings(config, lang_config)
+    lang_name = language_for_file(file_path, config)
     functions = parse_functions(
         content=content,
         function_pattern=lang_config["function_pattern"],
         exclude_names=lang_config.get("exclude_names", []),
         settings=settings,
         skip_forward_declarations=skip_forward_declarations,
+        lang_name=lang_name,
     )
     return functions, content
 

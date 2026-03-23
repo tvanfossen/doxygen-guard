@@ -11,6 +11,5 @@ header
   //Acceptance Criteria:// Body end correctly identified for simple functions and multi-line signatures and nested blocks
 end header
 
-note over Parser: find_body_end_indent()
 
 @enduml

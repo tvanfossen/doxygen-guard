@@ -90,7 +90,7 @@ def check_presence(
     return violations
 
 
-EXEMPTION_TAGS = {"utility", "internal", "callback"}
+EXEMPTION_TAGS = {"utility", "internal", "callback", "supports"}
 
 
 ## @brief Check if version gate is configured.
@@ -113,7 +113,7 @@ def _has_active_requirements(config: dict[str, Any]) -> bool:
 
 
 ## @brief Verify functions have requirement or exemption tags when requirements are configured.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-VAL-004
 def check_req_coverage(
     functions: list[Function],
@@ -147,7 +147,7 @@ def check_req_coverage(
                     message=(
                         f"Function '{func.name}' has no @req tag "
                         f"(see {req_file}) and no exemption "
-                        f"(@utility, @internal, @callback)"
+                        f"(@utility, @internal, @callback, @supports)"
                     ),
                 )
             )
