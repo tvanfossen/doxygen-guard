@@ -91,6 +91,35 @@ def git_add(
     return True
 
 
+## @brief Detect the merge-base between current HEAD and a target branch.
+#  @version 1.0
+#  @req REQ-GIT-001
+def get_merge_base(
+    target_branch: str = "origin/main",
+    run_command: RunCommand | None = None,
+) -> str | None:
+    runner = run_command or _default_run_command
+    try:
+        result = runner(["git", "merge-base", target_branch, "HEAD"])
+        return result.strip()
+    except (subprocess.CalledProcessError, OSError):
+        logger.warning("Could not determine merge-base against %s", target_branch)
+        return None
+
+
+## @brief Build a diff range string from merge-base to HEAD.
+#  @version 1.0
+#  @req REQ-GIT-001
+def get_branch_diff_range(
+    target_branch: str = "origin/main",
+    run_command: RunCommand | None = None,
+) -> str | None:
+    base = get_merge_base(target_branch, run_command)
+    if base is None:
+        return None
+    return f"{base}...HEAD"
+
+
 ## @brief Convenience function combining staged diff retrieval and parsing.
 #  @version 1.0
 #  @req REQ-GIT-001

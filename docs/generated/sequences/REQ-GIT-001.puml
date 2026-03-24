@@ -12,6 +12,7 @@ header
 end header
 
 
+Git -> Git: get_merge_base()
 Git -> Git: get_staged_diff()
 Git -> Git: parse_changed_lines()
 

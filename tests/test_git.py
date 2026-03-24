@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from doxygen_guard.git import (
+    get_branch_diff_range,
     get_changed_lines_for_file,
     get_diff,
+    get_merge_base,
     get_staged_diff,
     parse_changed_lines,
 )
@@ -132,3 +134,40 @@ class TestGetChangedLinesForFile:
 
         result = get_changed_lines_for_file("test.c", run_command=mock_runner)
         assert result == {4}
+
+
+class TestGetMergeBase:
+    """Tests for get_merge_base and get_branch_diff_range."""
+
+    def test_returns_commit_hash(self):
+        def mock_runner(cmd):
+            assert cmd == ["git", "merge-base", "origin/main", "HEAD"]
+            return "abc123def456\n"
+
+        result = get_merge_base("origin/main", run_command=mock_runner)
+        assert result == "abc123def456"
+
+    def test_returns_none_on_failure(self):
+        import subprocess
+
+        def mock_runner(cmd):
+            raise subprocess.CalledProcessError(1, cmd)
+
+        result = get_merge_base("origin/main", run_command=mock_runner)
+        assert result is None
+
+    def test_branch_diff_range_builds_range_string(self):
+        def mock_runner(cmd):
+            return "abc123\n"
+
+        result = get_branch_diff_range("origin/main", run_command=mock_runner)
+        assert result == "abc123...HEAD"
+
+    def test_branch_diff_range_returns_none_on_failure(self):
+        import subprocess
+
+        def mock_runner(cmd):
+            raise subprocess.CalledProcessError(1, cmd)
+
+        result = get_branch_diff_range("origin/main", run_command=mock_runner)
+        assert result is None

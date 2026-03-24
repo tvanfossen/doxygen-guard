@@ -29,7 +29,7 @@ from doxygen_guard.config import (
     parse_source_file,
     validate_output_path,
 )
-from doxygen_guard.git import get_changed_lines_for_file, git_add
+from doxygen_guard.git import get_branch_diff_range, get_changed_lines_for_file, git_add
 from doxygen_guard.impact import (
     build_impact_report,
     collect_changed_functions,
@@ -221,7 +221,7 @@ def _detect_current_version(config: dict[str, Any]) -> str | None:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 2.0
+#  @version 2.1
 #  @req REQ-VAL-001
 #  @supports REQ-TRACE-001
 #  @supports REQ-IMPACT-003
@@ -264,7 +264,11 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
 
     impact_config = get_impact(config)
     if impact_config.get("requirements"):
-        changed = collect_changed_functions(file_paths, config, staged=True)
+        diff_range = get_branch_diff_range()
+        if diff_range:
+            changed = collect_changed_functions(file_paths, config, diff_range=diff_range)
+        else:
+            changed = collect_changed_functions(file_paths, config, staged=True)
         entries = build_impact_report(changed, config)
         impact_dir = Path(base_dir) / "impact"
         impact_dir.mkdir(parents=True, exist_ok=True)
