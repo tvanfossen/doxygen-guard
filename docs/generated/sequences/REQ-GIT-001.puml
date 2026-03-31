@@ -1,5 +1,7 @@
 @startuml REQ-GIT-001 Git diff parsing
 autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Git" as Git
@@ -8,11 +10,23 @@ end box
 header
   **REQ-GIT-001: Git diff parsing**
   //Description:// Parse unified diff output to extract changed line numbers
-  //Acceptance Criteria:// Hunk headers parsed to 0-indexed line sets; pure deletions excluded; git add supported
+  //Acceptance Criteria:// Hunk headers parsed to 0-indexed line sets; pure deletions\nexcluded; git add supported
 end header
 
+note over Git: get_diff()
+note over Git: get_branch_diff_range()
+note over Git: get_changed_lines_for_file()
 
+== get_diff() ==
+== parse_changed_lines() ==
+== get_merge_base() ==
+group try
+end group
+group catch
+end group
+== get_branch_diff_range() ==
 Git -> Git: get_merge_base()
+== get_changed_lines_for_file() ==
 Git -> Git: get_staged_diff()
 Git -> Git: parse_changed_lines()
 

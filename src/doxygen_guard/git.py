@@ -108,16 +108,32 @@ def get_merge_base(
 
 
 ## @brief Build a diff range string from merge-base to HEAD.
-#  @version 1.0
+#  @details Returns None when on the target branch itself (merge-base == HEAD),
+#  signaling callers to fall back to staged diff.
+#  @version 1.1
 #  @req REQ-GIT-001
 def get_branch_diff_range(
     target_branch: str = "origin/main",
     run_command: RunCommand | None = None,
 ) -> str | None:
+    runner = run_command or _default_run_command
     base = get_merge_base(target_branch, run_command)
     if base is None:
         return None
+    head = _rev_parse_head(runner)
+    if head and base == head:
+        return None
     return f"{base}...HEAD"
+
+
+## @brief Get the current HEAD commit SHA.
+#  @version 1.0
+#  @internal
+def _rev_parse_head(runner: RunCommand) -> str | None:
+    try:
+        return runner(["git", "rev-parse", "HEAD"]).strip()
+    except (subprocess.CalledProcessError, OSError):
+        return None
 
 
 ## @brief Convenience function combining staged diff retrieval and parsing.

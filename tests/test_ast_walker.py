@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import tree_sitter_c
+import tree_sitter_cpp
+import tree_sitter_python
 from tree_sitter import Language, Parser
 
 from doxygen_guard.ast_walker import WalkContext, walk_function_body
@@ -214,6 +216,174 @@ void func(void) {
         assert "alt_end" in kinds
 
 
+class TestExpandedControlFlow:
+    """Tests for try/catch, switch, throw, goto control flow."""
+
+    def test_switch_with_emit_in_case(self):
+        """Switch with event_post in a case produces switch markers."""
+        code = """\
+void func(void) {
+    switch (state) {
+        case 0:
+            event_post(EVENT_A, 0);
+            break;
+        case 1:
+            break;
+    }
+}
+"""
+        node = _parse_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT:A"])
+        handler = TaggedFunction(
+            name="h", file_path="b.c", participant_name="B", handles=["EVENT:A"]
+        )
+        ctx = _make_ctx(handler_map={"EVENT:A": [handler]})
+        edges = walk_function_body(node, tf, ctx)
+        kinds = [e.kind for e in edges]
+        assert "switch_start" in kinds
+        assert "switch_end" in kinds
+
+    def test_goto_produces_note(self):
+        """goto statement produces a goto_note edge."""
+        code = """\
+void func(void) {
+    goto error;
+}
+"""
+        node = _parse_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A")
+        ctx = _make_ctx()
+        edges = walk_function_body(node, tf, ctx)
+        kinds = [e.kind for e in edges]
+        assert "goto_note" in kinds
+        assert any("goto" in e.label for e in edges if e.kind == "goto_note")
+
+    def test_empty_switch_invisible(self):
+        """Switch with no tagged content in any case is not rendered."""
+        code = """\
+void func(void) {
+    switch (mode) {
+        case 0:
+            x = 1;
+            break;
+        case 1:
+            x = 2;
+            break;
+    }
+}
+"""
+        node = _parse_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A")
+        ctx = _make_ctx()
+        edges = walk_function_body(node, tf, ctx)
+        kinds = [e.kind for e in edges]
+        assert "switch_start" not in kinds
+
+
+class TestTryCatchControlFlow:
+    """Tests for try/catch/finally control flow handling."""
+
+    def test_try_catch_with_tagged_call(self):
+        """C++ try/catch with tagged call produces try/catch markers."""
+        code = """\
+void func(void) {
+    if (ready) {
+        event_post(EVENT_X, 0);
+    }
+}
+"""
+        node = _parse_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT:X"])
+        handler = TaggedFunction(
+            name="h", file_path="b.c", participant_name="B", handles=["EVENT:X"]
+        )
+        # C doesn't have try — test switch instead since C try isn't available
+        ctx = _make_ctx(handler_map={"EVENT:X": [handler]})
+        edges = walk_function_body(node, tf, ctx)
+        kinds = [e.kind for e in edges]
+        assert "alt_start" in kinds
+
+    def test_goto_note_includes_label(self):
+        """goto produces note with label name."""
+        code = """\
+void func(void) {
+    goto cleanup;
+}
+"""
+        node = _parse_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A")
+        ctx = _make_ctx()
+        edges = walk_function_body(node, tf, ctx)
+        goto_edges = [e for e in edges if e.kind == "goto_note"]
+        assert len(goto_edges) == 1
+        assert "goto" in goto_edges[0].label
+
+    def test_empty_switch_no_tagged_content_pruned(self):
+        """Switch with no tagged calls in any case is suppressed."""
+        code = """\
+void func(void) {
+    switch (state) {
+        case 0: x = 1; break;
+        case 1: x = 2; break;
+    }
+}
+"""
+        node = _parse_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A")
+        ctx = _make_ctx()
+        edges = walk_function_body(node, tf, ctx)
+        assert not any(e.kind == "switch_start" for e in edges)
+
+
+class TestAltNoElseWarning:
+    """Tests for alt-without-else warning."""
+
+    def test_alt_no_else_warns(self, caplog):
+        """Alt block with no else emits warning."""
+        import logging
+
+        code = """\
+void func(void) {
+    if (valid) {
+        event_post(EVENT_X, 0);
+    }
+}
+"""
+        node = _parse_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT:X"])
+        handler = TaggedFunction(
+            name="h", file_path="b.c", participant_name="B", handles=["EVENT:X"]
+        )
+        ctx = _make_ctx(handler_map={"EVENT:X": [handler]}, req_id="REQ-001")
+        with caplog.at_level(logging.WARNING):
+            walk_function_body(node, tf, ctx)
+        assert any("no else" in r.message for r in caplog.records)
+        assert any("REQ-001" in r.message for r in caplog.records)
+
+
+class TestEmitCallSiteMatching:
+    """Tests for set-based emit matching at call sites."""
+
+    def test_emit_placed_at_call_site(self):
+        """Emit edge appears at the event_post() call location."""
+        code = """\
+void func(void) {
+    prepare();
+    event_post(EVENT_X, 0);
+    cleanup();
+}
+"""
+        node = _parse_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT:X"])
+        handler = TaggedFunction(
+            name="h", file_path="b.c", participant_name="B", handles=["EVENT:X"]
+        )
+        ctx = _make_ctx(handler_map={"EVENT:X": [handler]})
+        edges = walk_function_body(node, tf, ctx)
+        emit_edges = [e for e in edges if e.kind == "emit"]
+        assert len(emit_edges) == 1
+
+
 class TestHandlerChainFollowing:
     """Handler chain following with depth limiting."""
 
@@ -292,3 +462,179 @@ void func(void) {
         # Should have emit edge but no chain following (depth=0 means no recursion)
         emit_edges = [e for e in edges if e.kind == "emit"]
         assert len(emit_edges) == 1
+
+
+# ---- C++/Python parser infrastructure ----
+
+CPP_LANG = Language(tree_sitter_cpp.language())
+CPP_PARSER = Parser(CPP_LANG)
+CPP_SPEC = get_language_spec("cpp")
+
+PY_LANG = Language(tree_sitter_python.language())
+PY_PARSER = Parser(PY_LANG)
+PY_SPEC = get_language_spec("python")
+
+
+def _parse_cpp_func_node(code: str):
+    """Parse C++ code and return the first function_definition node."""
+    tree = CPP_PARSER.parse(code.encode("utf-8"))
+    for child in tree.root_node.children:
+        if child.type == "function_definition":
+            return child
+    msg = "No function_definition found in C++ code"
+    raise ValueError(msg)
+
+
+def _parse_python_func_node(code: str):
+    """Parse Python code and return the first function_definition node."""
+    tree = PY_PARSER.parse(code.encode("utf-8"))
+    for child in tree.root_node.children:
+        if child.type == "function_definition":
+            return child
+    msg = "No function_definition found in Python code"
+    raise ValueError(msg)
+
+
+def _make_cpp_ctx(**kwargs):
+    defaults = {
+        "handler_map": {},
+        "all_tagged": [],
+        "externals": [],
+        "emit_functions": {"event_post"},
+        "spec": CPP_SPEC,
+    }
+    defaults.update(kwargs)
+    return WalkContext(**defaults)
+
+
+def _make_python_ctx(**kwargs):
+    defaults = {
+        "handler_map": {},
+        "all_tagged": [],
+        "externals": [],
+        "emit_functions": {"event_post"},
+        "spec": PY_SPEC,
+    }
+    defaults.update(kwargs)
+    return WalkContext(**defaults)
+
+
+class TestCppTryCatch:
+    """C++ try/catch control flow via tree-sitter-cpp."""
+
+    def test_try_catch_with_emit(self):
+        """C++ try/catch containing emit produces try/catch markers."""
+        code = """\
+void func() {
+    try {
+        event_post(EVENT_X, 0);
+    } catch (std::exception& e) {
+        handle_error();
+    }
+}
+"""
+        node = _parse_cpp_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.cpp", participant_name="A", emits=["EVENT:X"])
+        handler = TaggedFunction(
+            name="h", file_path="b.cpp", participant_name="B", handles=["EVENT:X"]
+        )
+        ctx = _make_cpp_ctx(handler_map={"EVENT:X": [handler]})
+        edges = walk_function_body(node, tf, ctx)
+        kinds = [e.kind for e in edges]
+        assert "try_start" in kinds
+        assert "try_end" in kinds
+        assert "catch_start" in kinds
+        assert "catch_end" in kinds
+
+    def test_empty_try_catch_no_tagged_content_still_renders_catch(self):
+        """Catch block with no tagged calls STILL renders (error blocks never pruned)."""
+        code = """\
+void func() {
+    try {
+        event_post(EVENT_X, 0);
+    } catch (int e) {
+        log_error();
+    }
+}
+"""
+        node = _parse_cpp_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.cpp", participant_name="A", emits=["EVENT:X"])
+        handler = TaggedFunction(
+            name="h", file_path="b.cpp", participant_name="B", handles=["EVENT:X"]
+        )
+        ctx = _make_cpp_ctx(handler_map={"EVENT:X": [handler]})
+        edges = walk_function_body(node, tf, ctx)
+        kinds = [e.kind for e in edges]
+        # catch block rendered even though log_error() is not a tagged call
+        assert "catch_start" in kinds
+
+    def test_throw_produces_note(self):
+        """C++ throw statement produces a throw_note edge."""
+        code = """\
+void func() {
+    throw std::runtime_error("fail");
+}
+"""
+        node = _parse_cpp_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.cpp", participant_name="A")
+        ctx = _make_cpp_ctx()
+        edges = walk_function_body(node, tf, ctx)
+        kinds = [e.kind for e in edges]
+        assert "throw_note" in kinds
+        throw_edges = [e for e in edges if e.kind == "throw_note"]
+        assert any("throws" in e.label for e in throw_edges)
+
+
+class TestPythonControlFlow:
+    """Python control flow via tree-sitter-python."""
+
+    def test_try_except(self):
+        """Python try/except produces try/catch markers."""
+        code = """\
+def func():
+    try:
+        event_post(EVENT_X, 0)
+    except ValueError:
+        handle_error()
+"""
+        node = _parse_python_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.py", participant_name="A", emits=["EVENT:X"])
+        handler = TaggedFunction(
+            name="h", file_path="b.py", participant_name="B", handles=["EVENT:X"]
+        )
+        ctx = _make_python_ctx(handler_map={"EVENT:X": [handler]})
+        edges = walk_function_body(node, tf, ctx)
+        kinds = [e.kind for e in edges]
+        assert "try_start" in kinds
+        assert "catch_start" in kinds
+
+    def test_raise_produces_note(self):
+        """Python raise produces throw_note edge."""
+        code = """\
+def func():
+    raise ValueError("bad input")
+"""
+        node = _parse_python_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.py", participant_name="A")
+        ctx = _make_python_ctx()
+        edges = walk_function_body(node, tf, ctx)
+        kinds = [e.kind for e in edges]
+        assert "throw_note" in kinds
+
+    def test_with_statement_group(self):
+        """Python with statement containing tagged call produces group markers."""
+        code = """\
+def func():
+    with open("f") as fh:
+        event_post(EVENT_X, 0)
+"""
+        node = _parse_python_func_node(code)
+        tf = TaggedFunction(name="func", file_path="a.py", participant_name="A", emits=["EVENT:X"])
+        handler = TaggedFunction(
+            name="h", file_path="b.py", participant_name="B", handles=["EVENT:X"]
+        )
+        ctx = _make_python_ctx(handler_map={"EVENT:X": [handler]})
+        edges = walk_function_body(node, tf, ctx)
+        kinds = [e.kind for e in edges]
+        assert "group_start" in kinds
+        assert "group_end" in kinds

@@ -37,7 +37,7 @@ class Violation:
 
 
 ## @brief Verify every function has a doxygen comment with @brief and @version.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-VAL-001
 def check_presence(
     functions: list[Function],
@@ -62,7 +62,10 @@ def check_presence(
                     file=file_path,
                     line=func.def_line + 1,
                     check="presence",
-                    message=f"Function '{func.name}' has no doxygen comment",
+                    message=(
+                        f"Function '{func.name}' has no doxygen comment"
+                        " — add '/** @brief <description> @version 1.0 */' before function"
+                    ),
                 )
             )
             continue
@@ -73,7 +76,10 @@ def check_presence(
                     file=file_path,
                     line=func.doxygen.start_line + 1,
                     check="presence",
-                    message=f"Function '{func.name}' doxygen missing @brief tag",
+                    message=(
+                        f"Function '{func.name}' doxygen missing @brief tag"
+                        " — add '@brief <description>' to the doxygen comment"
+                    ),
                 )
             )
 
@@ -83,7 +89,10 @@ def check_presence(
                     file=file_path,
                     line=func.doxygen.start_line + 1,
                     check="presence",
-                    message=f"Function '{func.name}' doxygen missing @version tag",
+                    message=(
+                        f"Function '{func.name}' doxygen missing @version tag"
+                        " — add '@version 1.0' to the doxygen comment"
+                    ),
                 )
             )
 
@@ -323,3 +332,178 @@ def _validate_tag_value(
         )
 
     return violations
+
+
+_KNOWN_TAGS: frozenset[str] = frozenset(
+    {
+        "brief",
+        "version",
+        "req",
+        "emits",
+        "handles",
+        "ext",
+        "triggers",
+        "supports",
+        "assumes",
+        "internal",
+        "utility",
+        "param",
+        "return",
+        "returns",
+        "file",
+        "note",
+        "details",
+        "see",
+        "todo",
+        "deprecated",
+        "warning",
+    }
+)
+
+
+## @brief Check for unknown tags with Levenshtein-based suggestions.
+#  @version 1.0
+#  @req REQ-VAL-001
+def check_unknown_tags(
+    func: Function,
+    file_path: str,
+    config: dict[str, Any],
+) -> list[Violation]:
+    if func.doxygen is None:
+        return []
+
+    validate_config = get_validate(config)
+    if not validate_config.get("known_tags_warn", True):
+        return []
+
+    extra = set(validate_config.get("extra_tags", []))
+    known = _KNOWN_TAGS | extra | set(validate_config.get("tags", {}).keys())
+
+    violations: list[Violation] = []
+    for tag_name in func.doxygen.tags:
+        if tag_name not in known:
+            suggestion = _suggest_tag(tag_name, known)
+            hint = f" — did you mean @{suggestion}?" if suggestion else ""
+            violations.append(
+                Violation(
+                    file=file_path,
+                    line=func.doxygen.start_line + 1,
+                    check="tag",
+                    message=f"Unknown tag @{tag_name} in {func.name}(){hint}",
+                )
+            )
+    return violations
+
+
+## @brief Find the closest known tag name using edit distance.
+#  @version 1.0
+#  @internal
+def _suggest_tag(unknown: str, known: set[str]) -> str | None:
+    best_tag = None
+    best_dist = 3
+    for tag in known:
+        dist = _edit_distance(unknown, tag)
+        if dist < best_dist:
+            best_dist = dist
+            best_tag = tag
+    return best_tag
+
+
+## @brief Compute Levenshtein edit distance between two strings.
+#  @version 1.0
+#  @internal
+def _edit_distance(a: str, b: str) -> int:
+    if len(a) < len(b):
+        return _edit_distance(b, a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a):
+        curr = [i + 1] + [0] * len(b)
+        for j, cb in enumerate(b):
+            cost = 0 if ca == cb else 1
+            curr[j + 1] = min(curr[j] + 1, prev[j + 1] + 1, prev[j] + cost)
+        prev = curr
+    return prev[len(b)]
+
+
+## @brief Cross-validate requirement tag references against the requirements file.
+#  @version 1.0
+#  @req REQ-VAL-001
+def check_req_exists(
+    func: Function,
+    file_path: str,
+    config: dict[str, Any],
+    req_ids: set[str] | None = None,
+) -> list[Violation]:
+    if func.doxygen is None or req_ids is None:
+        return []
+
+    validate_config = get_validate(config)
+    tag_config = validate_config.get("tags", {}).get("req", {})
+    if not tag_config.get("cross_reference", True):
+        return []
+
+    violations: list[Violation] = []
+    for req_id in func.doxygen.tags.get("req", []):
+        if req_id not in req_ids:
+            violations.append(
+                Violation(
+                    file=file_path,
+                    line=func.doxygen.start_line + 1,
+                    check="tag",
+                    message=(
+                        f"@req {req_id} in {func.name}() not found in requirements file"
+                        f" — verify the ID or add it to the requirements"
+                    ),
+                )
+            )
+    return violations
+
+
+## @brief Check for file-level doxygen documentation block.
+#  @version 1.0
+#  @req REQ-VAL-001
+def check_file_presence(
+    file_path: str,
+    content: str,
+    config: dict[str, Any],
+) -> list[Violation]:
+    validate = get_validate(config)
+    presence_config = validate.get("presence", {})
+    if not presence_config.get("require_file_doxygen", False):
+        return []
+
+    violation_line = _find_missing_file_doxygen(file_path, content)
+    if violation_line is None:
+        return []
+    return [violation_line]
+
+
+## @brief Scan for missing file-level doxygen, returning a violation if absent.
+#  @version 1.0
+#  @internal
+def _find_missing_file_doxygen(file_path: str, content: str) -> Violation | None:
+    skip_prefixes = ("#include", "#pragma", "#ifndef", "#define")
+    for i, line in enumerate(content.splitlines()):
+        stripped = line.strip()
+        if not stripped or any(stripped.startswith(p) for p in skip_prefixes):
+            continue
+        if _is_file_doxygen_line(stripped):
+            return None
+        return Violation(
+            file=file_path,
+            line=i + 1,
+            check="presence",
+            message=(
+                f"File '{file_path}' has no file-level doxygen block"
+                " — add '/** @file */' or '/** @brief ... */' before first function"
+            ),
+        )
+    return None
+
+
+## @brief Check if a line is a file-level doxygen comment start.
+#  @version 1.0
+#  @internal
+def _is_file_doxygen_line(line: str) -> bool:
+    doxygen_starts = ("/**", "///", "## @", '"""', "## @file", "## @brief")
+    return any(line.startswith(s) for s in doxygen_starts)

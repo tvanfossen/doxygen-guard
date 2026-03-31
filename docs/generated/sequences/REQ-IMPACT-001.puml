@@ -1,5 +1,7 @@
 @startuml REQ-IMPACT-001 Changed function detection from git diff
 autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Impact" as Impact
@@ -7,8 +9,8 @@ end box
 
 header
   **REQ-IMPACT-001: Changed function detection from git diff**
-  //Description:// Cross-reference git diff line numbers with parsed functions to find changed functions
-  //Acceptance Criteria:// Functions whose body lines overlap with git diff changed lines are reported as changed
+  //Description:// Cross-reference git diff line numbers with parsed functions\nto find changed functions
+  //Acceptance Criteria:// Functions whose body lines overlap with git diff changed\nlines are reported as changed
 end header
 
 

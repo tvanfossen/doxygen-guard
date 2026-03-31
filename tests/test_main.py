@@ -207,6 +207,7 @@ class TestPrecommitPipeline:
                   participant_field: "Subsystem"
                   options:
                     autonumber: true
+                    min_edges: 0
                 impact:
                   requirements:
                     file: reqs.csv

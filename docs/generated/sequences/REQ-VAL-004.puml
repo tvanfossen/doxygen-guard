@@ -1,5 +1,7 @@
 @startuml REQ-VAL-004 Req coverage enforcement
 autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Validate" as Validate
@@ -7,8 +9,8 @@ end box
 
 header
   **REQ-VAL-004: Req coverage enforcement**
-  //Description:// Functions must have requirement or exemption tags when requirements are configured
-  //Acceptance Criteria:// Functions without req or utility/internal/callback tags produce coverage violations
+  //Description:// Functions must have requirement or exemption tags when\nrequirements are configured
+  //Acceptance Criteria:// Functions without req or utility/internal/callback tags\nproduce coverage violations
 end header
 
 

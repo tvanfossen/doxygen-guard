@@ -1,72 +1,45 @@
 """Sequence diagram generation from doxygen tags.
 
 @brief Scan source files for @emits/@handles/@ext/@triggers tags and generate PlantUML diagrams.
-@version 1.3
+@version 1.4
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
+from collections import deque
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from doxygen_guard.config import get_impact, get_trace, get_validate, parse_source_file_with_content
 from doxygen_guard.impact import load_requirements_full
+from doxygen_guard.tracer_models import (
+    DiagramBuildParams,
+    DiagramContext,
+    Edge,
+    Participant,
+    TaggedFunction,
+    resolve_by_prefix,
+    resolve_ext_target,
+)
 
 if TYPE_CHECKING:
     from doxygen_guard.parser import Function
 
 logger = logging.getLogger(__name__)
 
+# Re-export for backward compatibility
+_resolve_by_prefix = resolve_by_prefix
+_resolve_ext_target = resolve_ext_target
 
-## @brief A named actor in a sequence diagram, optionally receiving unhandled events by prefix.
-#  @version 1.2
-#  @internal
-@dataclass
-class Participant:
-    name: str
-    receives_prefix: list[str] = field(default_factory=list)
-
-
-## @brief Function metadata needed for diagram generation.
-#  @version 1.4
-#  @internal
-@dataclass
-class TaggedFunction:
-    name: str
-    file_path: str
-    participant_name: str | None = None
-    emits: list[str] = field(default_factory=list)
-    handles: list[str] = field(default_factory=list)
-    ext: list[str] = field(default_factory=list)
-    triggers: list[str] = field(default_factory=list)
-    reqs: list[str] = field(default_factory=list)
-    supports: list[str] = field(default_factory=list)
-    assumes: list[str] = field(default_factory=list)
-    body: str = ""
-
-
-## @brief Context for rendering a diagram header (req metadata + preconditions).
-#  @version 1.0
-#  @internal
-@dataclass
-class DiagramContext:
-    req_row: dict[str, str] | None = None
-    preconditions: list[str] | None = None
-
-
-## @brief A directed edge in a sequence diagram.
-#  @version 1.0
-#  @internal
-@dataclass
-class Edge:
-    from_name: str
-    to_name: str
-    label: str
-    event: str | None = None
-    style: str = "->"
+__all__ = [
+    "DiagramBuildParams",
+    "DiagramContext",
+    "Edge",
+    "Participant",
+    "TaggedFunction",
+]
 
 
 ## @brief Build the REQ ID -> participant name mapping from requirements data.
@@ -146,22 +119,8 @@ def _collect_all_participants(
     return participants
 
 
-## @brief Route an unhandled event to an external participant via bus prefix.
-#  @version 1.0
-#  @req REQ-TRACE-003
-def _resolve_by_prefix(
-    event: str,
-    externals: list[Participant],
-) -> str | None:
-    for p in externals:
-        for prefix in p.receives_prefix:
-            if event.startswith(prefix):
-                return p.name
-    return None
-
-
 ## @brief Parse a single source file and extract tagged functions.
-#  @version 1.5
+#  @version 1.6
 #  @internal
 def _process_source_file(
     source_file: Path,
@@ -176,7 +135,7 @@ def _process_source_file(
     lines = content.splitlines()
     tagged: list[TaggedFunction] = []
     for func in functions:
-        tf = _extract_tagged_function(func, str(source_file), req_participant_map, lines)
+        tf = _extract_tagged_function(func, str(source_file), req_participant_map, lines, config)
         if tf is not None:
             tagged.append(tf)
     return tagged
@@ -258,13 +217,14 @@ def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
 
 
 ## @brief Build a TaggedFunction, resolving participant and capturing body text.
-#  @version 1.4
+#  @version 1.5
 #  @internal
 def _extract_tagged_function(
     func: Function,
     file_path: str,
     req_participant_map: dict[str, str],
     lines: list[str],
+    config: dict[str, Any] | None = None,
 ) -> TaggedFunction | None:
     if func.doxygen is None:
         return None
@@ -280,12 +240,13 @@ def _extract_tagged_function(
         return None
 
     body_text = "\n".join(lines[func.def_line : func.body_end + 1])
+    declared_emits = tags.get("emits", [])
 
-    return TaggedFunction(
+    tf = TaggedFunction(
         name=func.name,
         file_path=file_path,
         participant_name=_resolve_participant_from_reqs(reqs, req_participant_map),
-        emits=tags.get("emits", []),
+        emits=declared_emits,
         handles=tags.get("handles", []),
         ext=tags.get("ext", []),
         triggers=tags.get("triggers", []),
@@ -294,6 +255,88 @@ def _extract_tagged_function(
         assumes=assumes,
         body=body_text,
     )
+
+    if config:
+        _apply_emit_inference(tf, body_text, config)
+
+    return tf
+
+
+## @brief Infer @emits from emit function calls found in the function body.
+#  @version 1.0
+#  @internal
+def _apply_emit_inference(
+    tf: TaggedFunction,
+    body_text: str,
+    config: dict[str, Any],
+) -> None:
+    trace_options = get_trace(config).get("options", {})
+    if not trace_options.get("infer_emits", True):
+        return
+
+    emit_fns = trace_options.get("event_emit_functions", ["event_post"])
+    event_prefix = trace_options.get("event_constant_prefix", "EVENT_")
+    tag_prefix = trace_options.get("event_tag_prefix", "EVENT:")
+    name_pattern = trace_options.get("event_name_pattern", r"^[A-Z][A-Z0-9_]*$")
+    declared = set(tf.emits)
+
+    for fn_name in emit_fns:
+        pattern = rf"\b{re.escape(fn_name)}\s*\(\s*(\w+)"
+        for match in re.finditer(pattern, body_text):
+            constant = match.group(1)
+            if not re.match(name_pattern, constant):
+                logger.warning(
+                    "Rejected inferred event '%s' in %s() — fails pattern", constant, tf.name
+                )
+                continue
+            event = _constant_to_event_tag(constant, event_prefix, tag_prefix)
+            if event and event not in declared:
+                tf.emits.append(event)
+                declared.add(event)
+                logger.info("Inferred @emits %s in %s()", event, tf.name)
+
+
+## @brief Convert a C constant name to an EVENT: tag.
+#  @version 1.0
+#  @internal
+def _constant_to_event_tag(
+    constant: str,
+    event_prefix: str,
+    tag_prefix: str,
+) -> str | None:
+    if not constant.startswith(event_prefix):
+        return None
+    suffix = constant[len(event_prefix) :]
+    return f"{tag_prefix}{suffix}"
+
+
+## @brief Detect phantom @emits — declared but no matching call in body.
+#  @version 1.0
+#  @internal
+def detect_phantom_emits(
+    tf: TaggedFunction,
+    config: dict[str, Any],
+) -> list[str]:
+    trace_options = get_trace(config).get("options", {})
+    emit_fns = trace_options.get("event_emit_functions", ["event_post"])
+    event_prefix = trace_options.get("event_constant_prefix", "EVENT_")
+
+    called_constants: set[str] = set()
+    for fn_name in emit_fns:
+        pattern = rf"\b{re.escape(fn_name)}\s*\(\s*(\w+)"
+        for match in re.finditer(pattern, tf.body):
+            called_constants.add(match.group(1))
+
+    phantoms: list[str] = []
+    for event in tf.emits:
+        suffix = event.split(":", 1)[-1] if ":" in event else event
+        expected_constant = f"{event_prefix}{suffix}"
+        if expected_constant not in called_constants:
+            phantoms.append(event)
+            logger.warning(
+                "Possible phantom @emits %s in %s() — no matching call found", event, tf.name
+            )
+    return phantoms
 
 
 ## @brief Build the global handler map from ALL tagged functions.
@@ -318,7 +361,7 @@ def _build_handler_map(
 
 
 ## @brief Build emit edges, resolving handlers globally and falling back to prefix routing.
-#  @version 1.5
+#  @version 1.6
 #  @req REQ-TRACE-001
 def _build_emit_edges(
     tf: TaggedFunction,
@@ -333,7 +376,7 @@ def _build_emit_edges(
         if handlers:
             for handler in handlers:
                 to_name = handler.participant_name or handler.name
-                label = f"{tf.name}() \u2192 {handler.name}()"
+                label = f"{tf.name}() -> {handler.name}()"
                 edges.append(Edge(from_name, to_name, label, event, "-->"))
         else:
             prefix_target = _resolve_by_prefix(event, externals)
@@ -344,27 +387,51 @@ def _build_emit_edges(
     return edges, warnings
 
 
+## @brief Resolve a single ext reference to a target participant name.
+#  @version 1.0
+#  @internal
+def _resolve_ext_participant(
+    ext_ref: str,
+    from_name: str,
+    all_tagged: list[TaggedFunction],
+    participants: list[Participant] | None,
+) -> tuple[str, str, str | None]:
+    parts = ext_ref.split("::", 1)
+    func_name = parts[1] if len(parts) == 2 else ext_ref
+    mod = parts[0] if len(parts) == 2 else ext_ref
+    resolved = _resolve_ext_target(func_name, mod, all_tagged, participants)
+    to_name = resolved or mod
+    if to_name == from_name and mod != ext_ref:
+        to_name = mod.replace("_", " ").title()
+    warning = None if resolved else f"Unresolved @ext '{ext_ref}' — using '{mod}' as participant"
+    return func_name, to_name, warning
+
+
 ## @brief Build ext call edges.
-#  @version 1.5
+#  @version 1.7
 #  @req REQ-TRACE-001
 def _build_ext_edges(
     tf: TaggedFunction,
     from_name: str,
     all_tagged: list[TaggedFunction],
+    participants: list[Participant] | None = None,
+    show_returns: bool = True,
 ) -> tuple[list[Edge], list[str]]:
     edges: list[Edge] = []
     warnings: list[str] = []
     for ext_ref in tf.ext:
-        parts = ext_ref.split("::", 1)
-        func_name = parts[1] if len(parts) == 2 else ext_ref
-        mod = parts[0] if len(parts) == 2 else ext_ref
-        resolved = _resolve_ext_target(func_name, mod, all_tagged)
-        if not resolved:
-            warnings.append(
-                f"Unresolved @ext '{ext_ref}' in {tf.name}() — using '{mod}' as participant"
-            )
-        to_name = resolved or mod
-        edges.append(Edge(from_name, to_name, f"{func_name}()"))
+        func_name, to_name, warning = _resolve_ext_participant(
+            ext_ref, from_name, all_tagged, participants
+        )
+        if warning:
+            warnings.append(f"{warning} in {tf.name}()")
+        is_async = participants and any(
+            to_name == p.name for p in participants if p.receives_prefix
+        )
+        style = "-->" if is_async else "->"
+        edges.append(Edge(from_name, to_name, f"{func_name}()", style=style))
+        if show_returns:
+            edges.append(Edge(to_name, from_name, "return", style="-->"))
     return edges, warnings
 
 
@@ -376,23 +443,6 @@ def _build_trigger_edges(
     from_name: str,
 ) -> list[Edge]:
     return [Edge(from_name, from_name, t, style="note") for t in tf.triggers]
-
-
-## @brief Resolve an ext reference to a participant via function name or module path.
-#  @version 1.4
-#  @internal
-def _resolve_ext_target(
-    func_name: str,
-    module: str,
-    all_tagged: list[TaggedFunction],
-) -> str | None:
-    for tf in all_tagged:
-        if tf.name == func_name and tf.participant_name:
-            return tf.participant_name
-    for tf in all_tagged:
-        if tf.participant_name and module in Path(tf.file_path).parts:
-            return tf.participant_name
-    return None
 
 
 ## @brief Scan function bodies for calls to other known functions.
@@ -474,7 +524,7 @@ def _build_inbound_edges(
 
 
 ## @brief Build edges for emitting functions, using global handler resolution.
-#  @version 1.7
+#  @version 1.8
 #  @req REQ-TRACE-001
 def build_sequence_edges(
     emitters: list[TaggedFunction],
@@ -496,7 +546,7 @@ def build_sequence_edges(
         emit_edges, warnings = _build_emit_edges(tf, from_name, handler_map, externals)
         edges.extend(emit_edges)
         all_warnings.extend(warnings)
-        ext_edges, ext_warnings = _build_ext_edges(tf, from_name, all_tagged)
+        ext_edges, ext_warnings = _build_ext_edges(tf, from_name, all_tagged, participants)
         edges.extend(ext_edges)
         all_warnings.extend(ext_warnings)
         edges.extend(_build_call_edges(tf, from_name, all_tagged, req_id=req_id))
@@ -554,8 +604,18 @@ def _partition_participants(
     return internal, external
 
 
+## @brief Find participant names referenced in edges but not in the declared set.
+#  @version 1.1
+#  @internal
+def _find_undeclared_participants(
+    active_names: list[str],
+    participant_set: set[str],
+) -> list[str]:
+    return [name for name in active_names if name not in participant_set]
+
+
 ## @brief Render participant declarations with box grouping and entity stereotypes.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _render_participants(
     active_names: list[str],
@@ -564,13 +624,17 @@ def _render_participants(
     options: dict[str, Any],
 ) -> list[str]:
     internal, external = _partition_participants(active_names, participants)
+    undeclared = _find_undeclared_participants(active_names, participant_set)
     lines: list[str] = []
 
     for pname in external:
         if pname in participant_set:
             lines.append(f'entity "{pname}" as {_safe_id(pname)}')
 
-    if external and internal:
+    for pname in undeclared:
+        lines.append(f'entity "{pname}" as {_safe_id(pname)}')
+
+    if (external or undeclared) and internal:
         lines.append("")
 
     box_label = options.get("box_label", "System")
@@ -591,8 +655,29 @@ def _get_name_col(config: dict[str, Any]) -> str:
     return get_impact(config).get("requirements", {}).get("name_column", "Name")
 
 
+## @brief Wrap text at word boundaries for PlantUML display.
+#  @version 1.0
+#  @internal
+def _wrap_text(text: str, width: int = 60) -> str:
+    words = text.split()
+    lines: list[str] = []
+    current: list[str] = []
+    length = 0
+    for word in words:
+        if length + len(word) + len(current) > width and current:
+            lines.append(" ".join(current))
+            current = [word]
+            length = len(word)
+        else:
+            current.append(word)
+            length += len(word)
+    if current:
+        lines.append(" ".join(current))
+    return "\\n".join(lines)
+
+
 ## @brief Build header parts from requirement row metadata.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _build_req_header_parts(
     req_id: str,
@@ -609,7 +694,7 @@ def _build_req_header_parts(
         value = req_row.get(key, "").strip()
         if value:
             label = key.replace("_", " ").title()
-            parts.append(f"//{label}:// {value}")
+            parts.append(f"//{label}:// {_wrap_text(value, 60)}")
     return parts
 
 
@@ -635,7 +720,7 @@ def _render_req_header(
 
 
 ## @brief Render edges and function listings as a PlantUML block.
-#  @version 1.9
+#  @version 1.10
 #  @req REQ-TRACE-001
 def generate_plantuml(
     req_id: str,
@@ -655,6 +740,7 @@ def generate_plantuml(
     lines = [f"@startuml {title}"]
     if options.get("autonumber", True):
         lines.append("autonumber")
+    lines.extend(_render_skinparam(options))
     lines.append("")
 
     active_names = _collect_all_active_names(edges, functions)
@@ -665,11 +751,16 @@ def generate_plantuml(
     lines.extend(_render_req_header(req_id, req_row, name_col, preconditions=preconditions))
     lines.extend(_render_unlisted_functions(functions, edges))
 
+    label_mode = options.get("label_mode", "full")
     if functions and edges:
         lines.append("")
 
     for edge in edges:
-        lines.append(_render_edge(edge))
+        lines.append(_render_edge(edge, label_mode))
+        lines.extend(_render_edge_activation(edge))
+
+    if options.get("legend", False):
+        lines.extend(_render_legend())
 
     lines.extend(["", "@enduml"])
     return "\n".join(lines)
@@ -682,20 +773,67 @@ def _safe_id(name: str) -> str:
     return re.sub(r"[^\w]", "_", name)
 
 
-## @brief Render a single edge as a PlantUML line.
-#  @version 1.4
+## @brief Sanitize a label for safe embedding in PlantUML output.
+#  @version 1.1
 #  @internal
-def _render_edge(edge: Edge) -> str:
+def _sanitize_label(label: str) -> str:
+    result = label.replace("`", "'").replace(";", ",")
+    result = result.replace("<<", "((").replace(">>", "))")
+    result = re.sub(r"(?<!-)(<)(?!-)", "(", result)
+    result = re.sub(r"(?<!-)(>)(?!-)", ")", result)
+    return result
+
+
+## @brief Select the raw label text based on label_mode.
+#  @version 1.0
+#  @internal
+def _select_label_text(label: str, event: str | None, mode: str) -> str:
+    if mode == "full":
+        san_label = _sanitize_label(label)
+        if event and san_label:
+            return f"{_sanitize_label(event)}\\n{san_label}"
+        return _sanitize_label(event) if event else san_label
+    raw = event if event else label
+    if mode == "brief":
+        raw = raw.split(":", 1)[-1] if ":" in raw else raw
+    return _sanitize_label(raw)
+
+
+## @brief Render default skinparam lines for PlantUML diagrams.
+#  @version 1.0
+#  @internal
+def _render_skinparam(options: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
+    defaults = {"maxMessageSize": "200", "responseMessageBelowArrow": "true"}
+    user_params = options.get("skinparam", {})
+    merged = {**defaults, **user_params}
+    for key, value in merged.items():
+        lines.append(f"skinparam {key} {value}")
+    return lines
+
+
+## @brief Render a single edge as a PlantUML line.
+#  @version 1.6
+#  @internal
+def _render_edge(edge: Edge, label_mode: str = "full") -> str:
     f = _safe_id(edge.from_name)
     t = _safe_id(edge.to_name)
     if edge.style == "note":
-        return f"note right of {f}: {edge.label}"
-    label = edge.label
-    if edge.event and label:
-        label = f"{edge.event}\\n{label}"
-    elif edge.event:
-        label = edge.event
+        return f"note right of {f}: {_sanitize_label(edge.label)}"
+    label = _select_label_text(edge.label, edge.event, label_mode)
     return f"{f} {edge.style} {t}: {label}"
+
+
+## @brief Emit activate/deactivate for a legacy edge.
+#  @version 1.0
+#  @internal
+def _render_edge_activation(edge: Edge) -> list[str]:
+    f = _safe_id(edge.from_name)
+    t = _safe_id(edge.to_name)
+    if edge.label == "return":
+        return [f"deactivate {f}"]
+    activate = f != t and edge.style != "note"
+    return [f"activate {t}"] if activate else []
 
 
 ## @brief Extract ordered participant names from edges.
@@ -742,10 +880,13 @@ def _safe_filename(req_id: str) -> str:
 
 
 ## @brief Save .puml content to the configured output directory.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-TRACE-001
 def write_diagram(req_id: str, puml_content: str, output_dir: str) -> Path:
     out_path = Path(output_dir)
+    if ".." in out_path.parts:
+        msg = f"Output path '{output_dir}' contains directory traversal"
+        raise ValueError(msg)
     out_path.mkdir(parents=True, exist_ok=True)
 
     safe_name = _safe_filename(req_id)
@@ -771,12 +912,13 @@ def _collect_assumes(funcs: list[TaggedFunction]) -> list[str]:
 
 
 ## @brief Infer entry edges from unresolved handles events within a REQ scope.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-TRACE-001
 def _infer_entry_edges(
     req_funcs: list[TaggedFunction],
     all_tagged: list[TaggedFunction],
     participants: list[Participant],
+    fallback_name: str = "External",
 ) -> list[Edge]:
     all_emitted: set[str] = set()
     for tf in all_tagged:
@@ -791,15 +933,95 @@ def _infer_entry_edges(
             if event in all_emitted or event in seen:
                 continue
             seen.add(event)
-            source = _resolve_by_prefix(event, externals) or "External"
+            source = _resolve_by_prefix(event, externals) or fallback_name
             to_name = tf.participant_name or tf.name
-            entries.append(Edge(source, to_name, event, style="->"))
+            label = f"{tf.name}()"
+            entries.append(Edge(source, to_name, label, event=event, style="-->"))
 
     return entries
 
 
+## @brief Build a causal dependency graph from emitters' emit/handle relationships.
+#  @version 1.1
+#  @internal
+def _build_causal_graph(
+    emitters: list[TaggedFunction],
+) -> tuple[dict[str, list[str]], dict[str, int]]:
+    emit_map: dict[str, str] = {}
+    for tf in emitters:
+        for event in tf.emits:
+            emit_map[event] = tf.name
+
+    adj: dict[str, list[str]] = {tf.name: [] for tf in emitters}
+    in_degree: dict[str, int] = {tf.name: 0 for tf in emitters}
+
+    for tf in emitters:
+        for event in tf.handles:
+            producer = emit_map.get(event)
+            if producer and producer != tf.name and producer in adj:
+                adj[producer].append(tf.name)
+                in_degree[tf.name] += 1
+
+    return adj, in_degree
+
+
+## @brief Sort emitters by causal dependency so product diagrams show correct order.
+#  @details If emitter A emits EVENT:X and emitter B handles EVENT:X, A precedes B.
+#  Entry functions (handling events not emitted by any emitter in the set) come first.
+#  Cycles broken by appending remaining emitters in original order.
+#  @version 1.1
+#  @internal
+def _toposort_emitters(emitters: list[TaggedFunction]) -> list[TaggedFunction]:
+    if len(emitters) <= 1:
+        return emitters
+
+    name_to_tf: dict[str, TaggedFunction] = {tf.name: tf for tf in emitters}
+    adj, in_degree = _build_causal_graph(emitters)
+
+    queue = deque(name for name, deg in in_degree.items() if deg == 0)
+    result: list[TaggedFunction] = []
+
+    while queue:
+        name = queue.popleft()
+        result.append(name_to_tf[name])
+        for neighbor in adj[name]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+
+    seen = {tf.name for tf in result}
+    for tf in emitters:
+        if tf.name not in seen:
+            result.append(tf)
+
+    return result
+
+
+## @brief Detect the dominant language spec from a list of emitters' file paths.
+#  @version 1.1
+#  @internal
+def _detect_dominant_spec(
+    emitters: list[TaggedFunction],
+    config: dict[str, Any],
+) -> Any:
+    from doxygen_guard.ts_languages import language_for_file
+
+    lang_counts: dict[str, int] = {}
+    for tf in emitters:
+        lang = language_for_file(tf.file_path, config)
+        if lang:
+            lang_counts[lang] = lang_counts.get(lang, 0) + 1
+    if not lang_counts:
+        return None
+    dominant = max(lang_counts, key=lang_counts.get)  # type: ignore[arg-type]
+
+    from doxygen_guard.ts_languages import get_language_spec
+
+    return get_language_spec(dominant)
+
+
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.0
+#  @version 1.2
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -815,28 +1037,38 @@ def build_sequence_edges_ast(
     handler_map = _build_handler_map(all_tagged)
     externals = [p for p in participants if p.receives_prefix]
 
-    trace_options = get_trace(config).get("options", {})
+    trace_config = get_trace(config)
+    trace_options = trace_config.get("options", {})
     emit_fns = set(trace_options.get("event_emit_functions", ["event_post"]))
     max_depth = trace_options.get("max_chain_depth", 3)
+    fallback_name = trace_config.get("external_fallback", "External")
+    show_returns = trace_options.get("show_returns", True)
 
-    spec = get_language_spec("c")
+    spec = _detect_dominant_spec(emitters, config) or get_language_spec("c")
     if not spec:
         return []
 
     ast_edges: list[ASTEdge] = []
     visited: set[str] = set()
 
-    entry_edges = _infer_entry_edges(emitters, all_tagged, participants)
+    entry_edges = _infer_entry_edges(emitters, all_tagged, participants, fallback_name)
     for edge in entry_edges:
         ast_edges.append(ASTEdge(kind="entry", edge=edge))
 
-    for tf in emitters:
+    sorted_emitters = _toposort_emitters(emitters)
+    emitter_count = 0
+
+    for tf in sorted_emitters:
         if tf.name in visited:
             continue
 
         func_node = _lookup_func_node(tf, file_cache)
         if func_node is None:
             continue
+
+        if emitter_count > 0 or entry_edges:
+            ast_edges.append(ASTEdge(kind="section", label=f"{tf.name}()"))
+        emitter_count += 1
 
         file_spec = _spec_for_file(tf.file_path, config) or spec
         ctx = WalkContext(
@@ -849,6 +1081,8 @@ def build_sequence_edges_ast(
             max_depth=max_depth,
             visited=visited,
             file_cache=file_cache,
+            show_returns=show_returns,
+            participants=participants,
         )
         visited.add(tf.name)
         ast_edges.extend(walk_function_body(func_node, tf, ctx))
@@ -878,32 +1112,116 @@ def _spec_for_file(file_path: str, config: dict[str, Any]) -> Any:
     return get_language_spec(lang) if lang else None
 
 
-## @brief Render ASTEdge list as PlantUML lines.
-#  @version 1.0
+_EDGE_KINDS = frozenset(("emit", "ext", "call", "trigger", "entry"))
+
+_SIMPLE_KINDS: dict[str, str] = {
+    "loop_end": "end loop",
+    "alt_end": "end alt",
+    "else": "else",
+    "try_end": "end group",
+    "catch_end": "end group",
+    "finally_end": "end group",
+    "switch_end": "end alt",
+    "group_end": "end group",
+}
+
+
+## @brief Render ASTEdge list as PlantUML lines with activate/deactivate.
+#  @version 1.3
 #  @internal
-def _render_ast_edges(ast_edges: list) -> list[str]:
+def _render_ast_edges(ast_edges: list, label_mode: str = "full") -> list[str]:
     lines: list[str] = []
+    active: set[str] = set()
     for ae in ast_edges:
-        if ae.kind in ("emit", "ext", "call", "trigger", "entry"):
+        if ae.kind == "section":
+            lines.append(f"== {ae.label} ==")
+        elif ae.kind in _EDGE_KINDS:
             if ae.edge:
-                lines.append(_render_edge(ae.edge))
-        elif ae.kind == "loop_start":
-            label = f" {ae.label}" if ae.label else ""
-            lines.append(f"loop{label}")
-        elif ae.kind == "loop_end":
-            lines.append("end loop")
-        elif ae.kind == "alt_start":
-            label = f" {ae.label}" if ae.label else ""
-            lines.append(f"alt{label}")
-        elif ae.kind == "else":
-            lines.append("else")
-        elif ae.kind == "alt_end":
-            lines.append("end alt")
+                lines.append(_render_edge(ae.edge, label_mode))
+                lines.extend(_render_activation(ae, active))
+        elif ae.kind in _SIMPLE_KINDS:
+            lines.append(_SIMPLE_KINDS[ae.kind])
+        else:
+            line = _render_block_start(ae)
+            if line:
+                lines.append(line)
     return lines
 
 
+## @brief Emit activate/deactivate lines for an edge.
+#  @details Only activates on entry edges and @ext calls. Deactivates on returns.
+#  Avoids stacking activations inside loops or handler chains.
+#  @version 1.1
+#  @internal
+def _render_activation(ae, active: set[str] | None = None) -> list[str]:
+    edge = ae.edge
+    if edge is None or ae.kind == "trigger" or edge.style == "note":
+        return []
+    if active is None:
+        active = set()
+    f = _safe_id(edge.from_name)
+    t = _safe_id(edge.to_name)
+    result = _compute_activation(ae.kind, edge.label, f, t, active)
+    return [result] if result else []
+
+
+## @brief Determine the activate/deactivate line for an edge.
+#  @version 1.1
+#  @internal
+def _compute_activation(kind: str, label: str, f: str, t: str, active: set[str]) -> str | None:
+    if label == "return" and f in active:
+        active.discard(f)
+        return f"deactivate {f}"
+    if f != t and kind in ("entry", "ext") and t not in active:
+        active.add(t)
+        return f"activate {t}"
+    return None
+
+
+_LABEL_BLOCK_KINDS: dict[str, str] = {
+    "loop_start": "loop",
+    "alt_start": "alt",
+    "catch_start": "group catch",
+    "switch_start": "alt",
+    "switch_case": "else",
+    "group_start": "group",
+}
+
+_FIXED_BLOCK_KINDS: dict[str, str] = {
+    "try_start": "group try",
+    "finally_start": "group finally",
+    "switch_default": "else default",
+}
+
+
+## @brief Render a block-start ASTEdge kind as a PlantUML line.
+#  @version 1.1
+#  @internal
+def _render_block_start(ae) -> str | None:
+    label = f" {ae.label}" if ae.label else ""
+    if ae.kind in _LABEL_BLOCK_KINDS:
+        return f"{_LABEL_BLOCK_KINDS[ae.kind]}{label}"
+    if ae.kind in _FIXED_BLOCK_KINDS:
+        return _FIXED_BLOCK_KINDS[ae.kind]
+    note_label = ae.label if ae.kind in ("throw", "goto_note") else None
+    return f"note right: {note_label}" if note_label else None
+
+
+## @brief Render an arrow style legend block.
+#  @version 1.1
+#  @internal
+def _render_legend() -> list[str]:
+    return [
+        "",
+        "legend right",
+        "  -> solid: synchronous call",
+        "  --> dashed: asynchronous event",
+        "end legend",
+    ]
+
+
 ## @brief Generate PlantUML from AST-ordered edges.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-TRACE-001
 def generate_plantuml_ast(
     req_id: str,
@@ -920,9 +1238,12 @@ def generate_plantuml_ast(
     req_name = req_row.get(name_col) if req_row else None
     title = f"{req_id} {req_name}" if req_name else req_id
 
+    label_mode = options.get("label_mode", "full")
+
     lines = [f"@startuml {title}"]
     if options.get("autonumber", True):
         lines.append("autonumber")
+    lines.extend(_render_skinparam(options))
     lines.append("")
 
     flat_edges = [ae.edge for ae in ast_edges if ae.edge is not None]
@@ -932,10 +1253,14 @@ def generate_plantuml_ast(
 
     lines.append("")
     lines.extend(_render_req_header(req_id, req_row, name_col, preconditions=preconditions))
+    lines.extend(_render_unlisted_functions(functions, flat_edges))
 
     if ast_edges:
         lines.append("")
-    lines.extend(_render_ast_edges(ast_edges))
+    lines.extend(_render_ast_edges(ast_edges, label_mode))
+
+    if options.get("legend", False):
+        lines.extend(_render_legend())
 
     lines.extend(["", "@enduml"])
     return "\n".join(lines)
@@ -957,47 +1282,45 @@ def _resolve_preconditions(
     return labels
 
 
-## @brief Shared parameters for diagram generation across requirements.
-#  @version 1.0
-#  @internal
-@dataclass
-class _DiagramBuildParams:
-    all_tagged: list[TaggedFunction]
-    participants: list[Participant]
-    config: dict[str, Any]
-    file_cache: dict | None = None
-
-
 ## @brief Generate PlantUML for a single requirement using AST or legacy path.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _generate_req_diagram(
     r: str,
     funcs: list[TaggedFunction],
-    params: _DiagramBuildParams,
+    params: DiagramBuildParams,
     diagram_ctx: DiagramContext,
-) -> tuple[str, list[str]]:
+) -> tuple[str | None, list[str]]:
     warnings: list[str] = []
     at = params.all_tagged
     pp = params.participants
     cfg = params.config
+    min_edges = get_trace(cfg).get("options", {}).get("min_edges", 0)
+
     if params.file_cache:
         ast_edges = build_sequence_edges_ast(
             funcs, at, pp, cfg, req_id=r, file_cache=params.file_cache
         )
+        behavioral = [ae for ae in ast_edges if ae.edge is not None]
+        if min_edges and len(behavioral) < min_edges:
+            logger.info("Skipping %s: %d edges below min_edges=%d", r, len(behavioral), min_edges)
+            return None, warnings
         puml = generate_plantuml_ast(r, ast_edges, funcs, pp, cfg, context=diagram_ctx)
     else:
         edges, edge_warnings = build_sequence_edges(funcs, at, pp, req_id=r)
         warnings.extend(edge_warnings)
+        if min_edges and len(edges) < min_edges:
+            logger.info("Skipping %s: %d edges below min_edges=%d", r, len(edges), min_edges)
+            return None, warnings
         puml = generate_plantuml(r, edges, funcs, pp, cfg, context=diagram_ctx)
     return puml, warnings
 
 
 ## @brief Generate diagrams, filtering emitters by REQ but resolving handlers globally.
-#  @version 1.9
+#  @version 1.10
 #  @internal
 def _write_diagrams_for_reqs(
-    params: _DiagramBuildParams,
+    params: DiagramBuildParams,
     output_dir: str,
     req_id: str | None = None,
     req_data: dict[str, dict[str, str]] | None = None,
@@ -1011,25 +1334,22 @@ def _write_diagrams_for_reqs(
     name_col = _get_name_col(params.config)
 
     if req_id:
-        funcs = [tf for tf in all_tagged if req_id in tf.reqs]
-        if not funcs:
+        req_groups = {req_id: [tf for tf in all_tagged if req_id in tf.reqs]}
+        if not req_groups[req_id]:
             return [], all_warnings
-        ctx = _build_diagram_context(funcs, req_data, req_id, name_col)
-        puml, warnings = _generate_req_diagram(req_id, funcs, params, ctx)
-        all_warnings.extend(warnings)
-        return [write_diagram(req_id, puml, output_dir)], all_warnings
-
-    req_groups: dict[str, list[TaggedFunction]] = {}
-    for tf in all_tagged:
-        for req in tf.reqs:
-            req_groups.setdefault(req, []).append(tf)
+    else:
+        req_groups = {}
+        for tf in all_tagged:
+            for req in tf.reqs:
+                req_groups.setdefault(req, []).append(tf)
 
     written: list[Path] = []
     for r, funcs in sorted(req_groups.items()):
         ctx = _build_diagram_context(funcs, req_data, r, name_col)
         puml, warnings = _generate_req_diagram(r, funcs, params, ctx)
         all_warnings.extend(warnings)
-        written.append(write_diagram(r, puml, output_dir))
+        if puml is not None:
+            written.append(write_diagram(r, puml, output_dir))
     return written, all_warnings
 
 
@@ -1093,7 +1413,7 @@ def write_infrastructure_table(
 
 
 ## @brief Orchestrate scanning, edge building, and diagram generation.
-#  @version 1.6
+#  @version 1.7
 #  @req REQ-TRACE-001
 def run_trace(
     source_dirs: list[str],
@@ -1113,9 +1433,12 @@ def run_trace(
         logger.warning("No tagged functions found%s", f" for {req_id}" if req_id else "")
         return [], []
 
+    for tf in all_tagged:
+        detect_phantom_emits(tf, config)
+
     base_dir = config.get("output_dir", "docs/generated/")
     seq_dir = str(Path(base_dir) / "sequences")
-    params = _DiagramBuildParams(all_tagged, participants, config, file_cache)
+    params = DiagramBuildParams(all_tagged, participants, config, file_cache)
     written, warnings = _write_diagrams_for_reqs(params, seq_dir, req_id, full_reqs)
 
     if trace_all:

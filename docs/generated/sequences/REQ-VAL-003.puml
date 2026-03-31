@@ -1,5 +1,7 @@
 @startuml REQ-VAL-003 Tag syntax validation
 autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Validate" as Validate
@@ -7,8 +9,8 @@ end box
 
 header
   **REQ-VAL-003: Tag syntax validation**
-  //Description:// Validate doxygen tag values against configured patterns and prefixes
-  //Acceptance Criteria:// Tag values not matching configured pattern or prefix produce tag violations
+  //Description:// Validate doxygen tag values against configured patterns and\nprefixes
+  //Acceptance Criteria:// Tag values not matching configured pattern or prefix produce\ntag violations
 end header
 
 

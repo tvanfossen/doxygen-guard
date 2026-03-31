@@ -158,10 +158,21 @@ class TestGetMergeBase:
 
     def test_branch_diff_range_builds_range_string(self):
         def mock_runner(cmd):
+            if "rev-parse" in cmd:
+                return "def456\n"
             return "abc123\n"
 
         result = get_branch_diff_range("origin/main", run_command=mock_runner)
         assert result == "abc123...HEAD"
+
+    def test_branch_diff_range_returns_none_on_main(self):
+        """When merge-base == HEAD (on main), returns None for staged fallback."""
+
+        def mock_runner(cmd):
+            return "abc123\n"
+
+        result = get_branch_diff_range("origin/main", run_command=mock_runner)
+        assert result is None
 
     def test_branch_diff_range_returns_none_on_failure(self):
         import subprocess

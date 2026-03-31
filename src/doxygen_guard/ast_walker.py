@@ -7,11 +7,16 @@
 from __future__ import annotations
 
 import logging
-from collections import deque
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from doxygen_guard.tracer import Edge, Participant, TaggedFunction
+from doxygen_guard.tracer_models import (
+    Edge,
+    Participant,
+    TaggedFunction,
+    resolve_by_prefix,
+    resolve_ext_target,
+)
 
 if TYPE_CHECKING:
     from tree_sitter import Node
@@ -46,10 +51,12 @@ class WalkContext:
     max_depth: int = 3
     visited: set[str] | None = None
     file_cache: dict[str, Any] | None = None
+    show_returns: bool = True
+    participants: list[Participant] | None = None
 
 
 ## @brief Mutable state threaded through the recursive AST walk.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 @dataclass
 class _WalkState:
@@ -57,14 +64,14 @@ class _WalkState:
     tf: TaggedFunction
     ctx: WalkContext
     depth: int
-    emit_queue: deque[str]
-    emits_placed: bool
+    emit_set: set[str]
+    emits_placed: set[str]
     ext_refs: dict[str, str]
     edges: list[ASTEdge]
 
 
 ## @brief Walk a function body AST to produce edges in source execution order.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-TRACE-001
 def walk_function_body(
     func_node: Node,
@@ -89,16 +96,17 @@ def walk_function_body(
         tf=tf,
         ctx=ctx,
         depth=depth,
-        emit_queue=deque(tf.emits),
-        emits_placed=False,
+        emit_set=set(tf.emits),
+        emits_placed=set(),
         ext_refs={ref.split("::", 1)[-1]: ref for ref in tf.ext},
         edges=edges,
     )
 
     _walk_statements(body, state)
 
-    if state.emit_queue:
-        _flush_remaining_emits(state.emit_queue, from_name, tf.name, ctx, depth, edges)
+    remaining = state.emit_set - state.emits_placed
+    if remaining:
+        _flush_remaining_emits(remaining, from_name, tf.name, ctx, depth, edges)
 
     return edges
 
@@ -120,7 +128,7 @@ def _walk_statements(
 
 
 ## @brief Handle a call expression node, producing the appropriate edge type.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _handle_call(
     call_node: Node,
@@ -130,11 +138,9 @@ def _handle_call(
     if callee is None:
         return
 
-    if callee in state.ctx.emit_functions and state.emit_queue:
-        _place_one_emit(
-            state.emit_queue, state.from_name, state.tf.name, state.ctx, state.depth, state.edges
-        )
-        state.emits_placed = True
+    unplaced = state.emit_set - state.emits_placed
+    if callee in state.ctx.emit_functions and unplaced:
+        _place_matched_emit(call_node, state)
         return
 
     if callee in state.ext_refs:
@@ -150,46 +156,85 @@ def _handle_call(
             )
 
 
-## @brief Place ONE emit edge from the queue at the current AST position.
-#  @version 1.2
+## @brief Place an emit at the call site by matching the event argument.
+#  @version 1.0
 #  @internal
-def _place_one_emit(
-    emit_queue: deque[str],
-    from_name: str,
-    func_name: str,
-    ctx: WalkContext,
-    depth: int,
-    edges: list[ASTEdge],
-) -> None:
-    if not emit_queue:
+def _place_matched_emit(call_node: Node, state: _WalkState) -> None:
+    event = _extract_emit_event_arg(call_node, state)
+    if event and event in state.emit_set:
+        state.emits_placed.add(event)
+        _place_emit_edge(event, state)
         return
-    event = emit_queue.popleft()
-    emit_edge, handler_tf = _resolve_emit(event, from_name, func_name, ctx)
-    if emit_edge:
-        edges.append(ASTEdge(kind="emit", edge=emit_edge))
 
-    if handler_tf and depth < ctx.max_depth:
-        chain_edges = _follow_handler_chain(handler_tf, ctx, depth)
-        edges.extend(chain_edges)
+    unplaced = state.emit_set - state.emits_placed
+    if unplaced:
+        event = next(iter(unplaced))
+        state.emits_placed.add(event)
+        _place_emit_edge(event, state)
+
+
+## @brief Place a single emit edge and follow the handler chain.
+#  @version 1.0
+#  @internal
+def _place_emit_edge(event: str, state: _WalkState) -> None:
+    emit_edge, handler_tf = _resolve_emit(event, state.from_name, state.tf.name, state.ctx)
+    if emit_edge:
+        state.edges.append(ASTEdge(kind="emit", edge=emit_edge))
+    if handler_tf and state.depth < state.ctx.max_depth:
+        chain_edges = _follow_handler_chain(handler_tf, state.ctx, state.depth)
+        state.edges.extend(chain_edges)
+
+
+## @brief Extract the event name from an emit function call's first argument.
+#  @version 1.0
+#  @internal
+def _extract_emit_event_arg(call_node: Node, state: _WalkState) -> str | None:
+    args = call_node.child_by_field_name("arguments")
+    if args is None:
+        return None
+    for child in args.named_children:
+        if child.type == "identifier":
+            raw = child.text.decode("utf-8")
+            return _map_constant_to_event(raw, state.emit_set)
+    return None
+
+
+## @brief Map a C constant name to the matching EVENT: tag in the emit set.
+#  @version 1.0
+#  @internal
+def _map_constant_to_event(constant: str, emit_set: set[str]) -> str | None:
+    for event in emit_set:
+        tag_name = event.split(":", 1)[-1] if ":" in event else event
+        const_suffix = (
+            constant.replace("EVENT_", "", 1) if constant.startswith("EVENT_") else constant
+        )
+        if tag_name == const_suffix:
+            return event
+    return None
 
 
 ## @brief Flush remaining emits that weren't matched to any call site.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _flush_remaining_emits(
-    emit_queue: deque[str],
+    remaining: set[str],
     from_name: str,
     func_name: str,
     ctx: WalkContext,
     depth: int,
     edges: list[ASTEdge],
 ) -> None:
-    while emit_queue:
-        _place_one_emit(emit_queue, from_name, func_name, ctx, depth, edges)
+    for event in remaining:
+        emit_edge, handler_tf = _resolve_emit(event, from_name, func_name, ctx)
+        if emit_edge:
+            edges.append(ASTEdge(kind="emit", edge=emit_edge))
+        if handler_tf and depth < ctx.max_depth:
+            chain_edges = _follow_handler_chain(handler_tf, ctx, depth)
+            edges.extend(chain_edges)
 
 
 ## @brief Resolve an emit event to an edge and optionally a handler for chain following.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _resolve_emit(
     event: str,
@@ -201,13 +246,11 @@ def _resolve_emit(
     if handlers:
         handler = handlers[0]
         to_name = handler.participant_name or handler.name
-        label = f"{func_name}() \u2192 {handler.name}()"
+        label = f"{func_name}() -> {handler.name}()"
         edge = Edge(from_name, to_name, label, event, "-->")
         return edge, handler
 
-    from doxygen_guard.tracer import _resolve_by_prefix
-
-    prefix_target = _resolve_by_prefix(event, ctx.externals)
+    prefix_target = resolve_by_prefix(event, ctx.externals)
     if prefix_target:
         edge = Edge(from_name, prefix_target, f"{func_name}()", event, "-->")
         return edge, None
@@ -218,7 +261,7 @@ def _resolve_emit(
 
 
 ## @brief Place an ext edge for a resolved external call.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _place_ext_edge(
     callee: str,
@@ -230,14 +273,24 @@ def _place_ext_edge(
     parts = ext_ref.split("::", 1)
     func_name = parts[1] if len(parts) == 2 else ext_ref
 
-    from doxygen_guard.tracer import _resolve_ext_target
-
-    to_name = _resolve_ext_target(func_name, parts[0], ctx.all_tagged) or parts[0]
-    edges.append(ASTEdge(kind="ext", edge=Edge(from_name, to_name, f"{func_name}()")))
+    module = parts[0] if len(parts) == 2 else ""
+    all_participants = ctx.participants if ctx.participants else ctx.externals
+    to_name = (
+        resolve_ext_target(func_name, module, ctx.all_tagged, all_participants)
+        or module
+        or parts[0]
+    )
+    if to_name == from_name and module:
+        to_name = module.replace("_", " ").title()
+    is_async = any(to_name == p.name for p in ctx.externals if p.receives_prefix)
+    style = "-->" if is_async else "->"
+    edges.append(ASTEdge(kind="ext", edge=Edge(from_name, to_name, f"{func_name}()", style=style)))
+    if ctx.show_returns:
+        edges.append(ASTEdge(kind="ext", edge=Edge(to_name, from_name, "return", style="-->")))
 
 
 ## @brief Follow a handler's body to produce continuation edges.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _follow_handler_chain(
     handler_tf: TaggedFunction,
@@ -263,6 +316,8 @@ def _follow_handler_chain(
         max_depth=ctx.max_depth,
         visited=visited,
         file_cache=ctx.file_cache,
+        show_returns=ctx.show_returns,
+        participants=ctx.participants,
     )
     return walk_function_body(handler_node, handler_tf, chain_ctx, depth + 1)
 
@@ -283,14 +338,47 @@ def _lookup_handler_node(
     return parsed.func_nodes.get(handler_tf.name)
 
 
-## @brief Handle a control flow statement (while/for/if).
-#  @version 1.1
+## @brief Handle a control flow statement dispatching by puml_type.
+#  @version 1.3
 #  @internal
 def _handle_control_flow(
     node: Node,
     state: _WalkState,
 ) -> None:
     puml_type = state.ctx.spec.control_flow_types[node.type]
+    dispatched = _dispatch_specialized_control_flow(node, state, puml_type)
+    if dispatched:
+        return
+    _handle_standard_control_flow(node, state, puml_type)
+
+
+## @brief Dispatch specialized control flow types (try, switch, throw, goto, group).
+#  @version 1.0
+#  @internal
+def _dispatch_specialized_control_flow(
+    node: Node,
+    state: _WalkState,
+    puml_type: str,
+) -> bool:
+    if puml_type in ("throw_note", "goto_note"):
+        _dispatch_note(node, state, puml_type)
+        return True
+    handlers = {"try": _handle_try_block, "switch": _handle_switch, "group": _handle_group}
+    handler = handlers.get(puml_type)
+    if handler:
+        handler(node, state)
+        return True
+    return False
+
+
+## @brief Handle standard loop/alt control flow blocks with pruning.
+#  @version 1.0
+#  @internal
+def _handle_standard_control_flow(
+    node: Node,
+    state: _WalkState,
+    puml_type: str,
+) -> None:
     body_node = node.child_by_field_name("body") or node.child_by_field_name("consequence")
     if body_node is None:
         return
@@ -310,7 +398,7 @@ def _handle_control_flow(
 
 
 ## @brief Handle an alt (if/else) control flow block.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _handle_alt_block(
     node: Node,
@@ -326,7 +414,181 @@ def _handle_alt_block(
     if alternative and _has_tagged_content(alternative, state.ctx, ext_names):
         state.edges.append(ASTEdge(kind="else"))
         _walk_statements(alternative, state)
+    elif not alternative:
+        req_ctx = f" for {state.ctx.req_id}" if state.ctx.req_id else ""
+        logger.warning(
+            "alt block in %s() has no else — failure path undocumented%s",
+            state.tf.name,
+            req_ctx,
+        )
     state.edges.append(ASTEdge(kind="alt_end"))
+
+
+## @brief Handle a try/catch/finally/else block.
+#  @details Error blocks (catch/except/finally) are NEVER pruned — their existence
+#  is valuable even without tagged calls. Only the outer try is prunable if neither
+#  body nor any handler has tagged content.
+#  @version 1.0
+#  @internal
+def _handle_try_block(node: Node, state: _WalkState) -> None:
+    body_node = node.child_by_field_name("body")
+    handlers = _collect_try_children(node)
+    ext_names = set(state.ext_refs.keys())
+
+    has_content = (body_node and _has_tagged_content(body_node, state.ctx, ext_names)) or any(
+        _has_tagged_content(h, state.ctx, ext_names) for h in handlers
+    )
+    if not has_content and not handlers:
+        return
+
+    state.edges.append(ASTEdge(kind="try_start"))
+    if body_node:
+        _walk_statements(body_node, state)
+    state.edges.append(ASTEdge(kind="try_end"))
+
+    for handler in handlers:
+        _render_try_handler(handler, state)
+
+
+## @brief Collect catch/except/finally/else children of a try statement.
+#  @version 1.0
+#  @internal
+def _collect_try_children(node: Node) -> list:
+    handler_types = (
+        "catch_clause",
+        "except_clause",
+        "finally_clause",
+        "else_clause",
+    )
+    return [c for c in node.named_children if c.type in handler_types]
+
+
+## @brief Render a single try handler (catch/except/finally/else).
+#  @version 1.0
+#  @internal
+def _render_try_handler(handler: Node, state: _WalkState) -> None:
+    if handler.type in ("catch_clause", "except_clause"):
+        label = _extract_exception_type(handler)
+        state.edges.append(ASTEdge(kind="catch_start", label=label))
+        _walk_statements(handler, state)
+        state.edges.append(ASTEdge(kind="catch_end"))
+    elif handler.type == "finally_clause":
+        state.edges.append(ASTEdge(kind="finally_start"))
+        _walk_statements(handler, state)
+        state.edges.append(ASTEdge(kind="finally_end"))
+    elif handler.type == "else_clause":
+        _walk_statements(handler, state)
+
+
+## @brief Extract the exception type from a catch/except clause.
+#  @version 1.0
+#  @internal
+def _extract_exception_type(node: Node) -> str:
+    for child in node.named_children:
+        if child.type in ("type_identifier", "scoped_type_identifier", "identifier"):
+            return f"({child.text.decode('utf-8')})"
+    return ""
+
+
+## @brief Handle a switch/case/match block.
+#  @version 1.0
+#  @internal
+def _handle_switch(node: Node, state: _WalkState) -> None:
+    condition = _extract_condition_text(node)
+    body = node.child_by_field_name("body")
+    if body is None:
+        return
+
+    cases = _collect_switch_cases(body)
+    ext_names = set(state.ext_refs.keys())
+    if not any(_has_tagged_content(c, state.ctx, ext_names) for c in cases):
+        return
+
+    first = True
+    for case_node in cases:
+        label = _extract_case_label(case_node)
+        if first:
+            state.edges.append(ASTEdge(kind="switch_start", label=f"{condition} [{label}]"))
+            first = False
+        elif label == "default":
+            state.edges.append(ASTEdge(kind="switch_default"))
+        else:
+            state.edges.append(ASTEdge(kind="switch_case", label=f" [{label}]"))
+        _walk_statements(case_node, state)
+    state.edges.append(ASTEdge(kind="switch_end"))
+
+
+## @brief Collect case/default children from a switch body.
+#  @version 1.0
+#  @internal
+def _collect_switch_cases(body: Node) -> list:
+    case_types = ("case_statement", "case_clause", "default_statement")
+    return [c for c in body.named_children if c.type in case_types]
+
+
+## @brief Extract label text from a case node.
+#  @version 1.0
+#  @internal
+def _extract_case_label(case_node: Node) -> str:
+    if "default" in case_node.type:
+        return "default"
+    value = case_node.child_by_field_name("value")
+    if value:
+        text = value.text.decode("utf-8").strip()
+        return text[:30] if len(text) > 30 else text
+    return ""
+
+
+## @brief Emit a throw/raise or goto note edge.
+#  @version 1.0
+#  @internal
+def _dispatch_note(node: Node, state: _WalkState, puml_type: str) -> None:
+    label = _extract_note_label(node, puml_type)
+    state.edges.append(ASTEdge(kind=puml_type, label=label))
+
+
+## @brief Extract label text for throw/goto notes.
+#  @version 1.0
+#  @internal
+def _extract_note_label(node: Node, puml_type: str) -> str:
+    if puml_type == "goto_note":
+        label_node = node.child_by_field_name("label")
+        label = label_node.text.decode("utf-8") if label_node else ""
+        return f"goto {label}"
+    for child in node.named_children:
+        if child.type in ("type_identifier", "identifier", "scoped_type_identifier"):
+            return f"<<throws {child.text.decode('utf-8')}>>"
+    return "<<throws>>"
+
+
+## @brief Handle a with statement (Python) as a generic group.
+#  @version 1.0
+#  @internal
+def _handle_group(node: Node, state: _WalkState) -> None:
+    body_node = node.child_by_field_name("body")
+    if body_node is None:
+        return
+    ext_names = set(state.ext_refs.keys())
+    if not _has_tagged_content(body_node, state.ctx, ext_names):
+        return
+    label = _extract_with_label(node)
+    state.edges.append(ASTEdge(kind="group_start", label=label))
+    _walk_statements(body_node, state)
+    state.edges.append(ASTEdge(kind="group_end"))
+
+
+## @brief Extract the resource name from a with statement.
+#  @version 1.0
+#  @internal
+def _extract_with_label(node: Node) -> str:
+    for child in node.named_children:
+        if child.type == "with_clause":
+            text = child.text.decode("utf-8").strip()
+            return text[:40] if len(text) > 40 else text
+        if child.type in ("as_pattern", "with_item"):
+            text = child.text.decode("utf-8").strip()
+            return text[:40] if len(text) > 40 else text
+    return "with"
 
 
 ## @brief Check if an AST subtree contains any tagged call expressions.
@@ -396,11 +658,13 @@ def _identifier_from_func_node(func_node: Node) -> str | None:
 
 
 ## @brief Extract condition text from a control flow node for labeling.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _extract_condition_text(node: Node) -> str:
     cond = node.child_by_field_name("condition")
     if cond:
         text = cond.text.decode("utf-8").strip()
+        if text.startswith("(") and text.endswith(")"):
+            text = text[1:-1].strip()
         return text[:50] if len(text) > 50 else text
     return ""

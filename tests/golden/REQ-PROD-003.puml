@@ -1,0 +1,39 @@
+@startuml REQ-PROD-003 Over-the-Air Firmware Update
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+entity "Cloud" as Cloud
+entity "Hardware" as Hardware
+
+box "System" #LightBlue
+  participant "OTA Manager" as OTA_Manager
+  participant "Comm Manager" as Comm_Manager
+end box
+
+header
+  **REQ-PROD-003: Over-the-Air Firmware Update**
+  //Description:// The system shall support remote firmware updates with\nintegrity verification.
+  //Acceptance Criteria:// OTA completes download/flash/verify cycle. Device reports\nsuccess or failure to cloud.
+  //Preconditions:// REQ-0020 (Remote Status Reporting)
+end header
+
+
+Cloud --> OTA_Manager: EVENT:CLOUD_OTA_AVAILABLE\nOTA_OnUpdateAvailable()
+activate OTA_Manager
+== OTA_OnUpdateAvailable() ==
+note right of OTA_Manager: OTA_STATE_CHANGE
+OTA_Manager --> Comm_Manager: EVENT:COMM_DOWNLOAD_START\nOTA_OnUpdateAvailable() -> Comm_DownloadFirmware()
+loop http_has_data(&stream)
+Comm_Manager --> OTA_Manager: EVENT:COMM_CHUNK_RECEIVED\nComm_DownloadFirmware() -> OTA_OnChunkReceived()
+OTA_Manager --> Hardware: EVENT:HW_FLASH_WRITE\nOTA_OnChunkReceived()
+end loop
+Comm_Manager --> OTA_Manager: EVENT:COMM_DOWNLOAD_COMPLETE\nComm_DownloadFirmware() -> OTA_OnDownloadComplete()
+note right of OTA_Manager: OTA_VERIFY_CRC
+OTA_Manager -> Comm_Manager: Comm_SendStatus()
+activate Comm_Manager
+Comm_Manager --> OTA_Manager: return
+deactivate Comm_Manager
+OTA_Manager --> Cloud: EVENT:CLOUD_OTA_RESULT\nOTA_OnDownloadComplete()
+
+@enduml

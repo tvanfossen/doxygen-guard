@@ -1,5 +1,7 @@
 @startuml REQ-VAL-001 Doxygen presence check
 autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Validate" as Validate
@@ -7,9 +9,16 @@ end box
 
 header
   **REQ-VAL-001: Doxygen presence check**
-  //Description:// Every function must have a doxygen comment with brief and version tags
-  //Acceptance Criteria:// Undocumented functions produce presence violations; documented functions pass clean
+  //Description:// Every function must have a doxygen comment with brief and\nversion tags
+  //Acceptance Criteria:// Undocumented functions produce presence violations;\ndocumented functions pass clean
 end header
 
+
+loop
+end loop
+group try
+end group
+group catch
+end group
 
 @enduml

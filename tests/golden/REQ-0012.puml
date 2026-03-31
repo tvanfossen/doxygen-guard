@@ -1,0 +1,25 @@
+@startuml REQ-0012 Sensor Calibration
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+box "System" #LightBlue
+  participant "Sensor Driver" as Sensor_Driver
+  participant "Controller" as Controller
+end box
+
+header
+  **REQ-0012: Sensor Calibration**
+  //Description:// Apply factory calibration offsets to sensor readings using\ndata from the controller's calibration store.
+  //Acceptance Criteria:// Sensor_Calibrate retrieves offsets via\nController_GetCalibration. Offsets applied to subsequent\nreadings.
+end header
+
+note over Sensor_Driver: Sensor_Calibrate()
+
+== Sensor_Calibrate() ==
+Sensor_Driver -> Controller: Controller_GetCalibration()
+activate Controller
+Controller --> Sensor_Driver: return
+deactivate Controller
+
+@enduml

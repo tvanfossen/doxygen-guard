@@ -1,5 +1,7 @@
 @startuml REQ-IMPACT-003 Impact report generation
 autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Impact" as Impact
@@ -7,12 +9,21 @@ end box
 
 header
   **REQ-IMPACT-003: Impact report generation**
-  //Description:// Group changed functions by requirement and render as markdown/JSON/text
-  //Acceptance Criteria:// Impact report lists affected requirements with their changed functions
+  //Description:// Group changed functions by requirement and render as\nmarkdown/JSON/text
+  //Acceptance Criteria:// Impact report lists affected requirements with their changed\nfunctions
 end header
 
+note over Impact: format_markdown()
+note over Impact: format_json()
+note over Impact: format_text()
+note over Impact: _run_impact_command()
 
+== format_markdown() ==
+== format_json() ==
+== format_text() ==
+== run_impact() ==
 Impact -> Impact: build_impact_report()
+== _run_impact_command() ==
 Impact -> Impact: run_impact()
 
 @enduml

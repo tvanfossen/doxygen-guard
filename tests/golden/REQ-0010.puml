@@ -1,0 +1,33 @@
+@startuml REQ-0010 Temperature Sensing
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+box "System" #LightBlue
+  participant "Sensor Driver" as Sensor_Driver
+  participant "Controller" as Controller
+  participant "Comm Manager" as Comm_Manager
+end box
+
+header
+  **REQ-0010: Temperature Sensing**
+  //Description:// Read raw temperature values from the ADC hardware interface\nand post sensor data events for downstream processing.
+  //Acceptance Criteria:// Sensor_ReadTemperature returns valid ADC reading.\nEVENT:SENSOR_DATA_READY posted with raw value.
+end header
+
+note over Sensor_Driver: aggregate_readings()
+note over Sensor_Driver: compute_average()
+
+== compute_average() ==
+== Sensor_ReadTemperature() ==
+Sensor_Driver --> Controller: EVENT:SENSOR_DATA_READY\nSensor_ReadTemperature() -> Controller_OnSensorData()
+note right of Controller: THRESHOLD_CHECK
+alt sensor_value > threshold
+Controller --> Controller: EVENT:CONTROL_ACTION\nController_OnSensorData() -> Controller_ReportStatus()
+Controller -> Comm_Manager: Comm_SendStatus()
+activate Comm_Manager
+Comm_Manager --> Controller: return
+deactivate Comm_Manager
+end alt
+
+@enduml

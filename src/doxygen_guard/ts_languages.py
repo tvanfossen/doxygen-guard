@@ -39,6 +39,8 @@ LANGUAGE_SPECS: dict[str, LanguageSpec] = {
             "for_statement": "loop",
             "do_statement": "loop",
             "if_statement": "alt",
+            "switch_statement": "switch",
+            "goto_statement": "goto_note",
         },
     ),
     "cpp": LanguageSpec(
@@ -51,6 +53,10 @@ LANGUAGE_SPECS: dict[str, LanguageSpec] = {
             "for_statement": "loop",
             "do_statement": "loop",
             "if_statement": "alt",
+            "switch_statement": "switch",
+            "goto_statement": "goto_note",
+            "try_statement": "try",
+            "throw_statement": "throw_note",
         },
     ),
     "python": LanguageSpec(
@@ -62,6 +68,10 @@ LANGUAGE_SPECS: dict[str, LanguageSpec] = {
             "while_statement": "loop",
             "for_statement": "loop",
             "if_statement": "alt",
+            "try_statement": "try",
+            "raise_statement": "throw_note",
+            "with_statement": "group",
+            "match_statement": "switch",
         },
     ),
     "java": LanguageSpec(
@@ -74,6 +84,10 @@ LANGUAGE_SPECS: dict[str, LanguageSpec] = {
             "for_statement": "loop",
             "do_statement": "loop",
             "if_statement": "alt",
+            "switch_expression": "switch",
+            "try_statement": "try",
+            "try_with_resources_statement": "try",
+            "throw_statement": "throw_note",
         },
     ),
 }

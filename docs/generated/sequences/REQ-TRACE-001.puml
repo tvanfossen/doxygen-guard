@@ -1,5 +1,7 @@
 @startuml REQ-TRACE-001 Sequence diagram generation
 autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Trace" as Trace
@@ -7,25 +9,64 @@ end box
 
 header
   **REQ-TRACE-001: Sequence diagram generation**
-  //Description:// Generate PlantUML sequence diagrams from emits/handles/ext/triggers tags
-  //Acceptance Criteria:// Each requirement with trace-tagged functions produces a valid .puml and .png file
+  //Description:// Generate PlantUML sequence diagrams from\nemits/handles/ext/triggers tags
+  //Acceptance Criteria:// Each requirement with trace-tagged functions produces a\nvalid .puml and .png file
 end header
 
+note over Trace: walk_function_body()
+note over Trace: run_coverage()
+note over Trace: _run_trace_command()
+note over Trace: _build_trigger_edges()
+note over Trace: _build_call_edges()
+note over Trace: build_sequence_edges()
+note over Trace: generate_plantuml()
+note over Trace: write_diagram()
+note over Trace: build_sequence_edges_ast()
+note over Trace: generate_plantuml_ast()
+note over Trace: get_parser_for_language()
+note over Trace: language_for_file()
 
+== analyze_coverage() ==
+Trace -> Trace: collect_all_tagged_functions()
+== run_coverage() ==
+Trace -> Trace: analyze_coverage()
+== _run_trace_command() ==
+group try
+end group
+group catch
+end group
 Trace -> Trace: run_trace()
+== collect_all_tagged_functions() ==
+== _build_emit_edges() ==
+== _build_ext_edges() ==
+== _build_trigger_edges() ==
+== _build_call_edges() ==
+== build_sequence_edges() ==
 loop
 Trace -> Trace: _build_emit_edges()
 Trace -> Trace: _build_ext_edges()
 end loop
+== generate_plantuml() ==
+== write_diagram() ==
+== _infer_entry_edges() ==
+== build_sequence_edges_ast() ==
 Trace -> Trace: get_language_spec()
 Trace -> Trace: _infer_entry_edges()
 loop
 end loop
+== generate_plantuml_ast() ==
+== generate_infrastructure_table() ==
+== write_infrastructure_table() ==
 Trace -> Trace: generate_infrastructure_table()
+== run_trace() ==
 Trace -> Trace: collect_all_tagged_functions()
 alt trace_all
 Trace -> Trace: write_infrastructure_table()
 end alt
+== get_parser_for_language() ==
+== get_language_spec() ==
+== language_for_extension() ==
+== language_for_file() ==
 Trace -> Trace: language_for_extension()
 
 @enduml

@@ -1,5 +1,7 @@
 @startuml REQ-TRACE-003 External participant prefix routing
 autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Trace" as Trace
@@ -7,8 +9,8 @@ end box
 
 header
   **REQ-TRACE-003: External participant prefix routing**
-  //Description:// Route unhandled events to external participants by event prefix
-  //Acceptance Criteria:// Events matching receives_prefix of an external participant produce edges to that participant
+  //Description:// Route unhandled events to external participants by event\nprefix
+  //Acceptance Criteria:// Events matching receives_prefix of an external participant\nproduce edges to that participant
 end header
 
 

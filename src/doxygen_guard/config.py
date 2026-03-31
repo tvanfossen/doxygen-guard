@@ -110,9 +110,19 @@ VALIDATE_DEFAULTS: dict[str, Any] = {
 
 TRACE_DEFAULTS: dict[str, Any] = {
     "format": "plantuml",
+    "external_fallback": "External",
     "options": {
         "autonumber": True,
         "box_label": "System",
+        "event_name_pattern": r"^[A-Z][A-Z0-9_]*$",
+        "infer_emits": True,
+        "event_emit_functions": ["event_post"],
+        "event_constant_prefix": "EVENT_",
+        "event_tag_prefix": "EVENT:",
+        "show_returns": True,
+        "min_edges": 2,
+        "label_mode": "full",
+        "legend": False,
     },
 }
 
@@ -143,13 +153,16 @@ CONFIG_SCHEMA: dict[str, Any] = {
         },
         "tags": _OPEN_DICT,
         "exclude": list,
+        "extra_tags": list,
+        "known_tags_warn": bool,
         "version_gate": {"current_version": str, "version_field": str},
     },
     "trace": {
         "format": str,
         "participant_field": str,
+        "external_fallback": str,
         "external": list,
-        "options": {"autonumber": bool, "box_label": str},
+        "options": _OPEN_DICT,
     },
     "impact": {
         "requirements": {

@@ -1,5 +1,7 @@
 @startuml REQ-CONFIG-002 Per-language parse settings
 autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Config" as Config
@@ -7,8 +9,8 @@ end box
 
 header
   **REQ-CONFIG-002: Per-language parse settings**
-  //Description:// Resolve comment style and body detection per language from config
-  //Acceptance Criteria:// Each language gets correct comment start/end patterns and body style (braces vs indent)
+  //Description:// Resolve comment style and body detection per language from\nconfig
+  //Acceptance Criteria:// Each language gets correct comment start/end patterns and\nbody style (braces vs indent)
 end header
 
 

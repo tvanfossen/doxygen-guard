@@ -1,0 +1,35 @@
+@startuml REQ-0061 WiFi Network Discovery
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+box "System" #LightBlue
+  participant "WiFi Scanner" as WiFi_Scanner
+  participant "Provisioning Manager" as Provisioning_Manager
+  participant "Cert Manager" as Cert_Manager
+end box
+
+header
+  **REQ-0061: WiFi Network Discovery**
+  //Description:// Scan for available networks and attempt association.
+  //Acceptance Criteria:// Scan returns network list. Join produces success or failure\nresult.
+end header
+
+
+WiFi_Scanner --> Provisioning_Manager: EVENT:PROV_SCAN_COMPLETE\nWiFiScan_Start() -> Provision_OnScanComplete()
+alt count > 0
+Provisioning_Manager --> WiFi_Scanner: EVENT:PROV_JOIN_REQUEST\nProvision_OnScanComplete() -> WiFiScan_Join()
+WiFi_Scanner --> Provisioning_Manager: EVENT:PROV_JOIN_RESULT\nWiFiScan_Join() -> Provision_OnJoinResult()
+note right of Provisioning_Manager: PROV_RETRY_CHECK
+alt result->success
+Provisioning_Manager --> Cert_Manager: EVENT:PROV_CERT_REQUEST\nProvision_OnJoinResult() -> Cert_Provision()
+else
+alt retry_count < MAX_RETRIES
+Provisioning_Manager --> WiFi_Scanner: EVENT:PROV_SCAN_START\nProvision_OnJoinResult() -> WiFiScan_Start()
+end alt
+end alt
+else
+Provisioning_Manager --> Provisioning_Manager: EVENT:PROV_FAILED
+end alt
+
+@enduml

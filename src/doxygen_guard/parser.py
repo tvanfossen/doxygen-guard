@@ -91,7 +91,7 @@ def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     return tags
 
 
-## @brief Split a line into segments at inline @tag boundaries.
+## @brief Split a line into segments at inline tag boundaries.
 #  @version 1.0
 #  @internal
 def _split_inline_tags(line: str) -> list[str]:

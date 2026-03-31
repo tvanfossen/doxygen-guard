@@ -16,9 +16,12 @@ from typing import Any
 
 from doxygen_guard.checks import (
     Violation,
+    check_file_presence,
     check_presence,
     check_req_coverage,
+    check_req_exists,
     check_tags,
+    check_unknown_tags,
     check_version_staleness,
 )
 from doxygen_guard.config import (
@@ -41,12 +44,12 @@ from doxygen_guard.tracer import run_trace
 
 logger = logging.getLogger(__name__)
 
-_SUBCOMMANDS = {"validate", "trace", "impact"}
+_SUBCOMMANDS = {"validate", "trace", "impact", "coverage"}
 _FLAGS_WITH_VALUE = {"--config"}
 
 
 ## @brief Create argparse parser with validate/trace/impact subcommands.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -65,16 +68,18 @@ def build_parser() -> argparse.ArgumentParser:
     _add_validate_parser(subparsers)
     _add_trace_parser(subparsers)
     _add_impact_parser(subparsers)
+    _add_coverage_parser(subparsers)
     return parser
 
 
 ## @brief Add the validate subcommand to the parser.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _add_validate_parser(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser("validate", help="Validate doxygen comments (pre-commit gate)")
     p.add_argument("files", nargs="*", help="Files to validate (passed by pre-commit)")
     p.add_argument("--no-git", action="store_true", help="Skip git-based staleness checks")
+    p.add_argument("--exclude", action="append", default=[], help="Exclude patterns (repeatable)")
 
 
 ## @brief Add the trace subcommand to the parser.
@@ -98,13 +103,25 @@ def _add_impact_parser(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("files", nargs="*", help="Files to analyze")
 
 
+## @brief Add the coverage subcommand to the parser.
+#  @version 1.0
+#  @internal
+def _add_coverage_parser(subparsers: argparse._SubParsersAction) -> None:
+    p = subparsers.add_parser("coverage", help="Report requirement coverage gaps")
+    p.add_argument("source_dirs", nargs="*", default=["."], help="Source directories to scan")
+    p.add_argument(
+        "--format", dest="output_format", default="text", choices=["text", "json", "markdown"]
+    )
+
+
 ## @brief Orchestrate presence, staleness, and tag checks for one file.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-VAL-001
 def validate_file(
     file_path: str,
     config: dict[str, Any],
     no_git: bool = False,
+    req_ids: set[str] | None = None,
 ) -> list[Violation]:
     validate = get_validate(config)
     for pattern in validate.get("exclude", []):
@@ -119,9 +136,17 @@ def validate_file(
         return []
 
     violations: list[Violation] = []
+    try:
+        content = Path(file_path).read_text()
+        violations.extend(check_file_presence(file_path, content, config))
+    except OSError:
+        pass
     violations.extend(check_presence(functions, file_path, config))
     violations.extend(check_tags(functions, file_path, config))
     violations.extend(check_req_coverage(functions, file_path, config))
+    for func in functions:
+        violations.extend(check_unknown_tags(func, file_path, config))
+        violations.extend(check_req_exists(func, file_path, config, req_ids))
 
     if not no_git:
         try:
@@ -138,19 +163,22 @@ def validate_file(
 
 
 ## @brief Validate a list of files and report violations.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _validate_files(
     file_paths: list[str],
     config: dict[str, Any],
     no_git: bool = False,
 ) -> list[Violation]:
+    from doxygen_guard.impact import load_requirements_full
+
+    req_ids = set(load_requirements_full(config).keys()) or None
     violations: list[Violation] = []
     for file_path in file_paths:
         if not Path(file_path).exists():
             logger.warning("File not found: %s", file_path)
             continue
-        violations.extend(validate_file(file_path, config, no_git=no_git))
+        violations.extend(validate_file(file_path, config, no_git=no_git, req_ids=req_ids))
     return violations
 
 
@@ -167,13 +195,18 @@ def _report_violations(violations: list[Violation]) -> int:
 
 
 ## @brief Run validation checks on all specified files and report violations.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-VAL-001
 def run_validate(args: argparse.Namespace, config: dict[str, Any]) -> int:
     files = args.files or []
     if not files:
         logger.warning("No files specified for validation")
         return 0
+    cli_excludes = getattr(args, "exclude", [])
+    if cli_excludes:
+        validate = config.setdefault("validate", {})
+        existing = validate.get("exclude", [])
+        validate["exclude"] = existing + cli_excludes
     return _report_violations(_validate_files(files, config, no_git=args.no_git))
 
 
@@ -384,14 +417,24 @@ def _setup_logging(verbose: bool) -> None:
     logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
 
 
+## @brief Run the coverage subcommand.
+#  @version 1.1
+#  @internal
+def _run_coverage_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    from doxygen_guard.coverage import run_coverage
+
+    return run_coverage(args.source_dirs, config, args.output_format)
+
+
 ## @brief Dispatch an explicit subcommand to its handler.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _dispatch_subcommand(args: argparse.Namespace, config: dict[str, Any]) -> int:
     handlers = {
         "validate": lambda: run_validate(args, config),
         "trace": lambda: _run_trace_command(args, config),
         "impact": lambda: _run_impact_command(args, config),
+        "coverage": lambda: _run_coverage_command(args, config),
     }
     handler = handlers.get(args.command)
     if handler:

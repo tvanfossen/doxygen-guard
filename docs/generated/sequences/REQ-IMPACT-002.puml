@@ -1,5 +1,7 @@
 @startuml REQ-IMPACT-002 Requirements file loading
 autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Impact" as Impact
@@ -7,8 +9,8 @@ end box
 
 header
   **REQ-IMPACT-002: Requirements file loading**
-  //Description:// Load requirements from CSV/JSON/YAML with configurable ID and name columns
-  //Acceptance Criteria:// Requirements loaded and accessible by ID for impact report and participant resolution
+  //Description:// Load requirements from CSV/JSON/YAML with configurable ID\nand name columns
+  //Acceptance Criteria:// Requirements loaded and accessible by ID for impact report\nand participant resolution
 end header
 
 

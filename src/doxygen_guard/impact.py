@@ -46,6 +46,31 @@ class ImpactEntry:
 ## @brief Get diff output for a single file, handling staged vs range modes.
 #  @version 1.1
 #  @internal
+## @brief Collect all changed lines for a file from branch diff and/or staged changes.
+#  @version 1.0
+#  @internal
+def _collect_changed_lines(
+    file_path: str,
+    staged: bool,
+    diff_range: str | None,
+    run_command: RunCommand | None,
+) -> set[int]:
+    changed: set[int] = set()
+    diff_output = _get_file_diff(file_path, staged, diff_range, run_command)
+    if diff_output:
+        changed.update(parse_changed_lines(diff_output))
+    if diff_range and not staged:
+        staged_output = _get_file_diff(
+            file_path, staged=True, diff_range=None, run_command=run_command
+        )
+        if staged_output:
+            changed.update(parse_changed_lines(staged_output))
+    return changed
+
+
+## @brief Get raw diff output for a single file.
+#  @version 1.0
+#  @internal
 def _get_file_diff(
     file_path: str,
     staged: bool,
@@ -63,7 +88,7 @@ def _get_file_diff(
 
 
 ## @brief Find changed functions in a single file given changed line numbers.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-IMPACT-001
 def _extract_changed_functions(
     file_path: str,
@@ -76,8 +101,9 @@ def _extract_changed_functions(
 
     result: list[ChangedFunction] = []
     for func in functions:
-        body_lines = set(range(func.def_line, func.body_end + 1))
-        if not body_lines & changed_lines:
+        start = func.doxygen.start_line if func.doxygen else func.def_line
+        func_lines = set(range(start, func.body_end + 1))
+        if not func_lines & changed_lines:
             continue
 
         reqs = func.doxygen.tags.get("req", []) if func.doxygen else []
@@ -97,7 +123,7 @@ def _extract_changed_functions(
 
 
 ## @brief Parse source files and cross-reference with git diff to find changed functions.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-IMPACT-001
 def collect_changed_functions(
     file_paths: list[str],
@@ -113,11 +139,7 @@ def collect_changed_functions(
             logger.warning("File not found: %s", file_path)
             continue
 
-        diff_output = _get_file_diff(file_path, staged, diff_range, run_command)
-        if diff_output is None:
-            continue
-
-        changed_lines = parse_changed_lines(diff_output)
+        changed_lines = _collect_changed_lines(file_path, staged, diff_range, run_command)
         if changed_lines:
             changed_funcs.extend(_extract_changed_functions(file_path, config, changed_lines))
 
