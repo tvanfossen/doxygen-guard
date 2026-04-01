@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "external" as external
+
 box "System" #LightBlue
   participant "Parser" as Parser
 end box
@@ -13,10 +15,54 @@ header
   //Acceptance Criteria:// Doxygen blocks associated with correct functions; all tags\nparsed including multi-tag single lines
 end header
 
+note over Parser: parse_doxygen_tags()
+note over Parser: find_doxygen_block_before()
+note over Parser: parse_doxygen_tags()
+note over Parser: find_doxygen_block_before()
 
+loop
+Parser -> external: strip()
+activate external
+external --> Parser: return
+deactivate external
+loop
+alt match
+Parser -> external: _finalize_tag()
+activate external
+external --> Parser: return
+deactivate external
+Parser -> external: match()
+activate external
+external --> Parser: return
+deactivate external
+Parser -> external: match()
+activate external
+external --> Parser: return
+deactivate external
+else
+Parser -> external: _finalize_tag()
+activate external
+external --> Parser: return
+deactivate external
+end alt
+end loop
+end loop
+Parser -> external: _finalize_tag()
+activate external
+external --> Parser: return
+deactivate external
+== find_doxygen_block_before() ==
 group try
 end group
 group catch
 end group
+Parser -> external: _skip_blanks_and_attrs()
+activate external
+external --> Parser: return
+deactivate external
+Parser -> external: _scan_for_comment_start()
+activate external
+external --> Parser: return
+deactivate external
 
 @enduml

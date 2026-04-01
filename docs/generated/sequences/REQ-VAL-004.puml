@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "external" as external
+
 box "System" #LightBlue
   participant "Validate" as Validate
 end box
@@ -13,5 +15,24 @@ header
   //Acceptance Criteria:// Functions without req or utility/internal/callback tags\nproduce coverage violations
 end header
 
+note over Validate: check_req_coverage()
+note over Validate: check_req_coverage()
+
+Validate -> external: get()
+activate external
+external --> Validate: return
+deactivate external
+loop
+Validate -> external: bool()
+activate external
+external --> Validate: return
+deactivate external
+Validate -> external: bool()
+activate external
+external --> Validate: return
+deactivate external
+alt not has_req and not has_exemption
+end alt
+end loop
 
 @enduml

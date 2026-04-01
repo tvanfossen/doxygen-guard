@@ -23,7 +23,6 @@ from doxygen_guard.tracer_models import (
 
 from .collector import (
     _apply_emit_inference,
-    _constant_to_event_tag,
     collect_all_tagged_functions,
     detect_phantom_emits,
 )
@@ -73,7 +72,6 @@ __all__ = [
     "_build_ext_edges",
     "_build_inbound_edges",
     "_collect_assumes",
-    "_constant_to_event_tag",
     "_detect_dominant_spec",
     "_find_undeclared_participants",
     "_infer_entry_edges",

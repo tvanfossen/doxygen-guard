@@ -13,7 +13,6 @@ from doxygen_guard.tracer import (
     _build_ext_edges,
     _build_inbound_edges,
     _collect_assumes,
-    _constant_to_event_tag,
     _detect_dominant_spec,
     _infer_entry_edges,
     _is_req_relevant_target,
@@ -22,11 +21,9 @@ from doxygen_guard.tracer import (
     build_sequence_edges,
     collect_all_tagged_functions,
     detect_phantom_emits,
-    generate_infrastructure_table,
     generate_plantuml,
     run_trace,
     write_diagram,
-    write_infrastructure_table,
 )
 from tests.conftest import FIXTURES_DIR
 
@@ -795,68 +792,6 @@ class TestSupportsAndAssumes:
         assert len(edges) == 0
 
 
-class TestInfrastructureTable:
-    """Tests for Phase 4: infrastructure overview table generation."""
-
-    def test_generates_markdown_table(self):
-        """Infrastructure table includes @supports functions."""
-        tagged = [
-            TaggedFunction(
-                name="validate_output_path",
-                file_path="src/config.py",
-                supports=["REQ-CONFIG-001", "REQ-TRACE-001"],
-            ),
-            TaggedFunction(
-                name="git_add",
-                file_path="src/git.py",
-                supports=["REQ-GIT-001"],
-            ),
-            TaggedFunction(
-                name="load_config",
-                file_path="src/config.py",
-                reqs=["REQ-CONFIG-001"],
-            ),
-        ]
-        result = generate_infrastructure_table(tagged)
-        assert "## Infrastructure Overview" in result
-        assert "validate_output_path" in result
-        assert "git_add" in result
-        assert "REQ-CONFIG-001, REQ-TRACE-001" in result
-        # load_config has no @supports so should NOT appear
-        assert "load_config" not in result
-
-    def test_empty_when_no_supports(self):
-        """Returns empty string when no functions have @supports."""
-        tagged = [
-            TaggedFunction(name="func", file_path="a.c", reqs=["REQ-001"]),
-        ]
-        assert generate_infrastructure_table(tagged) == ""
-
-    def test_sorted_by_module_then_name(self):
-        """Table rows sorted by module then function name."""
-        tagged = [
-            TaggedFunction(name="z_func", file_path="src/b.py", supports=["REQ-1"]),
-            TaggedFunction(name="a_func", file_path="src/a.py", supports=["REQ-2"]),
-        ]
-        result = generate_infrastructure_table(tagged)
-        lines = result.strip().split("\n")
-        data_lines = [line for line in lines if line.startswith("| ") and "---" not in line][1:]
-        assert "a_func" in data_lines[0]
-        assert "z_func" in data_lines[1]
-
-    def test_writes_file(self, tmp_path):
-        """write_infrastructure_table creates the file."""
-        tagged = [
-            TaggedFunction(name="helper", file_path="src/util.py", supports=["REQ-001"]),
-        ]
-        result = write_infrastructure_table(tagged, str(tmp_path))
-        assert result is not None
-        assert result.exists()
-        assert result.name == "infrastructure.md"
-        content = result.read_text()
-        assert "helper" in content
-
-
 class TestToposortEdgeOrder:
     """Verify causal ordering for product diagrams."""
 
@@ -908,11 +843,6 @@ class TestEmitInference:
         )
         _apply_emit_inference(tf, tf.body, TRACE_CONFIG)
         assert len(tf.emits) == 0
-
-    def test_naming_convention_mapping(self):
-        """EVENT_BOOT_READY maps to EVENT:BOOT_READY via configured prefixes."""
-        result = _constant_to_event_tag("EVENT_BOOT_READY", "EVENT_", "EVENT_")
-        assert result == "EVENT_BOOT_READY"
 
     def test_event_name_pattern_rejects_invalid(self, caplog):
         """Constant failing event_name_pattern is rejected."""

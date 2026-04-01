@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "external" as external
+
 box "System" #LightBlue
   participant "Validate" as Validate
 end box
@@ -13,5 +15,22 @@ header
   //Acceptance Criteria:// Tag values not matching configured pattern or prefix produce\ntag violations
 end header
 
+note over Validate: check_tags()
+note over Validate: check_tags()
+
+Validate -> external: get_validate()
+activate external
+external --> Validate: return
+deactivate external
+loop
+loop
+Validate -> external: get()
+activate external
+external --> Validate: return
+deactivate external
+loop
+end loop
+end loop
+end loop
 
 @enduml

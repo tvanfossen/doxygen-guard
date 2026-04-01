@@ -306,20 +306,6 @@ def _apply_emit_inference(
                 logger.info("Inferred @emits %s in %s()", constant, tf.name)
 
 
-## @brief Convert a C constant name to an EVENT: tag.
-#  @version 1.0
-#  @internal
-def _constant_to_event_tag(
-    constant: str,
-    event_prefix: str,
-    tag_prefix: str,
-) -> str | None:
-    if not constant.startswith(event_prefix):
-        return None
-    suffix = constant[len(event_prefix) :]
-    return f"{tag_prefix}{suffix}"
-
-
 ## @brief Detect phantom @emits — declared but no matching call in body.
 #  @version 1.1
 #  @internal
@@ -462,8 +448,7 @@ def _warn_unreferenced_functions(
                 referenced.add(name)
 
     for tf in all_tagged:
-        has_behavioral = tf.emits or tf.handles or tf.ext or tf.triggers
-        if tf.name not in referenced and has_behavioral and not tf.marker_tags:
+        if tf.name not in referenced and tf.handles and not tf.marker_tags:
             logger.warning(
                 "%s() has behavioral tags but is never called or registered in scanned source"
                 " — possible dead code or missing Event_register()",

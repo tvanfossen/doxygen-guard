@@ -11,8 +11,8 @@ void Module_Init(void) {
 /**
  * @brief Process incoming data.
  * @version 1.2
- * @emits EVENT:DATA_READY
- * @handles EVENT:DATA_RECEIVED
+ * @emits EVENT_DATA_READY
+ * @handles EVENT_DATA_RECEIVED
  */
 int Module_Process(const char *data, size_t len) {
     if (data == NULL) {

@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "external" as external
+
 box "System" #LightBlue
   participant "Config" as Config
 end box
@@ -13,5 +15,27 @@ header
   //Acceptance Criteria:// Each language gets correct comment start/end patterns and\nbody style (braces vs indent)
 end header
 
+note over Config: get_language_config()
+note over Config: resolve_parse_settings()
+note over Config: get_language_config()
+note over Config: resolve_parse_settings()
+
+Config -> external: Path()
+activate external
+external --> Config: return
+deactivate external
+Config -> external: get()
+activate external
+external --> Config: return
+deactivate external
+== resolve_parse_settings() ==
+Config -> external: get()
+activate external
+external --> Config: return
+deactivate external
+Config -> external: ParseSettings()
+activate external
+external --> Config: return
+deactivate external
 
 @enduml

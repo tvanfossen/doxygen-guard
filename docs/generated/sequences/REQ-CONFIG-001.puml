@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "external" as external
+
 box "System" #LightBlue
   participant "Config" as Config
 end box
@@ -13,7 +15,36 @@ header
   //Acceptance Criteria:// User config overrides defaults; missing keys retain\ndefaults; invalid keys rejected
 end header
 
+note over Config: load_config()
+note over Config: load_config()
 
+Config -> external: _validate_node()
+activate external
+external --> Config: return
+deactivate external
+== load_config() ==
+alt config_path is None
+Config -> external: Path()
+activate external
+external --> Config: return
+deactivate external
+end alt
+alt not config_path.exists()
+Config -> external: deep_merge()
+activate external
+external --> Config: return
+deactivate external
+end alt
+alt not isinstance(user_config, dict)
+Config -> external: deep_merge()
+activate external
+external --> Config: return
+deactivate external
+end alt
 Config -> Config: validate_config_schema()
+Config -> external: deep_merge()
+activate external
+external --> Config: return
+deactivate external
 
 @enduml

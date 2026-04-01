@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "external" as external
+
 box "System" #LightBlue
   participant "Trace" as Trace
 end box
@@ -13,5 +15,22 @@ header
   //Acceptance Criteria:// Events matching receives_prefix of an external participant\nproduce edges to that participant
 end header
 
+note over Trace: _load_external_participants()
+note over Trace: resolve_by_prefix()
+note over Trace: _load_external_participants()
+note over Trace: resolve_by_prefix()
+
+Trace -> external: get()
+activate external
+external --> Trace: return
+deactivate external
+loop
+alt isinstance(entry, dict)
+loop
+end loop
+else
+end alt
+end loop
+== resolve_by_prefix() ==
 
 @enduml

@@ -216,7 +216,7 @@ class TestTagValidation:
                         "req": {
                             "pattern": r"^REQ-\w+$",
                         },
-                        "emits": {"require_prefix": ["EVENT:", "FSM:"]},
+                        "emits": {"require_prefix": ["EVENT_", "FSM_"]},
                         "ext": {"require_contains": "::"},
                     },
                 },

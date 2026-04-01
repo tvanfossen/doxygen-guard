@@ -4,6 +4,11 @@
     "req_name": "Sequence diagram generation",
     "functions": [
       {
+        "name": "run_trace",
+        "file": "src/doxygen_guard/tracer/__init__.py",
+        "version": "1.7"
+      },
+      {
         "name": "collect_all_tagged_functions",
         "file": "src/doxygen_guard/tracer/collector.py",
         "version": "1.8"
