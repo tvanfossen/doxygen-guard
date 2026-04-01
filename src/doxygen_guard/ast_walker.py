@@ -157,7 +157,7 @@ def _handle_call(
 
 
 ## @brief Place an emit at the call site by matching the event argument.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _place_matched_emit(call_node: Node, state: _WalkState) -> None:
     event = _extract_emit_event_arg(call_node, state)
@@ -168,7 +168,7 @@ def _place_matched_emit(call_node: Node, state: _WalkState) -> None:
 
     unplaced = state.emit_set - state.emits_placed
     if unplaced:
-        event = next(iter(unplaced))
+        event = min(unplaced)
         state.emits_placed.add(event)
         _place_emit_edge(event, state)
 
@@ -214,7 +214,7 @@ def _map_constant_to_event(constant: str, emit_set: set[str]) -> str | None:
 
 
 ## @brief Flush remaining emits that weren't matched to any call site.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _flush_remaining_emits(
     remaining: set[str],
@@ -224,7 +224,7 @@ def _flush_remaining_emits(
     depth: int,
     edges: list[ASTEdge],
 ) -> None:
-    for event in remaining:
+    for event in sorted(remaining):
         emit_edge, handler_tf = _resolve_emit(event, from_name, func_name, ctx)
         if emit_edge:
             edges.append(ASTEdge(kind="emit", edge=emit_edge))

@@ -29,6 +29,8 @@ deactivate Event_Bus
 == WiFiScan_Start() ==
 WiFi_Scanner --> Provisioning_Manager: EVENT_PROV_SCAN_COMPLETE\nWiFiScan_Start() -> Provision_OnScanComplete()
 alt count > 0
+Provisioning_Manager --> Provisioning_Manager: EVENT_PROV_FAILED
+else
 Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_JOIN_REQUEST\nProvision_OnScanComplete() -> WiFiScan_Join()
 WiFi_Scanner --> Provisioning_Manager: EVENT_PROV_JOIN_RESULT\nWiFiScan_Join() -> Provision_OnJoinResult()
 note right of Provisioning_Manager: Prov Retry Check
@@ -39,8 +41,6 @@ alt retry_count < MAX_RETRIES
 Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_SCAN_START\nProvision_OnJoinResult() -> WiFiScan_Start()
 end alt
 end alt
-else
-Provisioning_Manager --> Provisioning_Manager: EVENT_PROV_FAILED
 end alt
 
 @enduml
