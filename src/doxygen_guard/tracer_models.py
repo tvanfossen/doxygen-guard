@@ -24,7 +24,7 @@ class Participant:
 
 
 ## @brief Function metadata needed for diagram generation.
-#  @version 1.4
+#  @version 1.5
 #  @internal
 @dataclass
 class TaggedFunction:
@@ -39,6 +39,7 @@ class TaggedFunction:
     supports: list[str] = field(default_factory=list)
     assumes: list[str] = field(default_factory=list)
     body: str = ""
+    marker_tags: set[str] = field(default_factory=set)
 
 
 ## @brief Context for rendering a diagram header (req metadata + preconditions).

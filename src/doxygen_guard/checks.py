@@ -357,6 +357,8 @@ _KNOWN_TAGS: frozenset[str] = frozenset(
         "todo",
         "deprecated",
         "warning",
+        "emit_source",
+        "handle_source",
     }
 )
 

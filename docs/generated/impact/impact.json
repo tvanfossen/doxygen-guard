@@ -6,22 +6,7 @@
       {
         "name": "collect_all_tagged_functions",
         "file": "src/doxygen_guard/tracer/collector.py",
-        "version": "1.6"
-      },
-      {
-        "name": "generate_plantuml",
-        "file": "src/doxygen_guard/tracer/renderer.py",
-        "version": "1.11"
-      },
-      {
-        "name": "write_diagram",
-        "file": "src/doxygen_guard/tracer/renderer.py",
-        "version": "1.5"
-      },
-      {
-        "name": "generate_plantuml_ast",
-        "file": "src/doxygen_guard/tracer/renderer.py",
-        "version": "1.2"
+        "version": "1.7"
       }
     ]
   },
@@ -49,6 +34,37 @@
         "name": "_load_external_participants",
         "file": "src/doxygen_guard/tracer/collector.py",
         "version": "1.1"
+      },
+      {
+        "name": "resolve_by_prefix",
+        "file": "src/doxygen_guard/tracer_models.py",
+        "version": "1.0"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-VAL-001",
+    "req_name": "Doxygen presence check",
+    "functions": [
+      {
+        "name": "check_presence",
+        "file": "src/doxygen_guard/checks.py",
+        "version": "1.2"
+      },
+      {
+        "name": "check_unknown_tags",
+        "file": "src/doxygen_guard/checks.py",
+        "version": "1.0"
+      },
+      {
+        "name": "check_req_exists",
+        "file": "src/doxygen_guard/checks.py",
+        "version": "1.0"
+      },
+      {
+        "name": "check_file_presence",
+        "file": "src/doxygen_guard/checks.py",
+        "version": "1.0"
       }
     ]
   }

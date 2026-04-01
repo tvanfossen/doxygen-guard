@@ -17,10 +17,10 @@ header
 end header
 
 
-External --> Comm_Manager: EVENT:COMM_RX_RECEIVED\nComm_OnRemoteCommand()
+External --> Comm_Manager: EVENT_COMM_RX_RECEIVED\nComm_OnRemoteCommand()
 activate Comm_Manager
 == Comm_OnRemoteCommand() ==
-Comm_Manager --> Controller: EVENT:CONTROL_ACTION\nComm_OnRemoteCommand() -> Controller_ReportStatus()
+Comm_Manager --> Controller: EVENT_CONTROL_ACTION\nComm_OnRemoteCommand() -> Controller_ReportStatus()
 Controller -> Comm_Manager: Comm_SendStatus()
 Comm_Manager --> Controller: return
 deactivate Comm_Manager

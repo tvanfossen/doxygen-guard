@@ -18,16 +18,16 @@ end header
 note over Sensor_Driver: aggregate_readings()
 
 == Sensor_ReadTemperature() ==
-Sensor_Driver --> Controller: EVENT:SENSOR_DATA_READY\nSensor_ReadTemperature() -> Controller_OnSensorData()
+Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY\nSensor_ReadTemperature() -> Controller_OnSensorData()
 note right of Controller: Threshold Check
 alt sensor_value > threshold
-Controller --> Controller: EVENT:CONTROL_ACTION\nController_OnSensorData() -> Controller_ReportStatus()
+Controller --> Controller: EVENT_CONTROL_ACTION\nController_OnSensorData() -> Controller_ReportStatus()
 Controller -> Comm_Manager: Comm_SendStatus()
 activate Comm_Manager
 Comm_Manager --> Controller: return
 deactivate Comm_Manager
 end alt
 == Sensor_ReadHumidity() ==
-Sensor_Driver --> Controller: EVENT:SENSOR_DATA_READY\nSensor_ReadHumidity() -> Controller_OnSensorData()
+Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY\nSensor_ReadHumidity() -> Controller_OnSensorData()
 
 @enduml

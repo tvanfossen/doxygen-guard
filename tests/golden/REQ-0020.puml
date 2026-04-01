@@ -3,8 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "WiFi Stack" as WiFi_Stack
-entity "Cloud" as Cloud
+entity "External" as External
 
 box "System" #LightBlue
   participant "Comm Manager" as Comm_Manager
@@ -19,18 +18,29 @@ header
 end header
 
 note over Comm_Manager: build_telemetry_payload()
+note over Comm_Manager: Comm_Init()
 note over Comm_Manager: Comm_SendStatus()
 note over Comm_Manager: Shadow_Initialize()
+note over Comm_Manager: Shadow_ScheduleConfigPublish()
 
-WiFi_Stack --> Comm_Manager: EVENT:WIFI_DISCONNECTED\nShadow_OnConnectivityEvent()
+External --> Comm_Manager: EVENT_WIFI_DISCONNECTED\nShadow_OnConnectivityEvent()
 activate Comm_Manager
-WiFi_Stack --> Comm_Manager: EVENT:WIFI_CONNECTED\nShadow_OnConnectivityEvent()
-WiFi_Stack --> Comm_Manager: EVENT:MQTT_CONNACK\nShadow_OnConnectivityEvent()
-WiFi_Stack --> Comm_Manager: EVENT:MQTT_CLOSE\nShadow_OnConnectivityEvent()
+External --> Comm_Manager: EVENT_WIFI_CONNECTED\nShadow_OnConnectivityEvent()
+External --> Comm_Manager: EVENT_MQTT_CONNACK\nShadow_OnConnectivityEvent()
+External --> Comm_Manager: EVENT_MQTT_CLOSE\nShadow_OnConnectivityEvent()
 == build_telemetry_payload() ==
-Comm_Manager --> Comm_Manager: EVENT:TELEMETRY_READY
+Comm_Manager --> Comm_Manager: EVENT_TELEMETRY_READY
+== Comm_Init() ==
+Comm_Manager -> Event_Bus: Event_register()
+activate Event_Bus
+Event_Bus --> Comm_Manager: return
+deactivate Event_Bus
+Comm_Manager -> Event_Bus: Event_register()
+activate Event_Bus
+Event_Bus --> Comm_Manager: return
+deactivate Event_Bus
 == Comm_SendStatus() ==
-Comm_Manager --> Comm_Manager: EVENT:COMM_TX_COMPLETE
+Comm_Manager --> Comm_Manager: EVENT_COMM_TX_COMPLETE
 == Shadow_OnConnectivityEvent() ==
 == Shadow_Initialize() ==
 Comm_Manager -> Event_Bus: Event_register()
@@ -38,6 +48,6 @@ activate Event_Bus
 Event_Bus --> Comm_Manager: return
 deactivate Event_Bus
 == Shadow_ScheduleConfigPublish() ==
-Comm_Manager --> Cloud: EVENT:CLOUD_CONFIG_UPDATE\nShadow_ScheduleConfigPublish()
+Comm_Manager --> Comm_Manager: EVENT_CLOUD_CONFIG_UPDATE
 
 @enduml

@@ -88,28 +88,28 @@ class TestBuildSequenceEdges:
                 name="Pairing_Start",
                 file_path="pairing_mgr/pairing.c",
                 participant_name="Pairing",
-                emits=["EVENT:PAIRING_STARTED"],
+                emits=["EVENT_PAIRING_STARTED"],
                 triggers=["CLOUDMGR_DISABLE"],
             ),
             TaggedFunction(
                 name="WiFi_Connect",
                 file_path="wifi_mgr/wifi.c",
                 participant_name="WiFi",
-                handles=["EVENT:PAIRING_STARTED"],
-                emits=["EVENT:WIFI_CONNECTED"],
+                handles=["EVENT_PAIRING_STARTED"],
+                emits=["EVENT_WIFI_CONNECTED"],
             ),
             TaggedFunction(
                 name="ContinuePairing",
                 file_path="pairing_mgr/pairing.c",
                 participant_name="Pairing",
-                handles=["EVENT:WIFI_CONNECTED"],
-                emits=["EVENT:MQTT_START"],
+                handles=["EVENT_WIFI_CONNECTED"],
+                emits=["EVENT_MQTT_START"],
             ),
             TaggedFunction(
                 name="startMqtt",
                 file_path="cloud_mgr/cloud.c",
                 participant_name="Cloud",
-                handles=["EVENT:MQTT_START"],
+                handles=["EVENT_MQTT_START"],
             ),
         ]
 
@@ -150,7 +150,7 @@ class TestBuildSequenceEdges:
                 name="Emitter",
                 file_path="src/emitter.c",
                 participant_name="Emitter",
-                emits=["EVENT:NOBODY_HANDLES_THIS"],
+                emits=["EVENT_NOBODY_HANDLES_THIS"],
             ),
         ]
         participants = [Participant(name="Emitter")]
@@ -195,29 +195,29 @@ class TestToposortEmitters:
 
     def test_chain_ordering(self):
         """A emits X, B handles X and emits Y, C handles Y → A, B, C."""
-        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT:X"])
-        b = TaggedFunction(name="B", file_path="b.c", handles=["EVENT:X"], emits=["EVENT:Y"])
-        c = TaggedFunction(name="C", file_path="c.c", handles=["EVENT:Y"])
+        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT_X"])
+        b = TaggedFunction(name="B", file_path="b.c", handles=["EVENT_X"], emits=["EVENT_Y"])
+        c = TaggedFunction(name="C", file_path="c.c", handles=["EVENT_Y"])
         result = _toposort_emitters([c, b, a])
         names = [tf.name for tf in result]
         assert names == ["A", "B", "C"]
 
     def test_single_emitter_unchanged(self):
-        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT:X"])
+        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT_X"])
         result = _toposort_emitters([a])
         assert [tf.name for tf in result] == ["A"]
 
     def test_independent_emitters_preserve_order(self):
         """Emitters with no causal link stay in original order."""
-        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT:X"])
-        b = TaggedFunction(name="B", file_path="b.c", emits=["EVENT:Y"])
+        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT_X"])
+        b = TaggedFunction(name="B", file_path="b.c", emits=["EVENT_Y"])
         result = _toposort_emitters([a, b])
         assert [tf.name for tf in result] == ["A", "B"]
 
     def test_cycle_does_not_hang(self):
         """Mutual emit/handle cycle terminates and includes both."""
-        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT:X"], handles=["EVENT:Y"])
-        b = TaggedFunction(name="B", file_path="b.c", emits=["EVENT:Y"], handles=["EVENT:X"])
+        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT_X"], handles=["EVENT_Y"])
+        b = TaggedFunction(name="B", file_path="b.c", emits=["EVENT_Y"], handles=["EVENT_X"])
         result = _toposort_emitters([a, b])
         names = [tf.name for tf in result]
         assert set(names) == {"A", "B"}
@@ -386,7 +386,7 @@ class TestGeneratePlantuml:
             Participant(name="Pairing Manager"),
             Participant(name="WiFi Manager"),
         ]
-        edges = [Edge("Pairing Manager", "WiFi Manager", "Connect()", "EVENT:START", "-->")]
+        edges = [Edge("Pairing Manager", "WiFi Manager", "Connect()", "EVENT_START", "-->")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         assert "@startuml REQ-0001" in result
         assert "@enduml" in result
@@ -409,9 +409,9 @@ class TestGeneratePlantuml:
     def test_internal_in_box_external_outside(self):
         participants = [
             Participant(name="OTA"),
-            Participant(name="Cloud", receives_prefix=["EVENT:CLOUD_"]),
+            Participant(name="Cloud", receives_prefix=["EVENT_CLOUD_"]),
         ]
-        edges = [Edge("OTA", "Cloud", "report()", "EVENT:CLOUD_RESULT", "-->")]
+        edges = [Edge("OTA", "Cloud", "report()", "EVENT_CLOUD_RESULT", "-->")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         lines = result.split("\n")
         entity_line = next(i for i, line in enumerate(lines) if "entity" in line)
@@ -427,7 +427,7 @@ class TestGeneratePlantuml:
 
     def test_no_box_when_only_externals(self):
         participants = [
-            Participant(name="Cloud", receives_prefix=["EVENT:CLOUD_"]),
+            Participant(name="Cloud", receives_prefix=["EVENT_CLOUD_"]),
         ]
         edges = [Edge("Cloud", "Cloud", "self()")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
@@ -453,14 +453,14 @@ class TestGeneratePlantuml:
     def test_undeclared_participant_gets_entity_declaration(self):
         """Fallback 'External' used in edges but not in participants list gets declared."""
         participants = [Participant(name="Handler")]
-        edges = [Edge("External", "Handler", "EVENT:BOOT_REQ", style="->")]
+        edges = [Edge("External", "Handler", "EVENT_BOOT_REQ", style="->")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         assert 'entity "External"' in result
 
     def test_custom_external_fallback(self):
         """Custom external_fallback name gets declared as entity."""
         participants = [Participant(name="Handler")]
-        edges = [Edge("System Boundary", "Handler", "EVENT:BOOT_REQ", style="->")]
+        edges = [Edge("System Boundary", "Handler", "EVENT_BOOT_REQ", style="->")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         assert 'entity "System Boundary"' in result
 
@@ -470,7 +470,7 @@ class TestInferEntryEdges:
 
     def test_default_fallback_is_external(self):
         handler = TaggedFunction(
-            name="handler", file_path="a.c", participant_name="A", handles=["EVENT:X"]
+            name="handler", file_path="a.c", participant_name="A", handles=["EVENT_X"]
         )
         entries = _infer_entry_edges([handler], [handler], [])
         assert len(entries) == 1
@@ -478,7 +478,7 @@ class TestInferEntryEdges:
 
     def test_custom_fallback_name(self):
         handler = TaggedFunction(
-            name="handler", file_path="a.c", participant_name="A", handles=["EVENT:X"]
+            name="handler", file_path="a.c", participant_name="A", handles=["EVENT_X"]
         )
         entries = _infer_entry_edges([handler], [handler], [], fallback_name="System Boundary")
         assert entries[0].from_name == "System Boundary"
@@ -514,7 +514,7 @@ class TestSecurityHardening:
         assert ">" not in result
 
     def test_sanitize_label_preserves_normal_text(self):
-        assert _sanitize_label("EVENT:BOOT_REQ") == "EVENT:BOOT_REQ"
+        assert _sanitize_label("EVENT_BOOT_REQ") == "EVENT_BOOT_REQ"
 
 
 class TestWriteDiagram:
@@ -577,7 +577,7 @@ class TestInboundCallerScoping:
             name="hub",
             file_path="hub.c",
             participant_name="Hub",
-            emits=["EVENT:UNRELATED"],
+            emits=["EVENT_UNRELATED"],
             body="void hub() {\n    target_func();\n    unrelated();\n}",
         )
         target = TaggedFunction(
@@ -596,7 +596,7 @@ class TestInboundCallerScoping:
             name="handler",
             file_path="handler.c",
             participant_name="Handler",
-            handles=["EVENT:UNRELATED"],
+            handles=["EVENT_UNRELATED"],
         )
         all_tagged = [hub, target, unrelated, handler]
         participants = [Participant(name="Hub"), Participant(name="Target")]
@@ -675,7 +675,7 @@ class TestCallEdgeReqFiltering:
             name="handler_func",
             file_path="b.c",
             participant_name="B",
-            handles=["EVENT:X"],
+            handles=["EVENT_X"],
         )
         edges = _build_call_edges(caller, "A", [caller, handler], req_id="REQ-001")
         assert len(edges) == 1
@@ -862,15 +862,15 @@ class TestToposortEdgeOrder:
 
     def test_chain_order_matches_causal(self):
         """REQ-PROD style: A emits X, B handles X — A edges come first."""
-        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT:X"])
-        b = TaggedFunction(name="B", file_path="b.c", handles=["EVENT:X"], emits=["EVENT:Y"])
-        c = TaggedFunction(name="C", file_path="c.c", handles=["EVENT:Y"])
+        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT_X"])
+        b = TaggedFunction(name="B", file_path="b.c", handles=["EVENT_X"], emits=["EVENT_Y"])
+        c = TaggedFunction(name="C", file_path="c.c", handles=["EVENT_Y"])
         result = _toposort_emitters([c, b, a])
         assert [tf.name for tf in result] == ["A", "B", "C"]
 
     def test_single_emitter_unchanged(self):
         """Single emitter is not reordered."""
-        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT:X"])
+        a = TaggedFunction(name="A", file_path="a.c", emits=["EVENT_X"])
         result = _toposort_emitters([a])
         assert result == [a]
 
@@ -886,18 +886,18 @@ class TestEmitInference:
             body="void func() { event_post(EVENT_SENSOR_READY, 0); }",
         )
         _apply_emit_inference(tf, tf.body, TRACE_CONFIG)
-        assert "EVENT:SENSOR_READY" in tf.emits
+        assert "EVENT_SENSOR_READY" in tf.emits
 
     def test_declared_emits_not_duplicated(self):
         """Both @emits and event_post() → no duplicate."""
         tf = TaggedFunction(
             name="func",
             file_path="a.c",
-            emits=["EVENT:SENSOR_READY"],
+            emits=["EVENT_SENSOR_READY"],
             body="void func() { event_post(EVENT_SENSOR_READY, 0); }",
         )
         _apply_emit_inference(tf, tf.body, TRACE_CONFIG)
-        assert tf.emits.count("EVENT:SENSOR_READY") == 1
+        assert tf.emits.count("EVENT_SENSOR_READY") == 1
 
     def test_variable_arg_no_inference(self):
         """event_post(variable) where variable doesn't match pattern → no inference."""
@@ -911,8 +911,8 @@ class TestEmitInference:
 
     def test_naming_convention_mapping(self):
         """EVENT_BOOT_READY maps to EVENT:BOOT_READY via configured prefixes."""
-        result = _constant_to_event_tag("EVENT_BOOT_READY", "EVENT_", "EVENT:")
-        assert result == "EVENT:BOOT_READY"
+        result = _constant_to_event_tag("EVENT_BOOT_READY", "EVENT_", "EVENT_")
+        assert result == "EVENT_BOOT_READY"
 
     def test_event_name_pattern_rejects_invalid(self, caplog):
         """Constant failing event_name_pattern is rejected."""
@@ -949,12 +949,12 @@ class TestPhantomEmits:
         tf = TaggedFunction(
             name="func",
             file_path="a.c",
-            emits=["EVENT:PHANTOM"],
+            emits=["EVENT_PHANTOM"],
             body="void func() { do_something(); }",
         )
         with caplog.at_level(logging.WARNING):
             phantoms = detect_phantom_emits(tf, TRACE_CONFIG)
-        assert "EVENT:PHANTOM" in phantoms
+        assert "EVENT_PHANTOM" in phantoms
         assert any("phantom" in r.message.lower() for r in caplog.records)
 
     def test_no_phantom_when_call_exists(self):
@@ -962,7 +962,7 @@ class TestPhantomEmits:
         tf = TaggedFunction(
             name="func",
             file_path="a.c",
-            emits=["EVENT:SENSOR_READY"],
+            emits=["EVENT_SENSOR_READY"],
             body="void func() { event_post(EVENT_SENSOR_READY, 0); }",
         )
         phantoms = detect_phantom_emits(tf, TRACE_CONFIG)
@@ -1001,7 +1001,7 @@ class TestRenderingImprovements:
             name="handler",
             file_path="a.c",
             participant_name="A",
-            handles=["EVENT:X"],
+            handles=["EVENT_X"],
         )
         entries = _infer_entry_edges([handler], [handler], [])
         assert entries[0].style == "-->"
@@ -1016,16 +1016,16 @@ class TestRenderingImprovements:
         """label_mode: event_only strips function names."""
         config = deep_merge(TRACE_CONFIG, {"trace": {"options": {"label_mode": "event_only"}}})
         participants = [Participant(name="A"), Participant(name="B")]
-        edges = [Edge("A", "B", "func() -> handler()", event="EVENT:X", style="-->")]
+        edges = [Edge("A", "B", "func() -> handler()", event="EVENT_X", style="-->")]
         result = generate_plantuml("REQ-001", edges, [], participants, config)
-        assert "EVENT:X" in result
+        assert "EVENT_X" in result
         assert "func()" not in result
 
     def test_label_mode_brief(self):
         """label_mode: brief strips EVENT: prefix."""
         config = deep_merge(TRACE_CONFIG, {"trace": {"options": {"label_mode": "brief"}}})
         participants = [Participant(name="A"), Participant(name="B")]
-        edges = [Edge("A", "B", "func()", event="EVENT:X", style="-->")]
+        edges = [Edge("A", "B", "func()", event="EVENT_X", style="-->")]
         result = generate_plantuml("REQ-001", edges, [], participants, config)
         assert "X" in result
 

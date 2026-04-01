@@ -124,7 +124,7 @@ def _process_source_file(
 
 
 ## @brief Walk source directories and collect ALL tagged functions.
-#  @version 1.6
+#  @version 1.7
 #  @req REQ-TRACE-001
 def collect_all_tagged_functions(
     source_dirs: list[str],
@@ -147,6 +147,11 @@ def collect_all_tagged_functions(
             tagged.extend(_process_source_file(source_file, config, req_participant_map))
             _cache_parsed_file(str(source_file), config, file_cache)
     trace_options = get_trace(config).get("options", {})
+    source_roots = _discover_infrastructure_roots(tagged)
+    if source_roots.get("emit_fns"):
+        trace_options["event_emit_functions"] = source_roots["emit_fns"]
+    if source_roots.get("handle_fns"):
+        trace_options["event_register_functions"] = source_roots["handle_fns"]
     if trace_options.get("infer_ext", True):
         _apply_ext_inference(tagged)
     _infer_handles_from_registration(tagged, trace_options)
@@ -204,7 +209,7 @@ def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
 
 
 ## @brief Build a TaggedFunction, resolving participant and capturing body text.
-#  @version 1.5
+#  @version 1.8
 #  @internal
 def _extract_tagged_function(
     func: Function,
@@ -223,11 +228,14 @@ def _extract_tagged_function(
     has_trace_tags = (
         tags.get("emits") or tags.get("handles") or tags.get("ext") or tags.get("triggers")
     )
-    if not has_trace_tags and not reqs and not supports:
+    has_infra_tags = tags.get("emit_source") or tags.get("handle_source")
+    if not has_trace_tags and not has_infra_tags and not reqs and not supports:
         return None
 
     body_text = "\n".join(lines[func.def_line : func.body_end + 1])
     declared_emits = tags.get("emits", [])
+
+    marker_tags = {t for t in ("emit_source", "handle_source") if t in tags}
 
     tf = TaggedFunction(
         name=func.name,
@@ -241,6 +249,7 @@ def _extract_tagged_function(
         supports=supports,
         assumes=assumes,
         body=body_text,
+        marker_tags=marker_tags,
     )
 
     if config:
@@ -250,7 +259,7 @@ def _extract_tagged_function(
 
 
 ## @brief Infer @emits from emit function calls found in the function body.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _apply_emit_inference(
     tf: TaggedFunction,
@@ -262,8 +271,6 @@ def _apply_emit_inference(
         return
 
     emit_fns = trace_options.get("event_emit_functions", ["event_post"])
-    event_prefix = trace_options.get("event_constant_prefix", "EVENT_")
-    tag_prefix = trace_options.get("event_tag_prefix", "EVENT:")
     name_pattern = trace_options.get("event_name_pattern", r"^[A-Z][A-Z0-9_]*$")
     declared = set(tf.emits)
 
@@ -276,11 +283,10 @@ def _apply_emit_inference(
                     "Rejected inferred event '%s' in %s() — fails pattern", constant, tf.name
                 )
                 continue
-            event = _constant_to_event_tag(constant, event_prefix, tag_prefix)
-            if event and event not in declared:
-                tf.emits.append(event)
-                declared.add(event)
-                logger.info("Inferred @emits %s in %s()", event, tf.name)
+            if constant not in declared:
+                tf.emits.append(constant)
+                declared.add(constant)
+                logger.info("Inferred @emits %s in %s()", constant, tf.name)
 
 
 ## @brief Convert a C constant name to an EVENT: tag.
@@ -298,7 +304,7 @@ def _constant_to_event_tag(
 
 
 ## @brief Detect phantom @emits — declared but no matching call in body.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def detect_phantom_emits(
     tf: TaggedFunction,
@@ -306,7 +312,6 @@ def detect_phantom_emits(
 ) -> list[str]:
     trace_options = get_trace(config).get("options", {})
     emit_fns = trace_options.get("event_emit_functions", ["event_post"])
-    event_prefix = trace_options.get("event_constant_prefix", "EVENT_")
 
     called_constants: set[str] = set()
     for fn_name in emit_fns:
@@ -316,9 +321,7 @@ def detect_phantom_emits(
 
     phantoms: list[str] = []
     for event in tf.emits:
-        suffix = event.split(":", 1)[-1] if ":" in event else event
-        expected_constant = f"{event_prefix}{suffix}"
-        if expected_constant not in called_constants:
+        if event not in called_constants:
             phantoms.append(event)
             logger.warning(
                 "Possible phantom @emits %s in %s() — no matching call found", event, tf.name
@@ -355,48 +358,70 @@ def _infer_ext_for_function(tf: TaggedFunction, all_tagged: list[TaggedFunction]
             logger.info("Inferred @ext %s in %s()", ext_ref, tf.name)
 
 
-_REGISTER_PATTERN = re.compile(r"Event_register\s*\(\s*([^,]+),\s*(\w+)\s*\)", re.DOTALL)
 _EVENT_CONSTANT_PATTERN = re.compile(r"\b(EVENT_\w+)\b")
 
 
-## @brief Infer handles from Event_register() call patterns.
-#  @details Parses Event_register(bitmask, handler) calls. Extracts EVENT_*
-#  constants from bitmask and associates them with the handler function.
-#  @version 1.0
+## @brief Build regex pattern for handle source function calls.
+#  @version 1.1
+#  @internal
+def _build_register_pattern(handle_fns: list[str]) -> re.Pattern:
+    names = "|".join(re.escape(fn) for fn in handle_fns)
+    return re.compile(rf"(?:{names})\s*\(\s*([^,]+),\s*(\w+)\s*\)", re.DOTALL)
+
+
+## @brief Infer handles from registration function call patterns.
+#  @details Parses calls to @handle_source functions. Extracts event constants
+#  from first argument (bitmask) and handler name from second argument.
+#  @version 1.1
 #  @internal
 def _infer_handles_from_registration(
     all_tagged: list[TaggedFunction],
     trace_options: dict[str, Any],
 ) -> None:
-    event_prefix = trace_options.get("event_constant_prefix", "EVENT_")
-    tag_prefix = trace_options.get("event_tag_prefix", "EVENT:")
+    handle_fns = trace_options.get("event_register_functions", ["Event_register"])
+    register_pattern = _build_register_pattern(handle_fns)
     name_to_tf = {tf.name: tf for tf in all_tagged}
 
     for tf in all_tagged:
-        for match in _REGISTER_PATTERN.finditer(tf.body):
+        for match in register_pattern.finditer(tf.body):
             bitmask_expr = match.group(1)
             handler_name = match.group(2)
             handler_tf = name_to_tf.get(handler_name)
             if handler_tf is None:
                 continue
-            _add_inferred_handles(bitmask_expr, handler_tf, event_prefix, tag_prefix)
+            _add_inferred_handles(bitmask_expr, handler_tf)
 
 
-## @brief Extract EVENT_* constants from bitmask and add to handler's handles.
-#  @version 1.0
+## @brief Extract event constants from bitmask and add to handler's handles.
+#  @version 1.1
 #  @internal
 def _add_inferred_handles(
     bitmask_expr: str,
     handler_tf: TaggedFunction,
-    event_prefix: str,
-    tag_prefix: str,
 ) -> None:
     declared = set(handler_tf.handles)
     for const_match in _EVENT_CONSTANT_PATTERN.finditer(bitmask_expr):
         constant = const_match.group(1)
-        suffix = constant[len(event_prefix) :] if constant.startswith(event_prefix) else constant
-        event_tag = f"{tag_prefix}{suffix}"
-        if event_tag not in declared:
-            handler_tf.handles.append(event_tag)
-            declared.add(event_tag)
-            logger.info("Inferred @handles %s for %s()", event_tag, handler_tf.name)
+        if constant not in declared:
+            handler_tf.handles.append(constant)
+            declared.add(constant)
+            logger.info("Inferred @handles %s for %s()", constant, handler_tf.name)
+
+
+## @brief Discover infrastructure root functions from @emit_source / @handle_source tags.
+#  @details Scans the parsed doxygen tags dict for emit_source and handle_source
+#  marker tags. These are set during parse_doxygen_tags as tag names with empty values.
+#  @version 1.1
+#  @internal
+def _discover_infrastructure_roots(
+    all_tagged: list[TaggedFunction],
+) -> dict[str, list[str]]:
+    roots: dict[str, list[str]] = {}
+    for tf in all_tagged:
+        if "emit_source" in tf.marker_tags:
+            roots.setdefault("emit_fns", []).append(tf.name)
+            logger.info("Discovered @emit_source: %s()", tf.name)
+        if "handle_source" in tf.marker_tags:
+            roots.setdefault("handle_fns", []).append(tf.name)
+            logger.info("Discovered @handle_source: %s()", tf.name)
+    return roots

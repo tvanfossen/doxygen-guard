@@ -63,17 +63,17 @@ void func(void) {
             name="func",
             file_path="a.c",
             participant_name="A",
-            emits=["EVENT:RESULT"],
+            emits=["EVENT_RESULT"],
             ext=["comm::Comm_SendStatus"],
         )
         handler = TaggedFunction(
             name="handler",
             file_path="b.c",
             participant_name="B",
-            handles=["EVENT:RESULT"],
+            handles=["EVENT_RESULT"],
         )
         ctx = _make_ctx(
-            handler_map={"EVENT:RESULT": [handler]},
+            handler_map={"EVENT_RESULT": [handler]},
             all_tagged=[tf, handler],
         )
         edges = walk_function_body(node, tf, ctx)
@@ -108,14 +108,14 @@ void func(void) {
             name="func",
             file_path="a.c",
             participant_name="A",
-            emits=["EVENT:X"],
+            emits=["EVENT_X"],
             triggers=["STATE_CHANGE"],
         )
         ctx = _make_ctx(
             handler_map={
-                "EVENT:X": [
+                "EVENT_X": [
                     TaggedFunction(
-                        name="h", file_path="b.c", participant_name="B", handles=["EVENT:X"]
+                        name="h", file_path="b.c", participant_name="B", handles=["EVENT_X"]
                     ),
                 ]
             }
@@ -136,12 +136,12 @@ void func(void) {
             name="func",
             file_path="a.c",
             participant_name="A",
-            emits=["EVENT:X"],
+            emits=["EVENT_X"],
         )
         handler = TaggedFunction(
-            name="h", file_path="b.c", participant_name="B", handles=["EVENT:X"]
+            name="h", file_path="b.c", participant_name="B", handles=["EVENT_X"]
         )
-        ctx = _make_ctx(handler_map={"EVENT:X": [handler]})
+        ctx = _make_ctx(handler_map={"EVENT_X": [handler]})
         edges = walk_function_body(node, tf, ctx)
         emit_edges = [e for e in edges if e.kind == "emit"]
         assert len(emit_edges) == 1
@@ -164,12 +164,12 @@ void func(void) {
             name="func",
             file_path="a.c",
             participant_name="A",
-            emits=["EVENT:CHUNK"],
+            emits=["EVENT_CHUNK"],
         )
         handler = TaggedFunction(
-            name="h", file_path="b.c", participant_name="B", handles=["EVENT:CHUNK"]
+            name="h", file_path="b.c", participant_name="B", handles=["EVENT_CHUNK"]
         )
-        ctx = _make_ctx(handler_map={"EVENT:CHUNK": [handler]})
+        ctx = _make_ctx(handler_map={"EVENT_CHUNK": [handler]})
         edges = walk_function_body(node, tf, ctx)
         kinds = [e.kind for e in edges]
         assert "loop_start" in kinds
@@ -233,11 +233,11 @@ void func(void) {
 }
 """
         node = _parse_func_node(code)
-        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT:A"])
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT_A"])
         handler = TaggedFunction(
-            name="h", file_path="b.c", participant_name="B", handles=["EVENT:A"]
+            name="h", file_path="b.c", participant_name="B", handles=["EVENT_A"]
         )
-        ctx = _make_ctx(handler_map={"EVENT:A": [handler]})
+        ctx = _make_ctx(handler_map={"EVENT_A": [handler]})
         edges = walk_function_body(node, tf, ctx)
         kinds = [e.kind for e in edges]
         assert "switch_start" in kinds
@@ -293,12 +293,12 @@ void func(void) {
 }
 """
         node = _parse_func_node(code)
-        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT:X"])
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT_X"])
         handler = TaggedFunction(
-            name="h", file_path="b.c", participant_name="B", handles=["EVENT:X"]
+            name="h", file_path="b.c", participant_name="B", handles=["EVENT_X"]
         )
         # C doesn't have try — test switch instead since C try isn't available
-        ctx = _make_ctx(handler_map={"EVENT:X": [handler]})
+        ctx = _make_ctx(handler_map={"EVENT_X": [handler]})
         edges = walk_function_body(node, tf, ctx)
         kinds = [e.kind for e in edges]
         assert "alt_start" in kinds
@@ -350,11 +350,11 @@ void func(void) {
 }
 """
         node = _parse_func_node(code)
-        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT:X"])
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT_X"])
         handler = TaggedFunction(
-            name="h", file_path="b.c", participant_name="B", handles=["EVENT:X"]
+            name="h", file_path="b.c", participant_name="B", handles=["EVENT_X"]
         )
-        ctx = _make_ctx(handler_map={"EVENT:X": [handler]}, req_id="REQ-001")
+        ctx = _make_ctx(handler_map={"EVENT_X": [handler]}, req_id="REQ-001")
         with caplog.at_level(logging.WARNING):
             walk_function_body(node, tf, ctx)
         assert any("no else" in r.message for r in caplog.records)
@@ -374,11 +374,11 @@ void func(void) {
 }
 """
         node = _parse_func_node(code)
-        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT:X"])
+        tf = TaggedFunction(name="func", file_path="a.c", participant_name="A", emits=["EVENT_X"])
         handler = TaggedFunction(
-            name="h", file_path="b.c", participant_name="B", handles=["EVENT:X"]
+            name="h", file_path="b.c", participant_name="B", handles=["EVENT_X"]
         )
-        ctx = _make_ctx(handler_map={"EVENT:X": [handler]})
+        ctx = _make_ctx(handler_map={"EVENT_X": [handler]})
         edges = walk_function_body(node, tf, ctx)
         emit_edges = [e for e in edges if e.kind == "emit"]
         assert len(emit_edges) == 1
@@ -410,20 +410,20 @@ void caller(void) {
             name="handler",
             file_path="b.c",
             participant_name="B",
-            handles=["EVENT:X"],
+            handles=["EVENT_X"],
             ext=["comm::Comm_SendStatus"],
         )
         caller_tf = TaggedFunction(
             name="caller",
             file_path="a.c",
             participant_name="A",
-            emits=["EVENT:X"],
+            emits=["EVENT_X"],
         )
         file_cache = {
             "b.c": ParsedFile(tree=handler_tree, func_nodes={"handler": handler_node}),
         }
         ctx = _make_ctx(
-            handler_map={"EVENT:X": [handler_tf]},
+            handler_map={"EVENT_X": [handler_tf]},
             all_tagged=[caller_tf, handler_tf],
             file_cache=file_cache,
         )
@@ -445,17 +445,17 @@ void func(void) {
             name="func",
             file_path="a.c",
             participant_name="A",
-            emits=["EVENT:X"],
+            emits=["EVENT_X"],
         )
         handler = TaggedFunction(
             name="handler",
             file_path="b.c",
             participant_name="B",
-            handles=["EVENT:X"],
-            emits=["EVENT:Y"],
+            handles=["EVENT_X"],
+            emits=["EVENT_Y"],
         )
         ctx = _make_ctx(
-            handler_map={"EVENT:X": [handler]},
+            handler_map={"EVENT_X": [handler]},
             max_depth=0,
         )
         edges = walk_function_body(node, tf, ctx, depth=0)
@@ -534,11 +534,11 @@ void func() {
 }
 """
         node = _parse_cpp_func_node(code)
-        tf = TaggedFunction(name="func", file_path="a.cpp", participant_name="A", emits=["EVENT:X"])
+        tf = TaggedFunction(name="func", file_path="a.cpp", participant_name="A", emits=["EVENT_X"])
         handler = TaggedFunction(
-            name="h", file_path="b.cpp", participant_name="B", handles=["EVENT:X"]
+            name="h", file_path="b.cpp", participant_name="B", handles=["EVENT_X"]
         )
-        ctx = _make_cpp_ctx(handler_map={"EVENT:X": [handler]})
+        ctx = _make_cpp_ctx(handler_map={"EVENT_X": [handler]})
         edges = walk_function_body(node, tf, ctx)
         kinds = [e.kind for e in edges]
         assert "try_start" in kinds
@@ -558,11 +558,11 @@ void func() {
 }
 """
         node = _parse_cpp_func_node(code)
-        tf = TaggedFunction(name="func", file_path="a.cpp", participant_name="A", emits=["EVENT:X"])
+        tf = TaggedFunction(name="func", file_path="a.cpp", participant_name="A", emits=["EVENT_X"])
         handler = TaggedFunction(
-            name="h", file_path="b.cpp", participant_name="B", handles=["EVENT:X"]
+            name="h", file_path="b.cpp", participant_name="B", handles=["EVENT_X"]
         )
-        ctx = _make_cpp_ctx(handler_map={"EVENT:X": [handler]})
+        ctx = _make_cpp_ctx(handler_map={"EVENT_X": [handler]})
         edges = walk_function_body(node, tf, ctx)
         kinds = [e.kind for e in edges]
         # catch block rendered even though log_error() is not a tagged call
@@ -598,11 +598,11 @@ def func():
         handle_error()
 """
         node = _parse_python_func_node(code)
-        tf = TaggedFunction(name="func", file_path="a.py", participant_name="A", emits=["EVENT:X"])
+        tf = TaggedFunction(name="func", file_path="a.py", participant_name="A", emits=["EVENT_X"])
         handler = TaggedFunction(
-            name="h", file_path="b.py", participant_name="B", handles=["EVENT:X"]
+            name="h", file_path="b.py", participant_name="B", handles=["EVENT_X"]
         )
-        ctx = _make_python_ctx(handler_map={"EVENT:X": [handler]})
+        ctx = _make_python_ctx(handler_map={"EVENT_X": [handler]})
         edges = walk_function_body(node, tf, ctx)
         kinds = [e.kind for e in edges]
         assert "try_start" in kinds
@@ -629,11 +629,11 @@ def func():
         event_post(EVENT_X, 0)
 """
         node = _parse_python_func_node(code)
-        tf = TaggedFunction(name="func", file_path="a.py", participant_name="A", emits=["EVENT:X"])
+        tf = TaggedFunction(name="func", file_path="a.py", participant_name="A", emits=["EVENT_X"])
         handler = TaggedFunction(
-            name="h", file_path="b.py", participant_name="B", handles=["EVENT:X"]
+            name="h", file_path="b.py", participant_name="B", handles=["EVENT_X"]
         )
-        ctx = _make_python_ctx(handler_map={"EVENT:X": [handler]})
+        ctx = _make_python_ctx(handler_map={"EVENT_X": [handler]})
         edges = walk_function_body(node, tf, ctx)
         kinds = [e.kind for e in edges]
         assert "group_start" in kinds
