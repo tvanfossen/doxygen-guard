@@ -124,7 +124,7 @@ def _process_source_file(
 
 
 ## @brief Walk source directories and collect ALL tagged functions.
-#  @version 1.7
+#  @version 1.8
 #  @req REQ-TRACE-001
 def collect_all_tagged_functions(
     source_dirs: list[str],
@@ -155,6 +155,7 @@ def collect_all_tagged_functions(
     if trace_options.get("infer_ext", True):
         _apply_ext_inference(tagged)
     _infer_handles_from_registration(tagged, trace_options)
+    _warn_unreferenced_functions(tagged)
 
     logger.info(
         "Trace scan: %d file(s), %d tagged function(s), %d participant(s)",
@@ -425,3 +426,29 @@ def _discover_infrastructure_roots(
             roots.setdefault("handle_fns", []).append(tf.name)
             logger.info("Discovered @handle_source: %s()", tf.name)
     return roots
+
+
+## @brief Warn on tagged functions that are never called or registered in scanned source.
+#  @details Scans all function bodies for call references. Functions that have
+#  doxygen tags but are never referenced as a callee or handler argument are
+#  likely dead code or missing Event_register() calls.
+#  @version 1.0
+#  @internal
+def _warn_unreferenced_functions(
+    all_tagged: list[TaggedFunction],
+) -> None:
+    all_names = {tf.name for tf in all_tagged}
+    referenced: set[str] = set()
+    for tf in all_tagged:
+        for name in all_names:
+            if name != tf.name and re.search(rf"\b{re.escape(name)}\b", tf.body):
+                referenced.add(name)
+
+    for tf in all_tagged:
+        has_behavioral = tf.emits or tf.handles or tf.ext or tf.triggers
+        if tf.name not in referenced and has_behavioral and not tf.marker_tags:
+            logger.warning(
+                "%s() has behavioral tags but is never called or registered in scanned source"
+                " — possible dead code or missing Event_register()",
+                tf.name,
+            )
