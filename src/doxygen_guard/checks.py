@@ -359,6 +359,7 @@ _KNOWN_TAGS: frozenset[str] = frozenset(
         "warning",
         "emit_source",
         "handle_source",
+        "module",
     }
 )
 

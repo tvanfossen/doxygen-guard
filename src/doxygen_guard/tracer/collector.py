@@ -102,7 +102,7 @@ def _collect_all_participants(
 
 
 ## @brief Parse a single source file and extract tagged functions.
-#  @version 1.6
+#  @version 1.7
 #  @internal
 def _process_source_file(
     source_file: Path,
@@ -115,12 +115,27 @@ def _process_source_file(
 
     functions, content = result
     lines = content.splitlines()
+    file_module = _extract_file_module(content)
     tagged: list[TaggedFunction] = []
     for func in functions:
-        tf = _extract_tagged_function(func, str(source_file), req_participant_map, lines, config)
+        tf = _extract_tagged_function(
+            func, str(source_file), req_participant_map, lines, config, file_module
+        )
         if tf is not None:
             tagged.append(tf)
     return tagged
+
+
+## @brief Extract @module tag from file-level doxygen block.
+#  @version 1.0
+#  @internal
+def _extract_file_module(content: str) -> str | None:
+    for line in content.splitlines()[:30]:
+        stripped = re.sub(r"^[\s/*#]+|[\s*/]+$", "", line)
+        if stripped.startswith("@module"):
+            value = stripped[len("@module") :].strip()
+            return value if value else None
+    return None
 
 
 ## @brief Walk source directories and collect ALL tagged functions.
@@ -210,7 +225,7 @@ def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
 
 
 ## @brief Build a TaggedFunction, resolving participant and capturing body text.
-#  @version 1.8
+#  @version 1.9
 #  @internal
 def _extract_tagged_function(
     func: Function,
@@ -218,6 +233,7 @@ def _extract_tagged_function(
     req_participant_map: dict[str, str],
     lines: list[str],
     config: dict[str, Any] | None = None,
+    file_module: str | None = None,
 ) -> TaggedFunction | None:
     if func.doxygen is None:
         return None
@@ -241,7 +257,7 @@ def _extract_tagged_function(
     tf = TaggedFunction(
         name=func.name,
         file_path=file_path,
-        participant_name=_resolve_participant_from_reqs(reqs, req_participant_map),
+        participant_name=file_module or _resolve_participant_from_reqs(reqs, req_participant_map),
         emits=declared_emits,
         handles=tags.get("handles", []),
         ext=tags.get("ext", []),
