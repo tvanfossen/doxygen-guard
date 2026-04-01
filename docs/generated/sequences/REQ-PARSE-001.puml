@@ -5,6 +5,8 @@ skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Parser" as Parser
+  participant "Config" as Config
+  participant "Trace" as Trace
 end box
 
 header
@@ -22,10 +24,30 @@ note over Parser: parse_functions_ts()
 
 Parser -> Parser: parse_source_file_with_content()
 == parse_source_file_with_content() ==
+Parser -> Config: get_language_config()
+activate Config
+Config --> Parser: return
+deactivate Config
+Parser -> Config: resolve_parse_settings()
+activate Config
+Config --> Parser: return
+deactivate Config
+Parser -> Trace: language_for_file()
+activate Trace
+Trace --> Parser: return
+deactivate Trace
 Parser -> Parser: parse_functions()
 == find_body_end() ==
 == is_forward_declaration() ==
 == parse_functions() ==
 == parse_functions_ts() ==
+Parser -> Trace: get_parser_for_language()
+activate Trace
+Trace --> Parser: return
+deactivate Trace
+Parser -> Trace: get_language_spec()
+activate Trace
+Trace --> Parser: return
+deactivate Trace
 
 @enduml

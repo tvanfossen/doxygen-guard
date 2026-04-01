@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "_apply_ext_inference" as _apply_ext_inference
+
 box "System" #LightBlue
   participant "Trace" as Trace
 end box
@@ -54,6 +56,9 @@ alt trace_all
 Trace -> Trace: write_infrastructure_table()
 end alt
 == collect_all_tagged_functions() ==
+alt trace_options.get("infer_ext", True)
+Trace -> _apply_ext_inference: _apply_ext_inference()
+end alt
 == _build_emit_edges() ==
 == _build_ext_edges() ==
 == _build_trigger_edges() ==

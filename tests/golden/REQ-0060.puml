@@ -22,7 +22,7 @@ end header
 User_Action --> Provisioning_Manager: EVENT:FACTORY_RESET_COMPLETE\nProvision_Start()
 activate Provisioning_Manager
 == Provision_Start() ==
-note right of Provisioning_Manager: PROV_STATE_INIT
+note right of Provisioning_Manager: Prov State Init
 Provisioning_Manager --> WiFi_Scanner: EVENT:PROV_SCAN_START\nProvision_Start() -> WiFiScan_Start()
 WiFi_Scanner --> Provisioning_Manager: EVENT:PROV_SCAN_COMPLETE\nWiFiScan_Start() -> Provision_OnScanComplete()
 alt count > 0
@@ -32,11 +32,11 @@ else
 Provisioning_Manager --> Provisioning_Manager: EVENT:PROV_FAILED
 end alt
 == Provision_OnJoinResult() ==
-note right of Provisioning_Manager: PROV_RETRY_CHECK
+note right of Provisioning_Manager: Prov Retry Check
 alt result->success
 Provisioning_Manager --> Cert_Manager: EVENT:PROV_CERT_REQUEST\nProvision_OnJoinResult() -> Cert_Provision()
 Cert_Manager --> Provisioning_Manager: EVENT:PROV_CERT_INSTALLED\nCert_Provision() -> Provision_OnCertInstalled()
-note right of Provisioning_Manager: PROV_STATE_READY
+note right of Provisioning_Manager: Prov State Ready
 Provisioning_Manager -> Comm_Manager: Comm_SendStatus()
 activate Comm_Manager
 Comm_Manager --> Provisioning_Manager: return

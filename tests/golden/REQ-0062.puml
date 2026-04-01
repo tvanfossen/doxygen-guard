@@ -17,7 +17,7 @@ end header
 
 
 Cert_Manager --> Provisioning_Manager: EVENT:PROV_CERT_INSTALLED\nCert_Provision() -> Provision_OnCertInstalled()
-note right of Provisioning_Manager: PROV_STATE_READY
+note right of Provisioning_Manager: Prov State Ready
 Provisioning_Manager -> Comm_Manager: Comm_SendStatus()
 activate Comm_Manager
 Comm_Manager --> Provisioning_Manager: return

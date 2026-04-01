@@ -5,6 +5,10 @@ skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Validate" as Validate
+  participant "Parser" as Parser
+  participant "Git" as Git
+  participant "Trace" as Trace
+  participant "Impact" as Impact
 end box
 
 header
@@ -13,12 +17,79 @@ header
   //Acceptance Criteria:// Undocumented functions produce presence violations;\ndocumented functions pass clean
 end header
 
+note over Validate: check_presence()
+note over Validate: check_unknown_tags()
+note over Validate: check_req_exists()
+note over Validate: check_file_presence()
+note over Validate: validate_file()
+note over Validate: run_validate()
+note over Validate: run_precommit()
+note over Validate: check_presence()
+note over Validate: check_unknown_tags()
+note over Validate: check_req_exists()
+note over Validate: check_file_presence()
+note over Validate: validate_file()
+note over Validate: run_validate()
+note over Validate: run_precommit()
+note over Validate: run_precommit() supports REQ-TRACE-001, REQ-IMPACT-003
+note over Validate: run_precommit() supports REQ-TRACE-001, REQ-IMPACT-003
 
+== check_unknown_tags() ==
+== check_req_exists() ==
+== check_file_presence() ==
+== validate_file() ==
+Validate -> Parser: parse_source_file()
+activate Parser
+Parser --> Validate: return
+deactivate Parser
+group try
+end group
+group catch (OSError)
+end group
 loop
 end loop
+alt not no_git
+group try
+Validate -> Git: get_changed_lines_for_file()
+activate Git
+Git --> Validate: return
+deactivate Git
+end group
+group catch (Exception)
+end group
+end alt
+== run_validate() ==
+== run_precommit() ==
 group try
 end group
 group catch
 end group
+alt trace_enabled
+Validate -> Trace: run_trace()
+activate Trace
+Trace --> Validate: return
+deactivate Trace
+end alt
+alt impact_config.get("requirements")
+Validate -> Git: get_branch_diff_range()
+activate Git
+Git --> Validate: return
+deactivate Git
+alt diff_range
+Validate -> Impact: collect_changed_functions()
+activate Impact
+Impact --> Validate: return
+deactivate Impact
+else
+Validate -> Impact: collect_changed_functions()
+activate Impact
+Impact --> Validate: return
+deactivate Impact
+end alt
+Validate -> Impact: build_impact_report()
+activate Impact
+Impact --> Validate: return
+deactivate Impact
+end alt
 
 @enduml

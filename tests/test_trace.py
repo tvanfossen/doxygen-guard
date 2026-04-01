@@ -443,7 +443,7 @@ class TestGeneratePlantuml:
         participants = [Participant(name="Pairing")]
         edges = [Edge("Pairing", "Pairing", "DISABLE_CLOUD", style="note")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
-        assert "note right of Pairing: DISABLE_CLOUD" in result
+        assert "note right of Pairing: Disable Cloud" in result
 
     def test_no_autonumber_when_disabled(self):
         config = deep_merge(TRACE_CONFIG, {"trace": {"options": {"autonumber": False}}})

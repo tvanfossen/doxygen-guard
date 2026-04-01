@@ -20,7 +20,7 @@ WiFi_Scanner --> Provisioning_Manager: EVENT:PROV_SCAN_COMPLETE\nWiFiScan_Start(
 alt count > 0
 Provisioning_Manager --> WiFi_Scanner: EVENT:PROV_JOIN_REQUEST\nProvision_OnScanComplete() -> WiFiScan_Join()
 WiFi_Scanner --> Provisioning_Manager: EVENT:PROV_JOIN_RESULT\nWiFiScan_Join() -> Provision_OnJoinResult()
-note right of Provisioning_Manager: PROV_RETRY_CHECK
+note right of Provisioning_Manager: Prov Retry Check
 alt result->success
 Provisioning_Manager --> Cert_Manager: EVENT:PROV_CERT_REQUEST\nProvision_OnJoinResult() -> Cert_Provision()
 else

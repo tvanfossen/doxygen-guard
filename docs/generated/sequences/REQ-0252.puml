@@ -17,7 +17,7 @@ External --> startMqttConnection: EVENT:EVENT_MQTT_START_CONNECTION\nstartMqttCo
 activate startMqttConnection
 == startMqttConnection() ==
 == Pairing_Start() ==
-note right of Pairing_Start: CLOUD_DISABLE
+note right of Pairing_Start: Cloud Disable
 Pairing_Start --> WiFi_ConnectAfterDelay: EVENT:PAIRING_STARTED\nPairing_Start() -> WiFi_ConnectAfterDelay()
 WiFi_ConnectAfterDelay --> ContinuePairing: EVENT:WIFI_IP_ACQUIRED\nWiFi_ConnectAfterDelay() -> ContinuePairing()
 ContinuePairing --> ContinuePairing: EVENT:MQTT_START_CONNECTION

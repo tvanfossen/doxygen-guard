@@ -124,7 +124,7 @@ def _process_source_file(
 
 
 ## @brief Walk source directories and collect ALL tagged functions.
-#  @version 1.5
+#  @version 1.6
 #  @req REQ-TRACE-001
 def collect_all_tagged_functions(
     source_dirs: list[str],
@@ -146,6 +146,11 @@ def collect_all_tagged_functions(
         for source_file in source_files:
             tagged.extend(_process_source_file(source_file, config, req_participant_map))
             _cache_parsed_file(str(source_file), config, file_cache)
+    trace_options = get_trace(config).get("options", {})
+    if trace_options.get("infer_ext", True):
+        _apply_ext_inference(tagged)
+    _infer_handles_from_registration(tagged, trace_options)
+
     logger.info(
         "Trace scan: %d file(s), %d tagged function(s), %d participant(s)",
         file_count,
@@ -319,3 +324,79 @@ def detect_phantom_emits(
                 "Possible phantom @emits %s in %s() — no matching call found", event, tf.name
             )
     return phantoms
+
+
+## @brief Infer cross-module ext calls from function body scan.
+#  @details For each tagged function, scan body for calls to functions owned by
+#  different participants. If found and not already declared via @ext, add the
+#  inferred ext reference. Manual @ext always takes precedence.
+#  @version 1.0
+#  @internal
+def _apply_ext_inference(all_tagged: list[TaggedFunction]) -> None:
+    for tf in all_tagged:
+        if tf.participant_name:
+            _infer_ext_for_function(tf, all_tagged)
+
+
+## @brief Scan a single function's body for cross-module calls.
+#  @version 1.0
+#  @internal
+def _infer_ext_for_function(tf: TaggedFunction, all_tagged: list[TaggedFunction]) -> None:
+    declared_ext_funcs = {ref.split("::", 1)[-1] for ref in tf.ext}
+    for target in all_tagged:
+        if target.name == tf.name or target.name in declared_ext_funcs:
+            continue
+        if not target.participant_name or target.participant_name == tf.participant_name:
+            continue
+        if re.search(rf"\b{re.escape(target.name)}\s*\(", tf.body):
+            module = Path(target.file_path).stem
+            ext_ref = f"{module}::{target.name}"
+            tf.ext.append(ext_ref)
+            logger.info("Inferred @ext %s in %s()", ext_ref, tf.name)
+
+
+_REGISTER_PATTERN = re.compile(r"Event_register\s*\(\s*([^,]+),\s*(\w+)\s*\)", re.DOTALL)
+_EVENT_CONSTANT_PATTERN = re.compile(r"\b(EVENT_\w+)\b")
+
+
+## @brief Infer handles from Event_register() call patterns.
+#  @details Parses Event_register(bitmask, handler) calls. Extracts EVENT_*
+#  constants from bitmask and associates them with the handler function.
+#  @version 1.0
+#  @internal
+def _infer_handles_from_registration(
+    all_tagged: list[TaggedFunction],
+    trace_options: dict[str, Any],
+) -> None:
+    event_prefix = trace_options.get("event_constant_prefix", "EVENT_")
+    tag_prefix = trace_options.get("event_tag_prefix", "EVENT:")
+    name_to_tf = {tf.name: tf for tf in all_tagged}
+
+    for tf in all_tagged:
+        for match in _REGISTER_PATTERN.finditer(tf.body):
+            bitmask_expr = match.group(1)
+            handler_name = match.group(2)
+            handler_tf = name_to_tf.get(handler_name)
+            if handler_tf is None:
+                continue
+            _add_inferred_handles(bitmask_expr, handler_tf, event_prefix, tag_prefix)
+
+
+## @brief Extract EVENT_* constants from bitmask and add to handler's handles.
+#  @version 1.0
+#  @internal
+def _add_inferred_handles(
+    bitmask_expr: str,
+    handler_tf: TaggedFunction,
+    event_prefix: str,
+    tag_prefix: str,
+) -> None:
+    declared = set(handler_tf.handles)
+    for const_match in _EVENT_CONSTANT_PATTERN.finditer(bitmask_expr):
+        constant = const_match.group(1)
+        suffix = constant[len(event_prefix) :] if constant.startswith(event_prefix) else constant
+        event_tag = f"{tag_prefix}{suffix}"
+        if event_tag not in declared:
+            handler_tf.handles.append(event_tag)
+            declared.add(event_tag)
+            logger.info("Inferred @handles %s for %s()", event_tag, handler_tf.name)

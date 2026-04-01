@@ -116,6 +116,7 @@ TRACE_DEFAULTS: dict[str, Any] = {
         "box_label": "System",
         "event_name_pattern": r"^[A-Z][A-Z0-9_]*$",
         "infer_emits": True,
+        "infer_ext": True,
         "event_emit_functions": ["event_post"],
         "event_constant_prefix": "EVENT_",
         "event_tag_prefix": "EVENT:",

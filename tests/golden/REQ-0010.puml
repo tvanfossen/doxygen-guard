@@ -21,7 +21,7 @@ note over Sensor_Driver: compute_average()
 == compute_average() ==
 == Sensor_ReadTemperature() ==
 Sensor_Driver --> Controller: EVENT:SENSOR_DATA_READY\nSensor_ReadTemperature() -> Controller_OnSensorData()
-note right of Controller: THRESHOLD_CHECK
+note right of Controller: Threshold Check
 alt sensor_value > threshold
 Controller --> Controller: EVENT:CONTROL_ACTION\nController_OnSensorData() -> Controller_ReportStatus()
 Controller -> Comm_Manager: Comm_SendStatus()

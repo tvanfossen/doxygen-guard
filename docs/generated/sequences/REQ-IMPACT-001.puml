@@ -5,6 +5,7 @@ skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Impact" as Impact
+  participant "Parser" as Parser
 end box
 
 header
@@ -13,7 +14,16 @@ header
   //Acceptance Criteria:// Functions whose body lines overlap with git diff changed\nlines are reported as changed
 end header
 
+note over Impact: _extract_changed_functions()
+note over Impact: collect_changed_functions()
+note over Impact: _extract_changed_functions()
+note over Impact: collect_changed_functions()
 
+Impact -> Parser: parse_source_file()
+activate Parser
+Parser --> Impact: return
+deactivate Parser
+== collect_changed_functions() ==
 loop
 alt changed_lines
 end alt

@@ -57,6 +57,19 @@ def _render_unlisted_functions(
     return lines
 
 
+## @brief Render supports annotations as diagram notes.
+#  @version 1.0
+#  @internal
+def _render_supports_notes(functions: list[TaggedFunction]) -> list[str]:
+    lines: list[str] = []
+    for tf in functions:
+        if tf.supports:
+            pname = _safe_id(tf.participant_name or tf.name)
+            supports_text = ", ".join(tf.supports)
+            lines.append(f"note over {pname}: {tf.name}() supports {supports_text}")
+    return lines
+
+
 ## @brief Partition active participant names into internal and external groups.
 #  @version 1.0
 #  @internal
@@ -186,7 +199,7 @@ def _render_req_header(
 
 
 ## @brief Render edges and function listings as a PlantUML block.
-#  @version 1.10
+#  @version 1.11
 #  @req REQ-TRACE-001
 def generate_plantuml(
     req_id: str,
@@ -216,6 +229,7 @@ def generate_plantuml(
     lines.append("")
     lines.extend(_render_req_header(req_id, req_row, name_col, preconditions=preconditions))
     lines.extend(_render_unlisted_functions(functions, edges))
+    lines.extend(_render_supports_notes(functions))
 
     label_mode = options.get("label_mode", "full")
     if functions and edges:
@@ -230,6 +244,13 @@ def generate_plantuml(
 
     lines.extend(["", "@enduml"])
     return "\n".join(lines)
+
+
+## @brief Humanize a trigger/note label for readability.
+#  @version 1.0
+#  @internal
+def _humanize_note(label: str) -> str:
+    return label.replace("_", " ").title()
 
 
 ## @brief Convert a participant name to a safe PlantUML identifier.
@@ -279,13 +300,13 @@ def _render_skinparam(options: dict[str, Any]) -> list[str]:
 
 
 ## @brief Render a single edge as a PlantUML line.
-#  @version 1.6
+#  @version 1.7
 #  @internal
 def _render_edge(edge: Edge, label_mode: str = "full") -> str:
     f = _safe_id(edge.from_name)
     t = _safe_id(edge.to_name)
     if edge.style == "note":
-        return f"note right of {f}: {_sanitize_label(edge.label)}"
+        return f"note right of {f}: {_humanize_note(_sanitize_label(edge.label))}"
     label = _select_label_text(edge.label, edge.event, label_mode)
     return f"{f} {edge.style} {t}: {label}"
 
@@ -472,7 +493,7 @@ def _render_legend() -> list[str]:
 
 
 ## @brief Generate PlantUML from AST-ordered edges.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-TRACE-001
 def generate_plantuml_ast(
     req_id: str,
@@ -505,6 +526,7 @@ def generate_plantuml_ast(
     lines.append("")
     lines.extend(_render_req_header(req_id, req_row, name_col, preconditions=preconditions))
     lines.extend(_render_unlisted_functions(functions, flat_edges))
+    lines.extend(_render_supports_notes(functions))
 
     if ast_edges:
         lines.append("")
