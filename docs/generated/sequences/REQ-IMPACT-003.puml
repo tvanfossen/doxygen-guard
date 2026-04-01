@@ -17,6 +17,10 @@ note over Impact: format_markdown()
 note over Impact: format_json()
 note over Impact: format_text()
 note over Impact: _run_impact_command()
+note over Impact: format_markdown()
+note over Impact: format_json()
+note over Impact: format_text()
+note over Impact: _run_impact_command()
 
 == format_markdown() ==
 == format_json() ==

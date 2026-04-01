@@ -1,0 +1,238 @@
+"""AST-based edge building and topological sorting for sequence diagrams.
+
+@brief Build edges from AST walk results with causal ordering and entry inference.
+@version 1.0
+"""
+
+from __future__ import annotations
+
+import logging
+from collections import deque
+from typing import Any
+
+from doxygen_guard.config import get_trace
+from doxygen_guard.tracer_models import (
+    Edge,
+    Participant,
+    TaggedFunction,
+    resolve_by_prefix,
+)
+
+from .edges import _build_handler_map
+
+logger = logging.getLogger(__name__)
+
+
+## @brief Collect unique @assumes REQ IDs from a list of tagged functions.
+#  @version 1.0
+#  @internal
+def _collect_assumes(funcs: list[TaggedFunction]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for tf in funcs:
+        for req in tf.assumes:
+            if req not in seen:
+                seen.add(req)
+                result.append(req)
+    return result
+
+
+## @brief Infer entry edges from unresolved handles events within a REQ scope.
+#  @version 1.1
+#  @req REQ-TRACE-001
+def _infer_entry_edges(
+    req_funcs: list[TaggedFunction],
+    all_tagged: list[TaggedFunction],
+    participants: list[Participant],
+    fallback_name: str = "External",
+) -> list[Edge]:
+    all_emitted: set[str] = set()
+    for tf in all_tagged:
+        all_emitted.update(tf.emits)
+
+    externals = [p for p in participants if p.receives_prefix]
+    entries: list[Edge] = []
+    seen: set[str] = set()
+
+    for tf in req_funcs:
+        for event in tf.handles:
+            if event in all_emitted or event in seen:
+                continue
+            seen.add(event)
+            source = resolve_by_prefix(event, externals) or fallback_name
+            to_name = tf.participant_name or tf.name
+            label = f"{tf.name}()"
+            entries.append(Edge(source, to_name, label, event=event, style="-->"))
+
+    return entries
+
+
+## @brief Build a causal dependency graph from emitters' emit/handle relationships.
+#  @version 1.1
+#  @internal
+def _build_causal_graph(
+    emitters: list[TaggedFunction],
+) -> tuple[dict[str, list[str]], dict[str, int]]:
+    emit_map: dict[str, str] = {}
+    for tf in emitters:
+        for event in tf.emits:
+            emit_map[event] = tf.name
+
+    adj: dict[str, list[str]] = {tf.name: [] for tf in emitters}
+    in_degree: dict[str, int] = {tf.name: 0 for tf in emitters}
+
+    for tf in emitters:
+        for event in tf.handles:
+            producer = emit_map.get(event)
+            if producer and producer != tf.name and producer in adj:
+                adj[producer].append(tf.name)
+                in_degree[tf.name] += 1
+
+    return adj, in_degree
+
+
+## @brief Sort emitters by causal dependency so product diagrams show correct order.
+#  @details If emitter A emits EVENT:X and emitter B handles EVENT:X, A precedes B.
+#  Entry functions (handling events not emitted by any emitter in the set) come first.
+#  Cycles broken by appending remaining emitters in original order.
+#  @version 1.1
+#  @internal
+def _toposort_emitters(emitters: list[TaggedFunction]) -> list[TaggedFunction]:
+    if len(emitters) <= 1:
+        return emitters
+
+    name_to_tf: dict[str, TaggedFunction] = {tf.name: tf for tf in emitters}
+    adj, in_degree = _build_causal_graph(emitters)
+
+    queue = deque(name for name, deg in in_degree.items() if deg == 0)
+    result: list[TaggedFunction] = []
+
+    while queue:
+        name = queue.popleft()
+        result.append(name_to_tf[name])
+        for neighbor in adj[name]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+
+    seen = {tf.name for tf in result}
+    for tf in emitters:
+        if tf.name not in seen:
+            result.append(tf)
+
+    return result
+
+
+## @brief Detect the dominant language spec from a list of emitters' file paths.
+#  @version 1.1
+#  @internal
+def _detect_dominant_spec(
+    emitters: list[TaggedFunction],
+    config: dict[str, Any],
+) -> Any:
+    from doxygen_guard.ts_languages import language_for_file
+
+    lang_counts: dict[str, int] = {}
+    for tf in emitters:
+        lang = language_for_file(tf.file_path, config)
+        if lang:
+            lang_counts[lang] = lang_counts.get(lang, 0) + 1
+    if not lang_counts:
+        return None
+    dominant = max(lang_counts, key=lang_counts.get)  # type: ignore[arg-type]
+
+    from doxygen_guard.ts_languages import get_language_spec
+
+    return get_language_spec(dominant)
+
+
+## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
+#  @version 1.2
+#  @req REQ-TRACE-001
+def build_sequence_edges_ast(
+    emitters: list[TaggedFunction],
+    all_tagged: list[TaggedFunction],
+    participants: list[Participant],
+    config: dict[str, Any],
+    req_id: str | None = None,
+    file_cache: dict | None = None,
+) -> list:
+    from doxygen_guard.ast_walker import ASTEdge, WalkContext, walk_function_body
+    from doxygen_guard.ts_languages import get_language_spec
+
+    handler_map = _build_handler_map(all_tagged)
+    externals = [p for p in participants if p.receives_prefix]
+
+    trace_config = get_trace(config)
+    trace_options = trace_config.get("options", {})
+    emit_fns = set(trace_options.get("event_emit_functions", ["event_post"]))
+    max_depth = trace_options.get("max_chain_depth", 3)
+    fallback_name = trace_config.get("external_fallback", "External")
+    show_returns = trace_options.get("show_returns", True)
+
+    spec = _detect_dominant_spec(emitters, config) or get_language_spec("c")
+    if not spec:
+        return []
+
+    ast_edges: list[ASTEdge] = []
+    visited: set[str] = set()
+
+    entry_edges = _infer_entry_edges(emitters, all_tagged, participants, fallback_name)
+    for edge in entry_edges:
+        ast_edges.append(ASTEdge(kind="entry", edge=edge))
+
+    sorted_emitters = _toposort_emitters(emitters)
+    emitter_count = 0
+
+    for tf in sorted_emitters:
+        if tf.name in visited:
+            continue
+
+        func_node = _lookup_func_node(tf, file_cache)
+        if func_node is None:
+            continue
+
+        if emitter_count > 0 or entry_edges:
+            ast_edges.append(ASTEdge(kind="section", label=f"{tf.name}()"))
+        emitter_count += 1
+
+        file_spec = _spec_for_file(tf.file_path, config) or spec
+        ctx = WalkContext(
+            handler_map=handler_map,
+            all_tagged=all_tagged,
+            externals=externals,
+            emit_functions=emit_fns,
+            spec=file_spec,
+            req_id=req_id,
+            max_depth=max_depth,
+            visited=visited,
+            file_cache=file_cache,
+            show_returns=show_returns,
+            participants=participants,
+        )
+        visited.add(tf.name)
+        ast_edges.extend(walk_function_body(func_node, tf, ctx))
+
+    return ast_edges
+
+
+## @brief Look up a function's AST node from the file cache.
+#  @version 1.0
+#  @internal
+def _lookup_func_node(tf: TaggedFunction, file_cache: dict | None) -> Any:
+    if file_cache is None:
+        return None
+    parsed = file_cache.get(tf.file_path)
+    if parsed is None:
+        return None
+    return parsed.func_nodes.get(tf.name)
+
+
+## @brief Get the LanguageSpec for a source file.
+#  @version 1.0
+#  @internal
+def _spec_for_file(file_path: str, config: dict[str, Any]) -> Any:
+    from doxygen_guard.ts_languages import get_language_spec, language_for_file
+
+    lang = language_for_file(file_path, config)
+    return get_language_spec(lang) if lang else None

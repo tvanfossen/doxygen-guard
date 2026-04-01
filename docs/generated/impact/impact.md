@@ -2,7 +2,8 @@
 
 | REQ | Name | Functions Changed |
 |-----|------|-------------------|
-| REQ-IMPACT-001 | Changed function detection from git diff | _extract_changed_functions, collect_changed_functions |
-| REQ-TRACE-001 | Sequence diagram generation | _build_emit_edges, _build_ext_edges, build_sequence_edges, generate_plantuml, write_diagram, _infer_entry_edges, build_sequence_edges_ast, generate_plantuml_ast, run_trace |
+| REQ-TRACE-001 | Sequence diagram generation | run_trace, _build_emit_edges, _build_ext_edges, _build_trigger_edges, _build_call_edges, build_sequence_edges, generate_plantuml, write_diagram, generate_plantuml_ast, collect_all_tagged_functions |
+| REQ-TRACE-002 | Participant resolution from requirements | _build_req_participant_map, _resolve_participant_from_reqs |
+| REQ-TRACE-003 | External participant prefix routing | _load_external_participants |
 
-**Total: 2 requirement(s) affected, 11 function(s) changed**
+**Total: 3 requirement(s) affected, 13 function(s) changed**

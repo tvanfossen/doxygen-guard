@@ -19,9 +19,21 @@ note over Trace: _run_trace_command()
 note over Trace: _build_trigger_edges()
 note over Trace: _build_call_edges()
 note over Trace: build_sequence_edges()
+note over Trace: build_sequence_edges_ast()
 note over Trace: generate_plantuml()
 note over Trace: write_diagram()
+note over Trace: generate_plantuml_ast()
+note over Trace: get_parser_for_language()
+note over Trace: language_for_file()
+note over Trace: walk_function_body()
+note over Trace: run_coverage()
+note over Trace: _run_trace_command()
+note over Trace: _build_trigger_edges()
+note over Trace: _build_call_edges()
+note over Trace: build_sequence_edges()
 note over Trace: build_sequence_edges_ast()
+note over Trace: generate_plantuml()
+note over Trace: write_diagram()
 note over Trace: generate_plantuml_ast()
 note over Trace: get_parser_for_language()
 note over Trace: language_for_file()
@@ -36,6 +48,11 @@ end group
 group catch
 end group
 Trace -> Trace: run_trace()
+== run_trace() ==
+Trace -> Trace: collect_all_tagged_functions()
+alt trace_all
+Trace -> Trace: write_infrastructure_table()
+end alt
 == collect_all_tagged_functions() ==
 == _build_emit_edges() ==
 == _build_ext_edges() ==
@@ -46,23 +63,18 @@ loop
 Trace -> Trace: _build_emit_edges()
 Trace -> Trace: _build_ext_edges()
 end loop
-== generate_plantuml() ==
-== write_diagram() ==
 == _infer_entry_edges() ==
 == build_sequence_edges_ast() ==
 Trace -> Trace: get_language_spec()
 Trace -> Trace: _infer_entry_edges()
 loop
 end loop
-== generate_plantuml_ast() ==
 == generate_infrastructure_table() ==
 == write_infrastructure_table() ==
 Trace -> Trace: generate_infrastructure_table()
-== run_trace() ==
-Trace -> Trace: collect_all_tagged_functions()
-alt trace_all
-Trace -> Trace: write_infrastructure_table()
-end alt
+== generate_plantuml() ==
+== write_diagram() ==
+== generate_plantuml_ast() ==
 == get_parser_for_language() ==
 == get_language_spec() ==
 == language_for_extension() ==

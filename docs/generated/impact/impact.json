@@ -1,68 +1,84 @@
 [
   {
-    "req_id": "REQ-IMPACT-001",
-    "req_name": "Changed function detection from git diff",
-    "functions": [
-      {
-        "name": "_extract_changed_functions",
-        "file": "src/doxygen_guard/impact.py",
-        "version": "1.2"
-      },
-      {
-        "name": "collect_changed_functions",
-        "file": "src/doxygen_guard/impact.py",
-        "version": "1.2"
-      }
-    ]
-  },
-  {
     "req_id": "REQ-TRACE-001",
     "req_name": "Sequence diagram generation",
     "functions": [
       {
+        "name": "run_trace",
+        "file": "src/doxygen_guard/tracer/__init__.py",
+        "version": "1.7"
+      },
+      {
         "name": "_build_emit_edges",
-        "file": "src/doxygen_guard/tracer.py",
+        "file": "src/doxygen_guard/tracer/edges.py",
         "version": "1.6"
       },
       {
         "name": "_build_ext_edges",
-        "file": "src/doxygen_guard/tracer.py",
+        "file": "src/doxygen_guard/tracer/edges.py",
         "version": "1.7"
       },
       {
+        "name": "_build_trigger_edges",
+        "file": "src/doxygen_guard/tracer/edges.py",
+        "version": "1.3"
+      },
+      {
+        "name": "_build_call_edges",
+        "file": "src/doxygen_guard/tracer/edges.py",
+        "version": "1.3"
+      },
+      {
         "name": "build_sequence_edges",
-        "file": "src/doxygen_guard/tracer.py",
+        "file": "src/doxygen_guard/tracer/edges.py",
         "version": "1.8"
       },
       {
         "name": "generate_plantuml",
-        "file": "src/doxygen_guard/tracer.py",
+        "file": "src/doxygen_guard/tracer/renderer.py",
         "version": "1.10"
       },
       {
         "name": "write_diagram",
-        "file": "src/doxygen_guard/tracer.py",
+        "file": "src/doxygen_guard/tracer/renderer.py",
         "version": "1.5"
       },
       {
-        "name": "_infer_entry_edges",
-        "file": "src/doxygen_guard/tracer.py",
-        "version": "1.1"
-      },
-      {
-        "name": "build_sequence_edges_ast",
-        "file": "src/doxygen_guard/tracer.py",
-        "version": "1.2"
-      },
-      {
         "name": "generate_plantuml_ast",
-        "file": "src/doxygen_guard/tracer.py",
+        "file": "src/doxygen_guard/tracer/renderer.py",
         "version": "1.1"
       },
       {
-        "name": "run_trace",
-        "file": "src/doxygen_guard/tracer.py",
-        "version": "1.7"
+        "name": "collect_all_tagged_functions",
+        "file": "src/doxygen_guard/tracer/collector.py",
+        "version": "1.5"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-TRACE-002",
+    "req_name": "Participant resolution from requirements",
+    "functions": [
+      {
+        "name": "_build_req_participant_map",
+        "file": "src/doxygen_guard/tracer/collector.py",
+        "version": "1.3"
+      },
+      {
+        "name": "_resolve_participant_from_reqs",
+        "file": "src/doxygen_guard/tracer/collector.py",
+        "version": "1.1"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-TRACE-003",
+    "req_name": "External participant prefix routing",
+    "functions": [
+      {
+        "name": "_load_external_participants",
+        "file": "src/doxygen_guard/tracer/collector.py",
+        "version": "1.1"
       }
     ]
   }

@@ -16,6 +16,9 @@ end header
 note over Git: get_diff()
 note over Git: get_branch_diff_range()
 note over Git: get_changed_lines_for_file()
+note over Git: get_diff()
+note over Git: get_branch_diff_range()
+note over Git: get_changed_lines_for_file()
 
 == get_diff() ==
 == parse_changed_lines() ==

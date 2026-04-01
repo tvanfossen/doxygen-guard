@@ -16,6 +16,9 @@ end header
 note over Parser: find_body_end()
 note over Parser: is_forward_declaration()
 note over Parser: parse_functions_ts()
+note over Parser: find_body_end()
+note over Parser: is_forward_declaration()
+note over Parser: parse_functions_ts()
 
 Parser -> Parser: parse_source_file_with_content()
 == parse_source_file_with_content() ==
