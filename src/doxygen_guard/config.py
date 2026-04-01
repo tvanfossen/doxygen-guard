@@ -118,8 +118,6 @@ TRACE_DEFAULTS: dict[str, Any] = {
         "infer_emits": True,
         "infer_ext": True,
         "event_emit_functions": ["event_post"],
-        "event_constant_prefix": "EVENT_",
-        "event_tag_prefix": "EVENT:",
         "show_returns": True,
         "min_edges": 2,
         "label_mode": "full",

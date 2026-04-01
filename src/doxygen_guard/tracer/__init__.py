@@ -126,9 +126,4 @@ def run_trace(
     params = DiagramBuildParams(all_tagged, participants, config, file_cache)
     written, warnings = _write_diagrams_for_reqs(params, seq_dir, req_id, full_reqs)
 
-    if trace_all:
-        infra_path = write_infrastructure_table(all_tagged, base_dir)
-        if infra_path:
-            written.append(infra_path)
-
     return written, warnings
