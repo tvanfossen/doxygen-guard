@@ -3,7 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "Cloud" as Cloud
+entity "Hardware" as Hardware
 
 box "System" #LightBlue
   participant "OTA Manager" as OTA_Manager
@@ -18,14 +19,14 @@ header
 end header
 
 
-External --> OTA_Manager: EVENT_CLOUD_OTA_AVAILABLE\nOTA_OnUpdateAvailable()
+Cloud --> OTA_Manager: EVENT_CLOUD_OTA_AVAILABLE\nOTA_OnUpdateAvailable()
 activate OTA_Manager
 == OTA_OnUpdateAvailable() ==
 note right of OTA_Manager: Ota State Change
 OTA_Manager --> Comm_Manager: EVENT_COMM_DOWNLOAD_START\nOTA_OnUpdateAvailable() -> Comm_DownloadFirmware()
 loop http_has_data(&stream)
 Comm_Manager --> OTA_Manager: EVENT_COMM_CHUNK_RECEIVED\nComm_DownloadFirmware() -> OTA_OnChunkReceived()
-OTA_Manager --> OTA_Manager: EVENT_HW_FLASH_WRITE
+OTA_Manager --> Hardware: EVENT_HW_FLASH_WRITE\nOTA_OnChunkReceived()
 end loop
 Comm_Manager --> OTA_Manager: EVENT_COMM_DOWNLOAD_COMPLETE\nComm_DownloadFirmware() -> OTA_OnDownloadComplete()
 note right of OTA_Manager: Ota Verify Crc
@@ -33,6 +34,6 @@ OTA_Manager -> Comm_Manager: Comm_SendStatus()
 activate Comm_Manager
 Comm_Manager --> OTA_Manager: return
 deactivate Comm_Manager
-OTA_Manager --> OTA_Manager: EVENT_CLOUD_OTA_RESULT
+OTA_Manager --> Cloud: EVENT_CLOUD_OTA_RESULT\nOTA_OnDownloadComplete()
 
 @enduml

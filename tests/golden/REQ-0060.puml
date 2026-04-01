@@ -3,6 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "User Action" as User_Action
 entity "External" as External
 
 box "System" #LightBlue
@@ -21,8 +22,9 @@ end header
 
 note over Provisioning_Manager: Provision_Init()
 
-External --> Provisioning_Manager: EVENT_FACTORY_RESET_COMPLETE\nProvision_Start()
+User_Action --> Provisioning_Manager: EVENT_FACTORY_RESET_COMPLETE\nProvision_Start()
 activate Provisioning_Manager
+External --> Provisioning_Manager: EVENT_PROV_SCAN_COMPLETE\nProvision_OnScanComplete()
 == Provision_Init() ==
 Provisioning_Manager -> Event_Bus: Event_register()
 activate Event_Bus
@@ -43,28 +45,28 @@ deactivate Event_Bus
 == Provision_Start() ==
 note right of Provisioning_Manager: Prov State Init
 Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_SCAN_START\nProvision_Start() -> WiFiScan_Start()
-WiFi_Scanner --> Provisioning_Manager: EVENT_PROV_SCAN_COMPLETE\nWiFiScan_Start() -> Provision_OnScanComplete()
+== Provision_OnScanComplete() ==
 alt count > 0
 Provisioning_Manager --> Provisioning_Manager: EVENT_PROV_FAILED
 else
 Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_JOIN_REQUEST\nProvision_OnScanComplete() -> WiFiScan_Join()
 WiFi_Scanner --> Provisioning_Manager: EVENT_PROV_JOIN_RESULT\nWiFiScan_Join() -> Provision_OnJoinResult()
-end alt
-== Provision_OnJoinResult() ==
 note right of Provisioning_Manager: Prov Retry Check
 alt result->success
 Provisioning_Manager --> Cert_Manager: EVENT_PROV_CERT_REQUEST\nProvision_OnJoinResult() -> Cert_Provision()
 Cert_Manager --> Provisioning_Manager: EVENT_PROV_CERT_INSTALLED\nCert_Provision() -> Provision_OnCertInstalled()
+else
+alt retry_count < MAX_RETRIES
+Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_SCAN_START\nProvision_OnJoinResult() -> WiFiScan_Start()
+end alt
+end alt
+end alt
+== Provision_OnCertInstalled() ==
 note right of Provisioning_Manager: Prov State Ready
 Provisioning_Manager -> Comm_Manager: Comm_SendStatus()
 activate Comm_Manager
 Comm_Manager --> Provisioning_Manager: return
 deactivate Comm_Manager
 Provisioning_Manager --> Provisioning_Manager: EVENT_PROV_COMPLETE
-else
-alt retry_count < MAX_RETRIES
-Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_SCAN_START\nProvision_OnJoinResult() -> WiFiScan_Start()
-end alt
-end alt
 
 @enduml
