@@ -36,31 +36,5 @@
         "version": "1.1"
       }
     ]
-  },
-  {
-    "req_id": "REQ-VAL-001",
-    "req_name": "Doxygen presence check",
-    "functions": [
-      {
-        "name": "check_presence",
-        "file": "src/doxygen_guard/checks.py",
-        "version": "1.2"
-      },
-      {
-        "name": "check_unknown_tags",
-        "file": "src/doxygen_guard/checks.py",
-        "version": "1.0"
-      },
-      {
-        "name": "check_req_exists",
-        "file": "src/doxygen_guard/checks.py",
-        "version": "1.0"
-      },
-      {
-        "name": "check_file_presence",
-        "file": "src/doxygen_guard/checks.py",
-        "version": "1.0"
-      }
-    ]
   }
 ]

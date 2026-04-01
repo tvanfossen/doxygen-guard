@@ -350,7 +350,8 @@ def detect_phantom_emits(
 #  @details For each tagged function, scan body for calls to functions owned by
 #  different participants. If found and not already declared via @ext, add the
 #  inferred ext reference. Manual @ext always takes precedence.
-#  @version 1.0
+#  Also detects system boundary calls (callees not defined in scanned source).
+#  @version 1.1
 #  @internal
 def _apply_ext_inference(all_tagged: list[TaggedFunction]) -> None:
     for tf in all_tagged:
