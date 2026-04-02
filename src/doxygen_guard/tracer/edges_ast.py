@@ -37,6 +37,32 @@ def _collect_assumes(funcs: list[TaggedFunction]) -> list[str]:
     return result
 
 
+## @brief Group entry edges by handler; wrap multi-event handlers in alt blocks.
+#  @version 1.0
+#  @internal
+def _group_entry_edges(entries: list[Edge]) -> list:
+    from doxygen_guard.ast_walker import ASTEdge
+
+    groups: dict[str, list[Edge]] = {}
+    for edge in entries:
+        groups.setdefault(edge.label, []).append(edge)
+
+    result: list = []
+    for edges in groups.values():
+        if len(edges) == 1:
+            result.append(ASTEdge(kind="entry", edge=edges[0]))
+            continue
+        for i, edge in enumerate(edges):
+            event_label = edge.event or ""
+            if i == 0:
+                result.append(ASTEdge(kind="switch_start", label=event_label))
+            else:
+                result.append(ASTEdge(kind="switch_case", label=f"[{event_label}]"))
+            result.append(ASTEdge(kind="entry", edge=edge))
+        result.append(ASTEdge(kind="switch_end"))
+    return result
+
+
 ## @brief Infer entry edges from unresolved handles events within a REQ scope.
 #  @version 1.1
 #  @req REQ-TRACE-001
@@ -147,7 +173,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -169,6 +195,7 @@ def build_sequence_edges_ast(
     max_depth = trace_options.get("max_chain_depth", 3)
     fallback_name = trace_config.get("external_fallback", "External")
     show_returns = trace_options.get("show_returns", True)
+    cross_req_depth = trace_options.get("cross_req_depth", 1)
 
     spec = _detect_dominant_spec(emitters, config) or get_language_spec("c")
     if not spec:
@@ -178,8 +205,7 @@ def build_sequence_edges_ast(
     visited: set[str] = set()
 
     entry_edges = _infer_entry_edges(emitters, all_tagged, participants, fallback_name)
-    for edge in entry_edges:
-        ast_edges.append(ASTEdge(kind="entry", edge=edge))
+    ast_edges.extend(_group_entry_edges(entry_edges))
 
     sorted_emitters = _toposort_emitters(emitters)
     emitter_count = 0
@@ -209,6 +235,7 @@ def build_sequence_edges_ast(
             file_cache=file_cache,
             show_returns=show_returns,
             participants=participants,
+            cross_req_depth=cross_req_depth,
         )
         visited.add(tf.name)
         ast_edges.extend(walk_function_body(func_node, tf, ctx))

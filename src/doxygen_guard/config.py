@@ -122,6 +122,7 @@ TRACE_DEFAULTS: dict[str, Any] = {
         "min_edges": 2,
         "label_mode": "full",
         "legend": False,
+        "cross_req_depth": 1,
     },
 }
 

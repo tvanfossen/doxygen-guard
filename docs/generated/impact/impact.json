@@ -4,9 +4,9 @@
     "req_name": "Sequence diagram generation",
     "functions": [
       {
-        "name": "run_trace",
-        "file": "src/doxygen_guard/tracer/__init__.py",
-        "version": "1.7"
+        "name": "walk_function_body",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.2"
       },
       {
         "name": "collect_all_tagged_functions",
@@ -39,6 +39,11 @@
         "name": "_load_external_participants",
         "file": "src/doxygen_guard/tracer/collector.py",
         "version": "1.1"
+      },
+      {
+        "name": "resolve_by_prefix",
+        "file": "src/doxygen_guard/tracer_models.py",
+        "version": "1.0"
       }
     ]
   }

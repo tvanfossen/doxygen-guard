@@ -5,7 +5,6 @@ skinparam responseMessageBelowArrow true
 
 box "System" #LightBlue
   participant "Controller" as Controller
-  participant "Event Bus" as Event_Bus
   participant "Comm Manager" as Comm_Manager
 end box
 
@@ -18,34 +17,20 @@ end header
 note over Controller: Controller_Init()
 note over Controller: MsgBus_Init()
 
-Controller -> Event_Bus: Event_register()
-activate Event_Bus
-Event_Bus --> Controller: return
-deactivate Event_Bus
-Controller -> Event_Bus: Event_register()
-activate Event_Bus
-Event_Bus --> Controller: return
-deactivate Event_Bus
-== Controller_OnSensorData() ==
 note right of Controller: Threshold Check
 alt sensor_value > threshold
 Controller --> Controller: EVENT_CONTROL_ACTION\nController_OnSensorData() -> Controller_ReportStatus()
-Controller -> Comm_Manager: Comm_SendStatus()
+Controller -> Comm_Manager: Comm_SendStatus(&status)
 activate Comm_Manager
 Comm_Manager --> Controller: return
 deactivate Comm_Manager
 end alt
-== MsgBus_Init() ==
-Controller -> Event_Bus: Event_register()
-activate Event_Bus
-Event_Bus --> Controller: return
-deactivate Event_Bus
 == MsgBus_QueueInbound() ==
 Controller --> Controller: EVENT_MSG_QUEUED\nMsgBus_QueueInbound() -> MsgBus_ProcessQueue()
 note right of Controller: Msg Dispatch Cycle
 loop queue_receive(&inbound_queue, &msg)
 alt msg.event_id == MSG_EVENT_STATUS_REQUEST
-Controller -> Comm_Manager: Comm_SendStatus()
+Controller -> Comm_Manager: Comm_SendStatus(&status)
 activate Comm_Manager
 Comm_Manager --> Controller: return
 deactivate Comm_Manager

@@ -15,37 +15,28 @@ header
   //Acceptance Criteria:// Functions matched by pattern with correct name capture;\nexcludes filtered; forward declarations skipped
 end header
 
-note over Parser: find_body_end()
-note over Parser: is_forward_declaration()
-note over Parser: parse_functions_ts()
-note over Parser: find_body_end()
-note over Parser: is_forward_declaration()
-note over Parser: parse_functions_ts()
 
 Parser -> Parser: parse_source_file_with_content()
 == parse_source_file_with_content() ==
-Parser -> Config: get_language_config()
+Parser -> Config: get_language_config(config, file_path)
 activate Config
 Config --> Parser: return
 deactivate Config
-Parser -> Config: resolve_parse_settings()
+Parser -> Config: resolve_parse_settings(config, lang_config)
 activate Config
 Config --> Parser: return
 deactivate Config
-Parser -> Trace: language_for_file()
+Parser -> Trace: language_for_file(file_path, config)
 activate Trace
 Trace --> Parser: return
 deactivate Trace
 Parser -> Parser: parse_functions()
-== find_body_end() ==
-== is_forward_declaration() ==
-== parse_functions() ==
 == parse_functions_ts() ==
-Parser -> Trace: get_parser_for_language()
+Parser -> Trace: get_parser_for_language(lang_name)
 activate Trace
 Trace --> Parser: return
 deactivate Trace
-Parser -> Trace: get_language_spec()
+Parser -> Trace: get_language_spec(lang_name)
 activate Trace
 Trace --> Parser: return
 deactivate Trace

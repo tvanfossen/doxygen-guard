@@ -38,7 +38,7 @@ class ASTEdge:
 
 
 ## @brief Context passed through the recursive AST walk.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 @dataclass
 class WalkContext:
@@ -53,6 +53,8 @@ class WalkContext:
     file_cache: dict[str, Any] | None = None
     show_returns: bool = True
     participants: list[Participant] | None = None
+    cross_req_depth: int = 1
+    cross_req_hops: int = 0
 
 
 ## @brief Mutable state threaded through the recursive AST walk.
@@ -128,7 +130,7 @@ def _walk_statements(
 
 
 ## @brief Handle a call expression node, producing the appropriate edge type.
-#  @version 1.3
+#  @version 1.4
 #  @internal
 def _handle_call(
     call_node: Node,
@@ -144,7 +146,9 @@ def _handle_call(
         return
 
     if callee in state.ext_refs:
-        _place_ext_edge(callee, state.ext_refs[callee], state.from_name, state.ctx, state.edges)
+        _place_ext_edge(
+            callee, state.ext_refs[callee], state.from_name, state.ctx, state.edges, call_node
+        )
         return
 
     if _is_tagged_call_target(callee, state.ctx):
@@ -199,10 +203,12 @@ def _extract_emit_event_arg(call_node: Node, state: _WalkState) -> str | None:
     return None
 
 
-## @brief Map a C constant name to the matching EVENT: tag in the emit set.
-#  @version 1.0
+## @brief Map a C constant name to the matching event in the emit set.
+#  @version 1.1
 #  @internal
 def _map_constant_to_event(constant: str, emit_set: set[str]) -> str | None:
+    if constant in emit_set:
+        return constant
     for event in emit_set:
         tag_name = event.split(":", 1)[-1] if ":" in event else event
         const_suffix = (
@@ -260,8 +266,23 @@ def _resolve_emit(
     return edge, None
 
 
+## @brief Extract a compact argument string from a call expression for diagram labeling.
+#  @version 1.0
+#  @internal
+def _extract_call_args_label(call_node: Node | None) -> str:
+    if call_node is None:
+        return ""
+    args = call_node.child_by_field_name("arguments")
+    if args is None:
+        return ""
+    raw = args.text.decode("utf-8")
+    if raw.startswith("(") and raw.endswith(")"):
+        raw = raw[1:-1]
+    return " ".join(raw.split())
+
+
 ## @brief Place an ext edge for a resolved external call.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _place_ext_edge(
     callee: str,
@@ -269,6 +290,7 @@ def _place_ext_edge(
     from_name: str,
     ctx: WalkContext,
     edges: list[ASTEdge],
+    call_node: Node | None = None,
 ) -> None:
     parts = ext_ref.split("::", 1)
     func_name = parts[1] if len(parts) == 2 else ext_ref
@@ -284,13 +306,15 @@ def _place_ext_edge(
         to_name = module.replace("_", " ").title()
     is_async = any(to_name == p.name for p in ctx.externals if p.receives_prefix)
     style = "-->" if is_async else "->"
-    edges.append(ASTEdge(kind="ext", edge=Edge(from_name, to_name, f"{func_name}()", style=style)))
+    args_text = _extract_call_args_label(call_node) if call_node else ""
+    label = f"{func_name}({args_text})" if args_text else f"{func_name}()"
+    edges.append(ASTEdge(kind="ext", edge=Edge(from_name, to_name, label, style=style)))
     if ctx.show_returns:
         edges.append(ASTEdge(kind="ext", edge=Edge(to_name, from_name, "return", style="-->")))
 
 
 ## @brief Follow a handler's body to produce continuation edges.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _follow_handler_chain(
     handler_tf: TaggedFunction,
@@ -298,10 +322,14 @@ def _follow_handler_chain(
     depth: int,
 ) -> list[ASTEdge]:
     visited = ctx.visited or set()
-    if handler_tf.name in visited:
-        return []
-    visited.add(handler_tf.name)
+    is_cross = ctx.req_id and ctx.req_id not in handler_tf.reqs
+    new_hops = ctx.cross_req_hops + (1 if is_cross else 0)
+    cross_blocked = ctx.cross_req_depth >= 0 and new_hops > ctx.cross_req_depth
 
+    if handler_tf.name in visited or cross_blocked:
+        return []
+
+    visited.add(handler_tf.name)
     handler_node = _lookup_handler_node(handler_tf, ctx)
     if handler_node is None:
         return []
@@ -318,6 +346,8 @@ def _follow_handler_chain(
         file_cache=ctx.file_cache,
         show_returns=ctx.show_returns,
         participants=ctx.participants,
+        cross_req_depth=ctx.cross_req_depth,
+        cross_req_hops=new_hops,
     )
     return walk_function_body(handler_node, handler_tf, chain_ctx, depth + 1)
 

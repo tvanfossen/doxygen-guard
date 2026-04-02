@@ -43,12 +43,13 @@ class TaggedFunction:
 
 
 ## @brief Context for rendering a diagram header (req metadata + preconditions).
-#  @version 1.0
+#  @version 1.1
 #  @internal
 @dataclass
 class DiagramContext:
     req_row: dict[str, str] | None = None
     preconditions: list[str] | None = None
+    init_only_names: set[str] | None = None
 
 
 ## @brief A directed edge in a sequence diagram.

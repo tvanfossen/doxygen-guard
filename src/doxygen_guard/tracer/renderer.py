@@ -41,19 +41,23 @@ def _collect_all_active_names(
     return names
 
 
-## @brief Render function notes for functions not referenced in any edge.
-#  @version 1.1
+## @brief Render notes for init-only functions not referenced in any edge.
+#  @version 1.2
 #  @internal
 def _render_unlisted_functions(
     functions: list[TaggedFunction],
     edges: list[Edge],
+    init_only_names: set[str] | None = None,
 ) -> list[str]:
     funcs_in_edges = {e.label for e in edges}
     lines: list[str] = []
     for tf in functions:
-        if not any(tf.name in label for label in funcs_in_edges):
-            pname = _safe_id(tf.participant_name or tf.name)
-            lines.append(f"note over {pname}: {tf.name}()")
+        if any(tf.name in label for label in funcs_in_edges):
+            continue
+        if init_only_names is not None and tf.name not in init_only_names:
+            continue
+        pname = _safe_id(tf.participant_name or tf.name)
+        lines.append(f"note over {pname}: {tf.name}()")
     return lines
 
 
@@ -398,13 +402,43 @@ _SIMPLE_KINDS: dict[str, str] = {
 }
 
 
+## @brief Remove section separators that have no content after them.
+#  @version 1.0
+#  @internal
+def _prune_empty_sections(ast_edges: list) -> list:
+    pruned: list = []
+    i = 0
+    while i < len(ast_edges):
+        if ast_edges[i].kind != "section":
+            pruned.append(ast_edges[i])
+            i += 1
+            continue
+        j = i + 1
+        while j < len(ast_edges) and ast_edges[j].kind == "section":
+            j += 1
+        if j < len(ast_edges):
+            pruned.append(ast_edges[j - 1])
+        i = j
+    return pruned
+
+
+## @brief Emit deactivate lines for all currently active participants.
+#  @version 1.0
+#  @internal
+def _close_activations(active: set[str], lines: list[str]) -> None:
+    for p in sorted(active):
+        lines.append(f"deactivate {p}")
+    active.clear()
+
+
 ## @brief Render ASTEdge list as PlantUML lines with activate/deactivate.
-#  @version 1.3
+#  @version 1.5
 #  @internal
 def _render_ast_edges(ast_edges: list, label_mode: str = "full") -> list[str]:
+    edges = _prune_empty_sections(ast_edges)
     lines: list[str] = []
     active: set[str] = set()
-    for ae in ast_edges:
+    for ae in edges:
         if ae.kind == "section":
             lines.append(f"== {ae.label} ==")
         elif ae.kind in _EDGE_KINDS:
@@ -417,6 +451,7 @@ def _render_ast_edges(ast_edges: list, label_mode: str = "full") -> list[str]:
             line = _render_block_start(ae)
             if line:
                 lines.append(line)
+    _close_activations(active, lines)
     return lines
 
 
@@ -493,7 +528,7 @@ def _render_legend() -> list[str]:
 
 
 ## @brief Generate PlantUML from AST-ordered edges.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-001
 def generate_plantuml_ast(
     req_id: str,
@@ -507,6 +542,7 @@ def generate_plantuml_ast(
     name_col = _get_name_col(config)
     req_row = context.req_row if context else None
     preconditions = context.preconditions if context else None
+    init_only_names = context.init_only_names if context else None
     req_name = req_row.get(name_col) if req_row else None
     title = f"{req_id} {req_name}" if req_name else req_id
 
@@ -525,7 +561,7 @@ def generate_plantuml_ast(
 
     lines.append("")
     lines.extend(_render_req_header(req_id, req_row, name_col, preconditions=preconditions))
-    lines.extend(_render_unlisted_functions(functions, flat_edges))
+    lines.extend(_render_unlisted_functions(functions, flat_edges, init_only_names))
     lines.extend(_render_supports_notes(functions))
 
     if ast_edges:
@@ -555,8 +591,30 @@ def _resolve_preconditions(
     return labels
 
 
+## @brief Collect infrastructure function names from config and marker tags.
+#  @version 1.0
+#  @internal
+def _get_infra_fn_names(config: dict[str, Any], all_tagged: list[TaggedFunction]) -> set[str]:
+    trace_options = get_trace(config).get("options", {})
+    names = set(trace_options.get("event_emit_functions", ["event_post"]))
+    names |= set(trace_options.get("event_register_functions", ["Event_register"]))
+    names |= {t.name for t in all_tagged if t.marker_tags}
+    return names
+
+
+## @brief Check if a function only calls infrastructure root functions (init-only).
+#  @version 1.2
+#  @internal
+def _is_init_only(tf: TaggedFunction, infra_fn_names: set[str]) -> bool:
+    if tf.emits or tf.handles or tf.triggers:
+        return False
+    if not tf.ext:
+        return False
+    return all((ref.split("::", 1)[-1] if "::" in ref else ref) in infra_fn_names for ref in tf.ext)
+
+
 ## @brief Generate PlantUML for a single requirement using AST or legacy path.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _generate_req_diagram(
     r: str,
@@ -573,13 +631,16 @@ def _generate_req_diagram(
     min_edges = get_trace(cfg).get("options", {}).get("min_edges", 0)
 
     if params.file_cache:
+        infra_fns = _get_infra_fn_names(cfg, at)
+        emitters = [tf for tf in funcs if not _is_init_only(tf, infra_fns)]
         ast_edges = build_sequence_edges_ast(
-            funcs, at, pp, cfg, req_id=r, file_cache=params.file_cache
+            emitters, at, pp, cfg, req_id=r, file_cache=params.file_cache
         )
         behavioral = [ae for ae in ast_edges if ae.edge is not None]
         if min_edges and len(behavioral) < min_edges:
             logger.info("Skipping %s: %d edges below min_edges=%d", r, len(behavioral), min_edges)
             return None, warnings
+        diagram_ctx.init_only_names = {tf.name for tf in funcs if _is_init_only(tf, infra_fns)}
         puml = generate_plantuml_ast(r, ast_edges, funcs, pp, cfg, context=diagram_ctx)
     else:
         edges, edge_warnings = build_sequence_edges(funcs, at, pp, req_id=r)

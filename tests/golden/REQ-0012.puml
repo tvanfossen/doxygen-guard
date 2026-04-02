@@ -14,7 +14,6 @@ header
   //Acceptance Criteria:// Sensor_Calibrate retrieves offsets via\nController_GetCalibration. Offsets applied to subsequent\nreadings.
 end header
 
-note over Sensor_Driver: Sensor_Calibrate()
 
 == Sensor_Calibrate() ==
 Sensor_Driver -> Controller: Controller_GetCalibration()

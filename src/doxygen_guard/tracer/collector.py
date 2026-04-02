@@ -200,8 +200,31 @@ def _cache_parsed_file(
         file_cache[file_path] = parsed
 
 
-## @brief Recursively find source files, respecting validate.exclude patterns.
-#  @version 1.2
+## @brief List tracked files under source_dir via git ls-files.
+#  @version 1.1
+#  @internal
+def _git_ls_files(source_dir: str, extensions: set[str]) -> list[Path] | None:
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "-C", source_dir, "ls-files", "--cached", "--others", "--exclude-standard"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    base = Path(source_dir)
+    return [
+        base / line
+        for line in result.stdout.splitlines()
+        if line and any(line.endswith(ext) for ext in extensions)
+    ]
+
+
+## @brief Find source files, preferring git ls-files with rglob fallback.
+#  @version 1.3
 #  @internal
 def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
     languages = get_validate(config).get("languages", {})
@@ -210,18 +233,28 @@ def _find_source_files(source_dir: str, config: dict[str, Any]) -> list[Path]:
     for lang_config in languages.values():
         extensions.update(lang_config.get("extensions", []))
 
+    git_files = _git_ls_files(source_dir, extensions)
+    candidates = git_files if git_files is not None else _rglob_source_files(source_dir, extensions)
+    if candidates is None:
+        return []
+
+    return sorted(f for f in candidates if not any(re.search(p, str(f)) for p in exclude_patterns))
+
+
+## @brief Fallback file discovery via filesystem glob.
+#  @version 1.0
+#  @internal
+def _rglob_source_files(source_dir: str, extensions: set[str]) -> list[Path] | None:
     source_path = Path(source_dir)
     if not source_path.exists():
         logger.warning("Source directory not found: %s", source_dir)
-        return []
-
+        return None
     files: list[Path] = []
     for ext in extensions:
         for f in source_path.rglob(f"*{ext}"):
             rel = str(f.relative_to(Path.cwd())) if f.is_absolute() else str(f)
-            if not any(re.search(p, rel) for p in exclude_patterns):
-                files.append(f)
-    return sorted(files)
+            files.append(Path(rel))
+    return files
 
 
 ## @brief Build a TaggedFunction, resolving participant and capturing body text.

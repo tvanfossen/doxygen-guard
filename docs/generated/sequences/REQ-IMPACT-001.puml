@@ -14,12 +14,8 @@ header
   //Acceptance Criteria:// Functions whose body lines overlap with git diff changed\nlines are reported as changed
 end header
 
-note over Impact: _extract_changed_functions()
-note over Impact: collect_changed_functions()
-note over Impact: _extract_changed_functions()
-note over Impact: collect_changed_functions()
 
-Impact -> Parser: parse_source_file()
+Impact -> Parser: parse_source_file(file_path, config)
 activate Parser
 Parser --> Impact: return
 deactivate Parser
