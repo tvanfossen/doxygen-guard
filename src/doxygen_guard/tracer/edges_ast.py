@@ -195,7 +195,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -219,6 +219,7 @@ def build_sequence_edges_ast(
     show_returns = trace_options.get("show_returns", True)
     cross_req_depth = trace_options.get("cross_req_depth", 1)
     show_return_values = trace_options.get("show_return_values", True)
+    max_condition_length = trace_options.get("max_condition_length", 80)
 
     spec = _detect_dominant_spec(emitters, config) or get_language_spec("c")
     if not spec:
@@ -266,6 +267,7 @@ def build_sequence_edges_ast(
             cross_req_depth=cross_req_depth,
             extra_qualifiers=extra_qualifiers,
             return_type_map=return_type_map,
+            max_condition_length=max_condition_length,
         )
         visited.add(tf.name)
         ast_edges.extend(walk_function_body(func_node, tf, ctx))

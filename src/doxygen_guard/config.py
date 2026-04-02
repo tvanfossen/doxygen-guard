@@ -126,6 +126,7 @@ TRACE_DEFAULTS: dict[str, Any] = {
         "cross_req_depth": 1,
         "show_return_values": True,
         "show_recovery_notes": True,
+        "max_condition_length": 80,
     },
 }
 

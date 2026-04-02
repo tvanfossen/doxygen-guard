@@ -25,17 +25,15 @@ group catch
 note right: print
 end group
 Trace -> Trace: run_trace(source_dirs=args.source_dirs, config=config, req_id=args.req, trace_all=args.trace_all,)
-== run_trace() ==
-Trace -> Trace: collect_all_tagged_functions(source_dirs, config, full_reqs)
 == build_sequence_edges() ==
-loop
+loop tf in emitters
 Trace -> Trace: _build_emit_edges(tf, from_name, handler_map, externals)
 Trace -> Trace: _build_ext_edges(tf, from_name, all_tagged, participants)
 end loop
 == build_sequence_edges_ast() ==
 Trace -> Trace: get_language_spec("c")
 Trace -> Trace: _infer_entry_edges(emitters, all_tagged, participants, fallback_name)
-loop
+loop tf in sorted_emitters
 end loop
 == write_infrastructure_table() ==
 Trace -> Trace: generate_infrastructure_table(all_tagged)

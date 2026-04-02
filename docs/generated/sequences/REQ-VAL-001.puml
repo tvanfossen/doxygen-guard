@@ -31,7 +31,7 @@ note right: (empty handler)
 end group
 alt content is not None
 end alt
-loop
+loop func in functions
 end loop
 alt not no_git
 group try
@@ -52,7 +52,7 @@ end group
 alt trace_enabled
 Validate -> Trace: run_trace(source_dirs=source_dirs, config=config, trace_all=True,)
 activate Trace
-Trace --> Validate: return tuple[list[Path], list[str]]
+Trace --> Validate: return Tuple of (written file paths, warning messages)
 end alt
 alt impact_config.get("requirements")
 Validate -> Git: get_branch_diff_range()

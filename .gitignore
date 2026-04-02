@@ -19,3 +19,4 @@ htmlcov/
 .ruff_cache/
 .claude/tmp/
 docs/generated/**/*.png
+.trace-manifest.json

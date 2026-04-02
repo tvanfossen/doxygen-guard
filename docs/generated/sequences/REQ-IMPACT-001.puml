@@ -20,7 +20,7 @@ activate Parser
 Parser --> Impact: return list | None
 activate Impact
 == collect_changed_functions() ==
-loop
+loop file_path in file_paths
 alt changed_lines
 end alt
 end loop

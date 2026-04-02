@@ -57,6 +57,7 @@ class WalkContext:
     cross_req_hops: int = 0
     extra_qualifiers: set[str] | None = None
     return_type_map: dict[str, str] | None = None
+    max_condition_length: int = 80
 
 
 ## @brief Mutable state threaded through the recursive AST walk.
@@ -382,7 +383,7 @@ def _place_ext_edge(
 
 
 ## @brief Follow a handler's body to produce continuation edges.
-#  @version 1.3
+#  @version 1.4
 #  @internal
 def _follow_handler_chain(
     handler_tf: TaggedFunction,
@@ -418,6 +419,7 @@ def _follow_handler_chain(
         cross_req_hops=new_hops,
         extra_qualifiers=ctx.extra_qualifiers,
         return_type_map=ctx.return_type_map,
+        max_condition_length=ctx.max_condition_length,
     )
     return walk_function_body(handler_node, handler_tf, chain_ctx, depth + 1)
 
@@ -472,7 +474,7 @@ def _dispatch_specialized_control_flow(
 
 
 ## @brief Handle standard loop/alt control flow blocks with pruning.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _handle_standard_control_flow(
     node: Node,
@@ -487,7 +489,7 @@ def _handle_standard_control_flow(
     if not _has_tagged_content(body_node, state.ctx, ext_names):
         return
 
-    condition = _extract_condition_text(node)
+    condition = _extract_condition_text(node, state.ctx.max_condition_length)
 
     if puml_type == "loop":
         state.edges.append(ASTEdge(kind="loop_start", label=condition))
@@ -618,10 +620,10 @@ def _extract_exception_type(node: Node) -> str:
 
 
 ## @brief Handle a switch/case/match block.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _handle_switch(node: Node, state: _WalkState) -> None:
-    condition = _extract_condition_text(node)
+    condition = _extract_condition_text(node, state.ctx.max_condition_length)
     body = node.child_by_field_name("body")
     if body is None:
         return
@@ -785,13 +787,43 @@ def _identifier_from_func_node(func_node: Node) -> str | None:
 
 
 ## @brief Extract condition text from a control flow node for labeling.
-#  @version 1.1
+#  @version 1.2
 #  @internal
-def _extract_condition_text(node: Node) -> str:
+def _extract_condition_text(node: Node, max_len: int = 80) -> str:
+    if node.type == "for_statement":
+        return _extract_for_condition(node, max_len)
+    cond = node.child_by_field_name("condition")
+    if cond is None:
+        return ""
+    text = cond.text.decode("utf-8").strip()
+    if text.startswith("(") and text.endswith(")"):
+        text = text[1:-1].strip()
+    return _truncate_at_clause(text, max_len)
+
+
+## @brief Extract only the test expression from a for-statement.
+#  @version 1.0
+#  @internal
+def _extract_for_condition(node: Node, max_len: int) -> str:
     cond = node.child_by_field_name("condition")
     if cond:
         text = cond.text.decode("utf-8").strip()
-        if text.startswith("(") and text.endswith(")"):
-            text = text[1:-1].strip()
-        return text[:50] if len(text) > 50 else text
+        return _truncate_at_clause(text, max_len)
+    right = node.child_by_field_name("right")
+    left = node.child_by_field_name("left")
+    if left and right:
+        return _truncate_at_clause(f"{left.text.decode()} in {right.text.decode()}", max_len)
     return ""
+
+
+## @brief Truncate at a clause boundary (&& / ||) instead of mid-expression.
+#  @version 1.0
+#  @internal
+def _truncate_at_clause(text: str, max_len: int) -> str:
+    if len(text) <= max_len:
+        return text
+    for sep in (" && ", " || ", " and ", " or "):
+        pos = text.rfind(sep, 0, max_len)
+        if pos > 0:
+            return text[:pos] + " ..."
+    return text[:max_len] + "..."
