@@ -273,13 +273,14 @@ def _safe_id(name: str) -> str:
 
 
 ## @brief Sanitize a label for safe embedding in PlantUML output.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _sanitize_label(label: str) -> str:
     result = label.replace("`", "'").replace(";", ",")
     result = result.replace("<<", "((").replace(">>", "))")
     result = re.sub(r"(?<!-)(<)(?!-)", "(", result)
     result = re.sub(r"(?<!-)(>)(?!-)", ")", result)
+    result = re.sub(r"^!", "_", result, flags=re.MULTILINE)
     return result
 
 

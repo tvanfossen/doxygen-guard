@@ -24,7 +24,7 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = [
-    "pyyaml>=6.0",
+    "pyyaml>=6.0,<8",
     "tree-sitter>=0.23,<0.24",
     "tree-sitter-c>=0.23,<0.23.5",
     "tree-sitter-cpp>=0.23,<0.23.5",
