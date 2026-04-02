@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from doxygen_guard.tracer_models import (
@@ -411,7 +411,7 @@ def _place_ext_edge(
 
 
 ## @brief Follow a handler's body to produce continuation edges.
-#  @version 1.5
+#  @version 1.6
 #  @internal
 def _follow_handler_chain(
     handler_tf: TaggedFunction,
@@ -431,26 +431,7 @@ def _follow_handler_chain(
     if handler_node is None:
         return []
 
-    chain_ctx = WalkContext(
-        handler_map=ctx.handler_map,
-        all_tagged=ctx.all_tagged,
-        externals=ctx.externals,
-        emit_functions=ctx.emit_functions,
-        spec=ctx.spec,
-        req_id=ctx.req_id,
-        max_depth=ctx.max_depth,
-        visited=visited,
-        file_cache=ctx.file_cache,
-        show_returns=ctx.show_returns,
-        participants=ctx.participants,
-        cross_req_depth=ctx.cross_req_depth,
-        cross_req_hops=new_hops,
-        extra_qualifiers=ctx.extra_qualifiers,
-        return_type_map=ctx.return_type_map,
-        max_condition_length=ctx.max_condition_length,
-        project_functions=ctx.project_functions,
-        tagged_names=ctx.tagged_names,
-    )
+    chain_ctx = replace(ctx, visited=visited, cross_req_hops=new_hops)
     return walk_function_body(handler_node, handler_tf, chain_ctx, depth + 1)
 
 

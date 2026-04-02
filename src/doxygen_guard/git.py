@@ -73,21 +73,22 @@ def parse_changed_lines(diff_output: str) -> set[int]:
     return changed
 
 
-## @brief Stage a file or directory for the next git commit.
-#  @version 1.2
+## @brief Stage files for the next git commit.
+#  @version 1.3
 #  @utility
 #  @supports REQ-GIT-001
 #  @supports REQ-TRACE-001
 #  @supports REQ-IMPACT-003
 def git_add(
-    path: str,
+    paths: str | list[str],
     run_command: RunCommand | None = None,
 ) -> bool:
     try:
         runner = run_command or _default_run_command
-        runner(["git", "add", path])
+        file_list = [paths] if isinstance(paths, str) else [str(p) for p in paths]
+        runner(["git", "add", *file_list])
     except (subprocess.CalledProcessError, OSError) as e:
-        logger.warning("git add %s failed: %s", path, e)
+        logger.warning("git add failed: %s", e)
         return False
     return True
 

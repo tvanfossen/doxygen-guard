@@ -260,7 +260,7 @@ def _detect_current_version(config: dict[str, Any]) -> str | None:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 2.1
+#  @version 2.2
 #  @req REQ-VAL-001
 #  @supports REQ-TRACE-001
 #  @supports REQ-IMPACT-003
@@ -295,7 +295,7 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
         for w in trace_warnings:
             print(f"doxygen-guard: [trace] {w}", file=sys.stderr)
         if written:
-            git_add(base_dir)
+            git_add([str(f) for f in written])
             print(
                 f"doxygen-guard: {len(written)} artifact(s) written to {base_dir}",
                 file=sys.stderr,
@@ -311,9 +311,11 @@ def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
         entries = build_impact_report(changed, config)
         impact_dir = Path(base_dir) / "impact"
         impact_dir.mkdir(parents=True, exist_ok=True)
-        (impact_dir / "impact.md").write_text(format_markdown(entries))
-        (impact_dir / "impact.json").write_text(format_json(entries))
-        git_add(str(impact_dir))
+        md_path = impact_dir / "impact.md"
+        json_path = impact_dir / "impact.json"
+        md_path.write_text(format_markdown(entries))
+        json_path.write_text(format_json(entries))
+        git_add([str(md_path), str(json_path)])
         print(format_markdown(entries), file=sys.stderr)
 
     return rc
