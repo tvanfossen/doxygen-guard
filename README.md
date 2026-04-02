@@ -163,7 +163,7 @@ Cross-references git diff with parsed functions to show which requirements are a
 
 ### External participants
 
-Route unhandled events to named external actors by prefix:
+Route unhandled events to named external actors by event prefix. Entries can be a name with config, or a plain string:
 
 ```yaml
 trace:
@@ -172,17 +172,35 @@ trace:
         receives_prefix: ["EVENT_CLOUD_"]
     - Hardware:
         receives_prefix: ["EVENT_HW_"]
+    - "User Action"             # plain string, no prefix matching
+  external_fallback: "External" # default name for unresolved sources
 ```
 
-## File-Level Tags
+Events matching `receives_prefix` are routed to that participant. Events not matching any prefix use `external_fallback`.
 
-Use `@module` at the top of each source file to set the participant name:
+## File-Level Doxygen
+
+Each source file should have a file-level doxygen block. Use `@module` to set the participant name for all functions in the file:
 
 ```c
-/** @module Sensor Driver */
+/**
+ * @file
+ * @brief Sensor hardware abstraction layer.
+ * @version 1.0
+ * @module Sensor Driver
+ */
 ```
 
-This overrides the requirements-file `participant_field` for all functions in the file.
+The `@module` tag overrides the requirements-file `participant_field` for participant resolution. Enable `validate.presence.require_file_doxygen: true` to enforce file-level blocks.
+
+For Python:
+
+```python
+## @file
+## @brief Configuration loading and validation.
+## @version 1.0
+## @module Config
+```
 
 ## Infrastructure Roots
 
@@ -207,6 +225,50 @@ void Event_register(uint64_t mask, event_handler_fn handler) { ... }
 ```
 
 With these in place, `@emits` and `@handles` are derived from the AST for all other functions — zero manual behavioral tags needed.
+
+## Config Validation
+
+The config file is validated at load time against a built-in schema. Unknown keys are rejected with an error message:
+
+```
+doxygen-guard config error: Unknown key 'trace.optoins' — did you mean 'trace.options'?
+```
+
+`trace.options` values are type-checked after merge with defaults. Invalid types produce warnings:
+
+```
+WARNING: trace.options.min_edges must be int >= 0, got 'banana'
+```
+
+## Adopting on an Existing Codebase
+
+For repos with existing code that has no doxygen, adopt incrementally:
+
+1. **Start with validation only** — add `@brief` and `@version` to functions as you touch them. Use `version_gate` to only enforce `@req` on functions added after a specific version:
+
+```yaml
+validate:
+  version_gate:
+    current_version: "auto:git"
+    version_field: "Min Version"
+```
+
+2. **Add `@module` to each file** — one line per file sets the participant name for diagrams.
+
+3. **Add `@return` to non-void functions** — required by default. Disable with `presence.require_return: false` during migration.
+
+4. **Mark infrastructure roots** — if you have an event bus or message dispatcher, add `@emit_source`/`@handle_source` once to enable automatic inference.
+
+5. **Exclude paths you're not ready to cover**:
+
+```yaml
+validate:
+  exclude:
+    - "^vendor/"
+    - "^legacy/"
+```
+
+The tool generates useful diagrams from day one — `show_project_calls` shows all project function calls even before any trace tags are added.
 
 ## Supported Languages
 
