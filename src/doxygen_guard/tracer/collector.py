@@ -21,6 +21,7 @@ from doxygen_guard.impact import load_requirements_full
 from doxygen_guard.tracer_models import (
     Participant,
     TaggedFunction,
+    ext_func_name,
 )
 
 if TYPE_CHECKING:
@@ -393,10 +394,10 @@ def _apply_ext_inference(all_tagged: list[TaggedFunction]) -> None:
 
 
 ## @brief Scan a single function's body for cross-module calls.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _infer_ext_for_function(tf: TaggedFunction, all_tagged: list[TaggedFunction]) -> None:
-    declared_ext_funcs = {ref.split("::", 1)[-1] for ref in tf.ext}
+    declared_ext_funcs = {ext_func_name(ref) for ref in tf.ext}
     for target in all_tagged:
         if target.name == tf.name or target.name in declared_ext_funcs:
             continue

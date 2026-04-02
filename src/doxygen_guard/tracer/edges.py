@@ -13,8 +13,11 @@ from doxygen_guard.tracer_models import (
     Edge,
     Participant,
     TaggedFunction,
+    ext_func_name,
+    is_req_relevant,
     resolve_by_prefix,
     resolve_ext_target,
+    split_ext_ref,
 )
 
 logger = logging.getLogger(__name__)
@@ -69,7 +72,7 @@ def _build_emit_edges(
 
 
 ## @brief Resolve a single ext reference to a target participant name.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _resolve_ext_participant(
     ext_ref: str,
@@ -77,9 +80,9 @@ def _resolve_ext_participant(
     all_tagged: list[TaggedFunction],
     participants: list[Participant] | None,
 ) -> tuple[str, str, str | None]:
-    parts = ext_ref.split("::", 1)
-    func_name = parts[1] if len(parts) == 2 else ext_ref
-    mod = parts[0] if len(parts) == 2 else ext_ref
+    mod, func_name = split_ext_ref(ext_ref)
+    if not mod:
+        mod = ext_ref
     resolved = resolve_ext_target(func_name, mod, all_tagged, participants)
     to_name = resolved or mod
     if to_name == from_name and mod != ext_ref:
@@ -127,7 +130,7 @@ def _build_trigger_edges(
 
 
 ## @brief Scan function bodies for calls to other known functions.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-TRACE-001
 def _build_call_edges(
     caller: TaggedFunction,
@@ -135,7 +138,7 @@ def _build_call_edges(
     all_tagged: list[TaggedFunction],
     req_id: str | None = None,
 ) -> list[Edge]:
-    ext_func_names = {ref.split("::", 1)[-1] for ref in caller.ext}
+    ext_func_names = {ext_func_name(ref) for ref in caller.ext}
     edges: list[Edge] = []
     for target in all_tagged:
         if target.name == caller.name:
@@ -151,16 +154,14 @@ def _build_call_edges(
 
 
 ## @brief Check if a target function is relevant to the current REQ's diagram.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _is_req_relevant_target(target: TaggedFunction, req_id: str) -> bool:
-    if req_id in target.supports and req_id not in target.reqs:
-        return False
-    return req_id in target.reqs or bool(target.handles or target.ext)
+    return is_req_relevant(target, req_id)
 
 
 ## @brief Find functions that reference any of the target functions via ext or body call.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _find_inbound_callers(
     target_funcs: list[TaggedFunction],
@@ -172,7 +173,7 @@ def _find_inbound_callers(
     for tf in all_tagged:
         if tf.name in target_names or tf.name in seen:
             continue
-        ext_targets = {ref.split("::", 1)[-1] for ref in tf.ext}
+        ext_targets = {ext_func_name(ref) for ref in tf.ext}
         if ext_targets & target_names:
             callers.append(tf)
             seen.add(tf.name)

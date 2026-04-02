@@ -19,6 +19,7 @@ from doxygen_guard.tracer_models import (
     Edge,
     Participant,
     TaggedFunction,
+    ext_func_name,
 )
 
 from .edges_ast import _collect_assumes, build_sequence_edges_ast
@@ -617,14 +618,14 @@ def _get_infra_fn_names(config: dict[str, Any], all_tagged: list[TaggedFunction]
 
 
 ## @brief Check if a function only calls infrastructure root functions (init-only).
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _is_init_only(tf: TaggedFunction, infra_fn_names: set[str]) -> bool:
     if tf.emits or tf.handles or tf.triggers:
         return False
     if not tf.ext:
         return False
-    return all((ref.split("::", 1)[-1] if "::" in ref else ref) in infra_fn_names for ref in tf.ext)
+    return all(ext_func_name(ref) in infra_fn_names for ref in tf.ext)
 
 
 ## @brief Generate PlantUML for a single requirement using AST or legacy path.

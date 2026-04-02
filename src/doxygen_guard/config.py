@@ -278,7 +278,7 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
 
 
 ## @brief Load .doxygen-guard.yaml and merge with built-in defaults.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-CONFIG-001
 #  @return Merged config dict with defaults applied
 def load_config(config_path: Path | None = None) -> dict[str, Any]:
@@ -303,7 +303,37 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
             print(f"doxygen-guard config error: {err}", file=sys.stderr)
         sys.exit(1)
 
-    return deep_merge(CONFIG_DEFAULTS, user_config)
+    merged = deep_merge(CONFIG_DEFAULTS, user_config)
+    _validate_trace_options(merged)
+    return merged
+
+
+## @brief Validate types of trace.options values after merge.
+#  @version 1.0
+#  @internal
+def _validate_trace_options(config: dict[str, Any]) -> None:
+    options = get_trace(config).get("options", {})
+    int_keys = {"min_edges": 0, "max_condition_length": 1, "max_chain_depth": 1}
+    bool_keys = {
+        "show_returns",
+        "show_return_values",
+        "show_recovery_notes",
+        "show_project_calls",
+        "legend",
+        "autonumber",
+        "infer_emits",
+        "infer_ext",
+    }
+    for key, min_val in int_keys.items():
+        if key in options and (not isinstance(options[key], int) or options[key] < min_val):
+            logger.warning("trace.options.%s must be int >= %d, got %r", key, min_val, options[key])
+    if "cross_req_depth" in options:
+        val = options["cross_req_depth"]
+        if not isinstance(val, int) or val < -1:
+            logger.warning("trace.options.cross_req_depth must be int >= -1, got %r", val)
+    for key in bool_keys:
+        if key in options and not isinstance(options[key], bool):
+            logger.warning("trace.options.%s must be bool, got %r", key, options[key])
 
 
 ## @brief Access the validate section of config.

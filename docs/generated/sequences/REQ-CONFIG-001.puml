@@ -24,5 +24,6 @@ Config -> Config: deep_merge(CONFIG_DEFAULTS, {})
 end alt
 Config -> Config: validate_config_schema(user_config)
 Config -> Config: deep_merge(CONFIG_DEFAULTS, user_config)
+Config -> Config: _validate_trace_options(merged)
 
 @enduml

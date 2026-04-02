@@ -14,8 +14,11 @@ from doxygen_guard.tracer_models import (
     Edge,
     Participant,
     TaggedFunction,
+    ext_func_name,
+    is_req_relevant,
     resolve_by_prefix,
     resolve_ext_target,
+    split_ext_ref,
 )
 
 if TYPE_CHECKING:
@@ -78,7 +81,7 @@ class _WalkState:
 
 
 ## @brief Walk a function body AST to produce edges in source execution order.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
 def walk_function_body(
     func_node: Node,
@@ -105,7 +108,7 @@ def walk_function_body(
         depth=depth,
         emit_set=set(tf.emits),
         emits_placed=set(),
-        ext_refs={ref.split("::", 1)[-1]: ref for ref in tf.ext},
+        ext_refs={ext_func_name(ref): ref for ref in tf.ext},
         edges=edges,
     )
 
@@ -378,7 +381,7 @@ def _resolve_return_label(func_name: str, ctx: WalkContext) -> str:
 
 
 ## @brief Place an ext edge for a resolved external call.
-#  @version 1.4
+#  @version 1.5
 #  @internal
 def _place_ext_edge(
     callee: str,
@@ -388,15 +391,12 @@ def _place_ext_edge(
     edges: list[ASTEdge],
     call_node: Node | None = None,
 ) -> None:
-    parts = ext_ref.split("::", 1)
-    func_name = parts[1] if len(parts) == 2 else ext_ref
-
-    module = parts[0] if len(parts) == 2 else ""
+    module, func_name = split_ext_ref(ext_ref)
     all_participants = ctx.participants if ctx.participants else ctx.externals
     to_name = (
         resolve_ext_target(func_name, module, ctx.all_tagged, all_participants)
         or module
-        or parts[0]
+        or func_name
     )
     if to_name == from_name and module:
         to_name = module.replace("_", " ").title()
@@ -764,17 +764,13 @@ def _is_project_call(call_node: Node, callee: str, ctx: WalkContext) -> bool:
 
 
 ## @brief Check if a callee name is a known tagged function (REQ-filtered, not @internal).
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _is_tagged_call_target(callee: str, ctx: WalkContext) -> bool:
     for tf in ctx.all_tagged:
         if tf.name != callee or tf.is_internal:
             continue
-        if ctx.req_id is None:
-            return True
-        is_relevant = ctx.req_id in tf.reqs or bool(tf.handles or tf.ext)
-        is_support_only = ctx.req_id in tf.supports and ctx.req_id not in tf.reqs
-        return is_relevant and not is_support_only
+        return is_req_relevant(tf, ctx.req_id)
     return False
 
 

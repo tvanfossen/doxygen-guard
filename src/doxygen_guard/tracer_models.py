@@ -52,6 +52,35 @@ class TaggedFunction:
         return self.participant_name or self.name
 
 
+## @brief Check if a function is relevant to a specific requirement.
+#  @version 1.0
+#  @internal
+#  @return True if the function is relevant (not support-only) for the given req_id
+def is_req_relevant(tf: TaggedFunction, req_id: str | None) -> bool:
+    if req_id is None:
+        return True
+    if req_id in tf.supports and req_id not in tf.reqs:
+        return False
+    return req_id in tf.reqs or bool(tf.handles or tf.ext)
+
+
+## @brief Split an ext reference 'module::func_name' into (module, func_name).
+#  @version 1.0
+#  @internal
+#  @return Tuple of (module, func_name); module is empty string if no :: separator
+def split_ext_ref(ref: str) -> tuple[str, str]:
+    parts = ref.split("::", 1)
+    return (parts[0], parts[1]) if len(parts) == 2 else ("", ref)
+
+
+## @brief Extract just the function name from an ext reference.
+#  @version 1.0
+#  @internal
+#  @return The function name portion after ::, or the full ref if no ::
+def ext_func_name(ref: str) -> str:
+    return split_ext_ref(ref)[1]
+
+
 ## @brief Context for rendering a diagram header (req metadata + preconditions).
 #  @version 1.1
 #  @internal

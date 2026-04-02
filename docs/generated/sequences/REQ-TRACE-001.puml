@@ -8,6 +8,7 @@ entity "Coverage" as Coverage
 entity "  Init  " as __Init__
 entity "Collector" as Collector
 entity "Edges" as Edges
+entity "Tracer Models" as Tracer_Models
 entity "Edges Ast" as Edges_Ast
 entity "Renderer" as Renderer
 entity "Ts Languages" as Ts_Languages
@@ -59,6 +60,7 @@ loop ext_ref in tf.ext
 Trace -> Edges: _resolve_ext_participant(ext_ref, from_name, all_tagged, participants)
 end loop
 == _build_call_edges() ==
+Trace -> Tracer_Models: ext_func_name(ref)
 loop target in all_tagged
 end loop
 == build_sequence_edges() ==
