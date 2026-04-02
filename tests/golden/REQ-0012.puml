@@ -21,10 +21,4 @@ activate Controller
 Controller <-- Sensor_Driver: return calibration_t
 deactivate Controller
 
-legend right
-  -> solid: synchronous call
-  --> dashed: asynchronous event
-  <-- dashed: return value
-end legend
-
 @enduml

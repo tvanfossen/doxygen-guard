@@ -6,8 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [1.0.0] - 2026-04-02
 
 ### Breaking Changes
-- Legend enabled by default (`trace.options.legend: true`). Set `legend: false` to restore previous behavior.
 - Return arrows use `<--` style instead of `-->`, visually distinct from async event dispatch.
+- Legend remains opt-in (`trace.options.legend: false` default). Enable with `legend: true`.
 
 ### Added
 - **v0.5.0**: Return type labels on arrows (AST-derived, `@return` tag override)

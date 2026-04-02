@@ -964,10 +964,10 @@ class TestRenderingImprovements:
         result = generate_plantuml("REQ-001", [], [], [], config)
         assert "legend right" in result
 
-    def test_legend_by_default(self):
-        """legend defaults to true."""
+    def test_no_legend_by_default(self):
+        """legend defaults to false."""
         result = generate_plantuml("REQ-001", [], [], [], TRACE_CONFIG)
-        assert "legend" in result
+        assert "legend" not in result
 
     def test_ext_async_arrow_for_external_participant(self):
         """@ext to participant with receives_prefix uses dashed arrow."""

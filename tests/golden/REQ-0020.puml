@@ -33,10 +33,4 @@ end alt
 Comm_Manager --> Comm_Manager: EVENT_COMM_TX_COMPLETE
 deactivate Comm_Manager
 
-legend right
-  -> solid: synchronous call
-  --> dashed: asynchronous event
-  <-- dashed: return value
-end legend
-
 @enduml

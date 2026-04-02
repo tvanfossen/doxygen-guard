@@ -41,10 +41,4 @@ activate Trace
 Trace <-- Parser: return LanguageSpec for the language, or None if not defined
 deactivate Trace
 
-legend right
-  -> solid: synchronous call
-  --> dashed: asynchronous event
-  <-- dashed: return value
-end legend
-
 @enduml

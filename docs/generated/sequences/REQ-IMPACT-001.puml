@@ -25,10 +25,4 @@ alt changed_lines
 end alt
 end loop
 
-legend right
-  -> solid: synchronous call
-  --> dashed: asynchronous event
-  <-- dashed: return value
-end legend
-
 @enduml

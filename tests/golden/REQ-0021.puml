@@ -26,10 +26,4 @@ Controller -> Comm_Manager: Comm_SendStatus(&status)
 Comm_Manager <-- Controller: return
 deactivate Comm_Manager
 
-legend right
-  -> solid: synchronous call
-  --> dashed: asynchronous event
-  <-- dashed: return value
-end legend
-
 @enduml

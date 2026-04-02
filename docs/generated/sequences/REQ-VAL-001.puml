@@ -78,10 +78,4 @@ Impact <-- Validate: return list[ImpactEntry]
 deactivate Impact
 end alt
 
-legend right
-  -> solid: synchronous call
-  --> dashed: asynchronous event
-  <-- dashed: return value
-end legend
-
 @enduml

@@ -24,10 +24,4 @@ end alt
 == Sensor_ReadHumidity() ==
 Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY\nSensor_ReadHumidity() -> Controller_OnSensorData()
 
-legend right
-  -> solid: synchronous call
-  --> dashed: asynchronous event
-  <-- dashed: return value
-end legend
-
 @enduml
