@@ -3,27 +3,35 @@
 from __future__ import annotations
 
 from doxygen_guard.config import CONFIG_DEFAULTS, deep_merge
-from doxygen_guard.tracer import (
+from doxygen_guard.tracer import run_trace
+from doxygen_guard.tracer.collector import (
+    _apply_emit_inference,
+    collect_all_tagged_functions,
+    detect_phantom_emits,
+)
+from doxygen_guard.tracer.edges import (
+    _build_call_edges,
+    _build_ext_edges,
+    _build_inbound_edges,
+    _is_req_relevant_target,
+    build_sequence_edges,
+)
+from doxygen_guard.tracer.edges_ast import (
+    _collect_assumes,
+    _detect_dominant_spec,
+    _infer_entry_edges,
+    _toposort_emitters,
+)
+from doxygen_guard.tracer.renderer import (
+    _sanitize_label,
+    generate_plantuml,
+    write_diagram,
+)
+from doxygen_guard.tracer_models import (
     DiagramContext,
     Edge,
     Participant,
     TaggedFunction,
-    _apply_emit_inference,
-    _build_call_edges,
-    _build_ext_edges,
-    _build_inbound_edges,
-    _collect_assumes,
-    _detect_dominant_spec,
-    _infer_entry_edges,
-    _is_req_relevant_target,
-    _sanitize_label,
-    _toposort_emitters,
-    build_sequence_edges,
-    collect_all_tagged_functions,
-    detect_phantom_emits,
-    generate_plantuml,
-    run_trace,
-    write_diagram,
 )
 from tests.conftest import FIXTURES_DIR
 

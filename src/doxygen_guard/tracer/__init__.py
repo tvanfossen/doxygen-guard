@@ -15,77 +15,19 @@ from typing import Any
 from doxygen_guard.impact import load_requirements_full
 from doxygen_guard.tracer_models import (
     DiagramBuildParams,
-    DiagramContext,
-    Edge,
     Participant,
     TaggedFunction,
 )
 
-from .collector import (
-    _apply_emit_inference,
-    collect_all_tagged_functions,
-    detect_phantom_emits,
-)
-from .edges import (
-    _build_call_edges,
-    _build_ext_edges,
-    _build_inbound_edges,
-    _is_req_relevant_target,
-    build_sequence_edges,
-)
-from .edges_ast import (
-    _collect_assumes,
-    _detect_dominant_spec,
-    _infer_entry_edges,
-    _toposort_emitters,
-    build_sequence_edges_ast,
-)
-from .infrastructure import (
-    generate_infrastructure_table,
-    write_infrastructure_table,
-)
-from .renderer import (
-    _find_undeclared_participants,
-    _safe_id,
-    _sanitize_label,
-    _select_label_text,
-    _write_diagrams_for_reqs,
-    generate_plantuml,
-    generate_plantuml_ast,
-    write_diagram,
-)
+from .collector import collect_all_tagged_functions, detect_phantom_emits
+from .renderer import _write_diagrams_for_reqs
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "DiagramBuildParams",
-    "DiagramContext",
-    "Edge",
-    "Participant",
-    "TaggedFunction",
-    "_apply_emit_inference",
-    "_build_call_edges",
-    "_build_ext_edges",
-    "_build_inbound_edges",
-    "_collect_assumes",
-    "_detect_dominant_spec",
-    "_find_undeclared_participants",
-    "_infer_entry_edges",
-    "_is_req_relevant_target",
-    "_safe_id",
-    "_sanitize_label",
-    "_select_label_text",
-    "_toposort_emitters",
-    "build_sequence_edges",
-    "build_sequence_edges_ast",
     "collect_all_tagged_functions",
     "detect_phantom_emits",
-    "generate_infrastructure_table",
-    "generate_plantuml",
-    "generate_plantuml_ast",
     "run_trace",
-    "write_diagram",
-    "write_infrastructure_table",
 ]
 
 

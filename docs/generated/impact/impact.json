@@ -4,30 +4,9 @@
     "req_name": "Sequence diagram generation",
     "functions": [
       {
-        "name": "walk_function_body",
-        "file": "src/doxygen_guard/ast_walker.py",
-        "version": "1.4"
-      },
-      {
-        "name": "_infer_entry_edges",
-        "file": "src/doxygen_guard/tracer/edges_ast.py",
-        "version": "1.3"
-      },
-      {
-        "name": "build_sequence_edges_ast",
-        "file": "src/doxygen_guard/tracer/edges_ast.py",
+        "name": "run_trace",
+        "file": "src/doxygen_guard/tracer/__init__.py",
         "version": "1.8"
-      }
-    ]
-  },
-  {
-    "req_id": "REQ-TRACE-003",
-    "req_name": "External participant prefix routing",
-    "functions": [
-      {
-        "name": "resolve_by_prefix",
-        "file": "src/doxygen_guard/tracer_models.py",
-        "version": "1.0"
       }
     ]
   }
