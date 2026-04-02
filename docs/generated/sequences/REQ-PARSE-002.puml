@@ -1,0 +1,36 @@
+@startuml REQ-PARSE-002 Doxygen block extraction
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+box "System" #LightBlue
+  participant "Parser" as Parser
+end box
+
+header
+  **REQ-PARSE-002: Doxygen block extraction**
+  //Description:// Find and parse doxygen comment blocks immediately before\nfunction definitions
+  //Acceptance Criteria:// Doxygen blocks associated with correct functions; all tags\nparsed including multi-tag single lines
+end header
+
+
+loop raw_line in block_text.splitlines()
+loop segment in _split_inline_tags(line)
+alt match
+Parser -> Parser: _finalize_tag(tags, current_tag, current_value)
+else
+Parser -> Parser: _finalize_tag(tags, current_tag, current_value)
+end alt
+end loop
+end loop
+Parser -> Parser: _finalize_tag(tags, current_tag, current_value)
+== find_doxygen_block_before() ==
+group try
+end group
+group catch
+note right: logger
+end group
+Parser -> Parser: _skip_blanks_and_attrs(lines, func_line)
+Parser -> Parser: _scan_for_comment_start(lines, scan_line, start_re)
+
+@enduml

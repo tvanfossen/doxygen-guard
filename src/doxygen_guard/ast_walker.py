@@ -58,6 +58,8 @@ class WalkContext:
     extra_qualifiers: set[str] | None = None
     return_type_map: dict[str, str] | None = None
     max_condition_length: int = 80
+    project_functions: dict[str, str] | None = None
+    tagged_names: set[str] | None = None
 
 
 ## @brief Mutable state threaded through the recursive AST walk.
@@ -133,7 +135,7 @@ def _walk_statements(
 
 
 ## @brief Handle a call expression node, producing the appropriate edge type.
-#  @version 1.5
+#  @version 1.6
 #  @internal
 def _handle_call(
     call_node: Node,
@@ -146,21 +148,47 @@ def _handle_call(
     unplaced = state.emit_set - state.emits_placed
     if callee in state.ctx.emit_functions and unplaced:
         _place_matched_emit(call_node, state)
-        return
-
-    if callee in state.ext_refs:
+    elif callee in state.ext_refs:
         _place_ext_edge(
             callee, state.ext_refs[callee], state.from_name, state.ctx, state.edges, call_node
         )
-        return
+    elif _is_tagged_call_target(callee, state.ctx):
+        _place_tagged_call(call_node, callee, state)
+    else:
+        _place_project_call(call_node, callee, state)
 
-    if _is_tagged_call_target(callee, state.ctx):
-        target = _find_tagged_function(callee, state.ctx)
-        if target:
-            to_name = target.participant_name or target.name
-            args_text = _extract_call_args_label(call_node)
-            label = f"{callee}({args_text})" if args_text else f"{callee}()"
-            state.edges.append(ASTEdge(kind="call", edge=Edge(state.from_name, to_name, label)))
+
+## @brief Place a call edge for a tagged function target.
+#  @version 1.0
+#  @internal
+def _place_tagged_call(call_node: Node, callee: str, state: _WalkState) -> None:
+    target = _find_tagged_function(callee, state.ctx)
+    if target is None:
+        return
+    to_name = target.participant_name or target.name
+    args_text = _extract_call_args_label(call_node)
+    label = f"{callee}({args_text})" if args_text else f"{callee}()"
+    state.edges.append(ASTEdge(kind="call", edge=Edge(state.from_name, to_name, label)))
+
+
+## @brief Place an edge for a project-defined function not in the tagged set.
+#  @details Only matches standalone calls (identifier type, not method calls).
+#  Skips functions in tagged_names (those were intentionally filtered by tagged path).
+#  @version 1.0
+#  @internal
+def _place_project_call(call_node: Node, callee: str, state: _WalkState) -> None:
+    ctx = state.ctx
+    if ctx.project_functions is None or callee not in ctx.project_functions:
+        return
+    if ctx.tagged_names and callee in ctx.tagged_names:
+        return
+    func_node = call_node.child_by_field_name("function")
+    if func_node is None or func_node.type != "identifier":
+        return
+    to_name = ctx.project_functions[callee]
+    args_text = _extract_call_args_label(call_node)
+    label = f"{callee}({args_text})" if args_text else f"{callee}()"
+    state.edges.append(ASTEdge(kind="call", edge=Edge(state.from_name, to_name, label)))
 
 
 ## @brief Place an emit at the call site by matching the event argument.
@@ -383,7 +411,7 @@ def _place_ext_edge(
 
 
 ## @brief Follow a handler's body to produce continuation edges.
-#  @version 1.4
+#  @version 1.5
 #  @internal
 def _follow_handler_chain(
     handler_tf: TaggedFunction,
@@ -420,6 +448,8 @@ def _follow_handler_chain(
         extra_qualifiers=ctx.extra_qualifiers,
         return_type_map=ctx.return_type_map,
         max_condition_length=ctx.max_condition_length,
+        project_functions=ctx.project_functions,
+        tagged_names=ctx.tagged_names,
     )
     return walk_function_body(handler_node, handler_tf, chain_ctx, depth + 1)
 
@@ -721,7 +751,7 @@ def _extract_with_label(node: Node) -> str:
 
 
 ## @brief Check if an AST subtree contains any tagged call expressions.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _has_tagged_content(
     node: Node,
@@ -734,9 +764,22 @@ def _has_tagged_content(
             callee in ctx.emit_functions
             or _is_tagged_call_target(callee, ctx)
             or (ext_names and callee in ext_names)
+            or _is_project_call(node, callee, ctx)
         ):
             return True
     return any(_has_tagged_content(child, ctx, ext_names) for child in node.named_children)
+
+
+## @brief Check if a call is a standalone project-defined function (not tagged, not method).
+#  @version 1.0
+#  @internal
+def _is_project_call(call_node: Node, callee: str, ctx: WalkContext) -> bool:
+    if ctx.project_functions is None or callee not in ctx.project_functions:
+        return False
+    if ctx.tagged_names and callee in ctx.tagged_names:
+        return False
+    func_node = call_node.child_by_field_name("function")
+    return func_node is not None and func_node.type == "identifier"
 
 
 ## @brief Check if a callee name is a known tagged function (REQ-filtered, not @internal).

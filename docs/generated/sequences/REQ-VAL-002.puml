@@ -1,0 +1,20 @@
+@startuml REQ-VAL-002 Version staleness detection
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+box "System" #LightBlue
+  participant "Validate" as Validate
+  participant "Config" as Config
+end box
+
+header
+  **REQ-VAL-002: Version staleness detection**
+  //Description:// Detect when function body changes but version tag is not\nupdated
+  //Acceptance Criteria:// Modified function body without version tag change produces\nstaleness violation
+end header
+
+
+Validate -> Config: get_validate(config)
+
+@enduml

@@ -22,6 +22,7 @@ note right: logger
 end group
 == get_branch_diff_range() ==
 Git -> Git: get_merge_base(target_branch, run_command)
+Git -> Git: _rev_parse_head(runner)
 == get_changed_lines_for_file() ==
 Git -> Git: get_staged_diff(file_path, run_command)
 Git -> Git: parse_changed_lines(diff_output)

@@ -1,0 +1,20 @@
+@startuml REQ-TRACE-002 Participant resolution from requirements
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+box "System" #LightBlue
+  participant "Trace" as Trace
+  participant "Config" as Config
+end box
+
+header
+  **REQ-TRACE-002: Participant resolution from requirements**
+  //Description:// Resolve diagram participants from the requirements file\nsubsystem column
+  //Acceptance Criteria:// Functions map to participants via their req tags and the\nconfigured participant_field
+end header
+
+
+Trace -> Config: get_trace(config)
+
+@enduml

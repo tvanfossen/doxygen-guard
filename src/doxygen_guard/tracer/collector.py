@@ -183,7 +183,7 @@ def collect_all_tagged_functions(
 
 
 ## @brief Cache a parsed file's AST tree and function node index.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _cache_parsed_file(
     file_path: str,
@@ -198,6 +198,9 @@ def _cache_parsed_file(
         return
     parsed = get_parsed_file(file_path, lang)
     if parsed is not None:
+        if parsed.module_name is None:
+            content = Path(file_path).read_text(errors="replace")
+            parsed.module_name = _extract_file_module(content)
         file_cache[file_path] = parsed
 
 

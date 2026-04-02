@@ -26,12 +26,13 @@ logger = logging.getLogger(__name__)
 
 
 ## @brief Cached parse result for a source file, retaining AST for walker use.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 @dataclass
 class ParsedFile:
     tree: Tree
     func_nodes: dict[str, Node] = field(default_factory=dict)
+    module_name: str | None = None
 
 
 _file_cache: dict[str, ParsedFile] = {}

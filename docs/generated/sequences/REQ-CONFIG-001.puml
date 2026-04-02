@@ -14,7 +14,15 @@ header
 end header
 
 
+Config -> Config: _validate_node(user_config, CONFIG_SCHEMA, "")
 == load_config() ==
+alt not config_path.exists()
+Config -> Config: deep_merge(CONFIG_DEFAULTS, {})
+end alt
+alt not isinstance(user_config, dict)
+Config -> Config: deep_merge(CONFIG_DEFAULTS, {})
+end alt
 Config -> Config: validate_config_schema(user_config)
+Config -> Config: deep_merge(CONFIG_DEFAULTS, user_config)
 
 @enduml

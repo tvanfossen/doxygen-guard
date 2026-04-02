@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "Ts Parser" as Ts_Parser
+
 box "System" #LightBlue
   participant "Parser" as Parser
   participant "Config" as Config
@@ -31,6 +33,11 @@ activate Trace
 Trace <-- Parser: return Language name string, or None if no language matches the file
 deactivate Trace
 Parser -> Parser: parse_functions(content=content, function_pattern=lang_config["function_pattern"], exclude_names=lang_config.get("exclude_names", []), settings=settings, skip_forward_declarations=skip_forward_declarations, lang_name=lang_name,)
+== parse_functions() ==
+alt lang_name is not None
+Parser -> Parser: _parse_functions_treesitter(content, lang_name, exclude_names, settings)
+end alt
+Parser -> Parser: _parse_functions_regex(content, function_pattern, exclude_names, settings, skip_forward_declarations)
 == parse_functions_ts() ==
 Parser -> Trace: get_parser_for_language(lang_name)
 activate Trace
@@ -40,5 +47,6 @@ Parser -> Trace: get_language_spec(lang_name)
 activate Trace
 Trace <-- Parser: return LanguageSpec for the language, or None if not defined
 deactivate Trace
+Parser -> Ts_Parser: _collect_functions(tree.root_node, spec, exclude, comment_start_pattern, functions)
 
 @enduml

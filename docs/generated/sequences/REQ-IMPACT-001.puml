@@ -21,6 +21,7 @@ Parser <-- Impact: return list | None
 deactivate Parser
 == collect_changed_functions() ==
 loop file_path in file_paths
+Impact -> Impact: _collect_changed_lines(file_path, staged, diff_range, run_command)
 alt changed_lines
 end alt
 end loop

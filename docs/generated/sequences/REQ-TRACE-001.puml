@@ -3,8 +3,18 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "Ast Walker" as Ast_Walker
+entity "Coverage" as Coverage
+entity "  Init  " as __Init__
+entity "Collector" as Collector
+entity "Edges" as Edges
+entity "Edges Ast" as Edges_Ast
+entity "Renderer" as Renderer
+entity "Ts Languages" as Ts_Languages
+
 box "System" #LightBlue
   participant "Trace" as Trace
+  participant "Config" as Config
 end box
 
 header
@@ -14,8 +24,14 @@ header
 end header
 
 
+Trace -> Ast_Walker: _walk_statements(body, state)
+alt remaining
+Trace -> Ast_Walker: _flush_remaining_emits(remaining, from_name, tf.name, ctx, depth, edges)
+end alt
 == analyze_coverage() ==
 Trace -> Trace: collect_all_tagged_functions(source_dirs, config, full_reqs)
+Trace -> Coverage: _collect_req_ids(all_tagged)
+Trace -> Coverage: _collect_unmapped_functions(all_tagged)
 == run_coverage() ==
 Trace -> Trace: analyze_coverage(source_dirs, config)
 == _run_trace_command() ==
@@ -25,18 +41,69 @@ group catch
 note right: print
 end group
 Trace -> Trace: run_trace(source_dirs=args.source_dirs, config=config, req_id=args.req, trace_all=args.trace_all,)
+== run_trace() ==
+Trace -> __Init__: _collect_and_validate(source_dirs, config, req_id)
+Trace -> __Init__: _generate_or_cache(all_tagged, participants, file_cache, config, req_id, full_reqs)
+== collect_all_tagged_functions() ==
+Trace -> Collector: _collect_all_participants(req_participant_map, externals)
+loop source_dir in source_dirs
+Trace -> Collector: _find_source_files(source_dir, config)
+loop source_file in source_files
+Trace -> Collector: _cache_parsed_file(str(source_file), config, file_cache)
+end loop
+end loop
+Trace -> Collector: _warn_unreferenced_functions(tagged)
+== _build_ext_edges() ==
+loop ext_ref in tf.ext
+Trace -> Edges: _resolve_ext_participant(ext_ref, from_name, all_tagged, participants)
+end loop
+== _build_call_edges() ==
+loop target in all_tagged
+end loop
 == build_sequence_edges() ==
+Trace -> Edges: _build_handler_map(all_tagged)
+Trace -> Edges: _find_inbound_callers(emitters, all_tagged)
 loop tf in emitters
 Trace -> Trace: _build_emit_edges(tf, from_name, handler_map, externals)
 Trace -> Trace: _build_ext_edges(tf, from_name, all_tagged, participants)
 end loop
+loop tf in inbound
+end loop
+== _infer_entry_edges() ==
+Trace -> Edges_Ast: _build_emitter_participant_map(all_tagged)
 == build_sequence_edges_ast() ==
+Trace -> Edges: _build_handler_map(all_tagged)
+Trace -> Config: get_trace(config)
+Trace -> Edges_Ast: _detect_dominant_spec(emitters, config)
 Trace -> Trace: get_language_spec("c")
+Trace -> Edges_Ast: _collect_extra_qualifiers(config)
+Trace -> Edges_Ast: _build_return_type_map(file_cache, spec, extra_qualifiers)
+Trace -> Edges_Ast: _build_project_functions_map(file_cache, all_tagged)
 Trace -> Trace: _infer_entry_edges(emitters, all_tagged, participants, fallback_name)
+Trace -> Edges_Ast: _toposort_emitters(emitters)
 loop tf in sorted_emitters
+Trace -> Edges_Ast: _lookup_func_node(tf, file_cache)
+Trace -> Edges_Ast: _spec_for_file(tf.file_path, config)
 end loop
 == write_infrastructure_table() ==
 Trace -> Trace: generate_infrastructure_table(all_tagged)
+== generate_plantuml() ==
+Trace -> Renderer: _get_name_col(config)
+Trace -> Renderer: _collect_all_active_names(edges, functions)
+loop edge in edges
+end loop
+alt options.get("legend", False)
+end alt
+== write_diagram() ==
+Trace -> Renderer: _safe_filename(req_id)
+Trace -> Renderer: _render_png(puml_file)
+== generate_plantuml_ast() ==
+Trace -> Renderer: _get_name_col(config)
+Trace -> Renderer: _collect_all_active_names(flat_edges, functions)
+alt options.get("legend", False)
+end alt
+== get_parser_for_language() ==
+Trace -> Ts_Languages: _load_language(spec.grammar_module)
 == language_for_file() ==
 Trace -> Trace: language_for_extension(ext)
 

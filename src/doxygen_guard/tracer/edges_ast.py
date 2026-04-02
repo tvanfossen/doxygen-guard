@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
+from pathlib import Path
 from typing import Any
 
 from doxygen_guard.config import get_trace
@@ -195,7 +196,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.5
+#  @version 1.6
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -220,6 +221,7 @@ def build_sequence_edges_ast(
     cross_req_depth = trace_options.get("cross_req_depth", 1)
     show_return_values = trace_options.get("show_return_values", True)
     max_condition_length = trace_options.get("max_condition_length", 80)
+    show_project_calls = trace_options.get("show_project_calls", True)
 
     spec = _detect_dominant_spec(emitters, config) or get_language_spec("c")
     if not spec:
@@ -229,6 +231,10 @@ def build_sequence_edges_ast(
     return_type_map = (
         _build_return_type_map(file_cache, spec, extra_qualifiers) if show_return_values else {}
     )
+    project_functions = (
+        _build_project_functions_map(file_cache, all_tagged) if show_project_calls else None
+    )
+    tagged_names = {tf.name for tf in all_tagged}
 
     ast_edges: list[ASTEdge] = []
     visited: set[str] = set()
@@ -268,11 +274,33 @@ def build_sequence_edges_ast(
             extra_qualifiers=extra_qualifiers,
             return_type_map=return_type_map,
             max_condition_length=max_condition_length,
+            project_functions=project_functions,
+            tagged_names=tagged_names,
         )
         visited.add(tf.name)
         ast_edges.extend(walk_function_body(func_node, tf, ctx))
 
     return ast_edges
+
+
+## @brief Map every project-defined function to its participant name.
+#  @version 1.0
+#  @internal
+#  @return Dict mapping function name to resolved participant name
+def _build_project_functions_map(
+    file_cache: dict | None,
+    all_tagged: list[TaggedFunction],
+) -> dict[str, str]:
+    if file_cache is None:
+        return {}
+    tagged_participant = {tf.name: tf.participant_name for tf in all_tagged if tf.participant_name}
+    result: dict[str, str] = {}
+    for file_path, parsed in file_cache.items():
+        participant = parsed.module_name or Path(file_path).stem.replace("_", " ").title()
+        for func_name in parsed.func_nodes:
+            if func_name not in result:
+                result[func_name] = tagged_participant.get(func_name, participant)
+    return result
 
 
 ## @brief Collect extra qualifier macros from all language configs.

@@ -16,6 +16,7 @@ end header
 
 == run_impact() ==
 Impact -> Impact: build_impact_report(changed, config)
+Impact -> Impact: format_report(entries, config)
 == _run_impact_command() ==
 Impact -> Impact: run_impact(file_paths=file_paths, config=config, staged=args.staged, diff_range=args.diff_range,)
 
