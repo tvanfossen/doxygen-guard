@@ -201,7 +201,7 @@ def _cache_parsed_file(
 
 
 ## @brief List tracked files under source_dir via git ls-files.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _git_ls_files(source_dir: str, extensions: set[str]) -> list[Path] | None:
     import subprocess
@@ -212,8 +212,9 @@ def _git_ls_files(source_dir: str, extensions: set[str]) -> list[Path] | None:
             capture_output=True,
             text=True,
             check=True,
+            timeout=30,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
         return None
     base = Path(source_dir)
     return [

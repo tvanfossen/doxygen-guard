@@ -342,7 +342,7 @@ def _collect_active_participants(edges: list[Edge]) -> list[str]:
 
 
 ## @brief Render a .puml file to PNG if plantuml is available.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _render_png(puml_file: Path) -> None:
     import shutil
@@ -357,9 +357,10 @@ def _render_png(puml_file: Path) -> None:
             [plantuml, str(puml_file)],
             capture_output=True,
             check=True,
+            timeout=60,
         )
         logger.info("Rendered PNG: %s", puml_file.with_suffix(".png"))
-    except (subprocess.CalledProcessError, OSError) as e:
+    except (subprocess.CalledProcessError, OSError, subprocess.TimeoutExpired) as e:
         logger.warning("PNG render failed for %s: %s", puml_file, e)
 
 

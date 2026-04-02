@@ -115,7 +115,7 @@ def _add_coverage_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 ## @brief Orchestrate presence, staleness, and tag checks for one file.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-VAL-001
 def validate_file(
     file_path: str,
@@ -137,7 +137,7 @@ def validate_file(
 
     violations: list[Violation] = []
     try:
-        content = Path(file_path).read_text()
+        content = Path(file_path).read_text(errors="replace")
         violations.extend(check_file_presence(file_path, content, config))
     except OSError:
         pass
@@ -211,7 +211,7 @@ def run_validate(args: argparse.Namespace, config: dict[str, Any]) -> int:
 
 
 ## @brief Detect version from git describe --tags.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _detect_git_version() -> str | None:
     try:
@@ -220,6 +220,7 @@ def _detect_git_version() -> str | None:
             capture_output=True,
             text=True,
             check=True,
+            timeout=10,
         )
         return result.stdout.strip()
     except Exception:

@@ -17,10 +17,10 @@ RunCommand = Callable[[list[str]], str]
 
 
 ## @brief Default command runner using subprocess.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _default_run_command(cmd: list[str]) -> str:
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=30)
     return result.stdout
 
 

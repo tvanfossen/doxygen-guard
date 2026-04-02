@@ -361,7 +361,7 @@ def parse_source_file(
 
 
 ## @brief Parse functions and return both the function list and file content.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-PARSE-001
 def parse_source_file_with_content(
     file_path: str,
@@ -375,7 +375,7 @@ def parse_source_file_with_content(
     if lang_config is None:
         return None
 
-    content = Path(file_path).read_text()
+    content = Path(file_path).read_text(errors="replace")
     settings = resolve_parse_settings(config, lang_config)
     lang_name = language_for_file(file_path, config)
     functions = parse_functions(
