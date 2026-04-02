@@ -22,8 +22,8 @@ note over Validate: run_precommit() supports REQ-TRACE-001, REQ-IMPACT-003
 == validate_file() ==
 Validate -> Parser: parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)
 activate Parser
-Parser --> Validate: return list | None
-activate Validate
+Parser <-- Validate: return list | None
+deactivate Parser
 group try
 end group
 group catch (OSError)
@@ -37,7 +37,8 @@ alt not no_git
 group try
 Validate -> Git: get_changed_lines_for_file(file_path)
 activate Git
-Git --> Validate: return set[int]
+Git <-- Validate: return set[int]
+deactivate Git
 end group
 group catch (Exception)
 note right: logger
@@ -52,26 +53,35 @@ end group
 alt trace_enabled
 Validate -> Trace: run_trace(source_dirs=source_dirs, config=config, trace_all=True,)
 activate Trace
-Trace --> Validate: return Tuple of (written file paths, warning messages)
+Trace <-- Validate: return Tuple of (written file paths, warning messages)
+deactivate Trace
 end alt
 alt impact_config.get("requirements")
 Validate -> Git: get_branch_diff_range()
-Git --> Validate: return str | None
+activate Git
+Git <-- Validate: return str | None
+deactivate Git
 alt diff_range
 Validate -> Impact: collect_changed_functions(file_paths, config, diff_range=diff_range)
 activate Impact
-Impact --> Validate: return list[ChangedFunction]
+Impact <-- Validate: return list[ChangedFunction]
+deactivate Impact
 else
 Validate -> Impact: collect_changed_functions(file_paths, config, staged=True)
-Impact --> Validate: return list[ChangedFunction]
+activate Impact
+Impact <-- Validate: return list[ChangedFunction]
+deactivate Impact
 end alt
 Validate -> Impact: build_impact_report(changed, config)
-Impact --> Validate: return list[ImpactEntry]
-end alt
-deactivate Git
+activate Impact
+Impact <-- Validate: return list[ImpactEntry]
 deactivate Impact
-deactivate Parser
-deactivate Trace
-deactivate Validate
+end alt
+
+legend right
+  -> solid: synchronous call
+  --> dashed: asynchronous event
+  <-- dashed: return value
+end legend
 
 @enduml

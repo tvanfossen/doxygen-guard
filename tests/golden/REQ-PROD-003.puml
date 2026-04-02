@@ -32,9 +32,15 @@ Comm_Manager --> OTA_Manager: EVENT_COMM_DOWNLOAD_COMPLETE\nComm_DownloadFirmwar
 note right of OTA_Manager: Ota Verify Crc
 OTA_Manager -> Comm_Manager: Comm_SendStatus(&status)
 activate Comm_Manager
-Comm_Manager --> OTA_Manager: return
+Comm_Manager <-- OTA_Manager: return
 deactivate Comm_Manager
 OTA_Manager --> Cloud: EVENT_CLOUD_OTA_RESULT\nOTA_OnDownloadComplete()
 deactivate OTA_Manager
+
+legend right
+  -> solid: synchronous call
+  --> dashed: asynchronous event
+  <-- dashed: return value
+end legend
 
 @enduml

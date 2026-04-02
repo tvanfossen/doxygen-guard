@@ -32,4 +32,10 @@ end alt
 end alt
 deactivate WiFi_Scanner
 
+legend right
+  -> solid: synchronous call
+  --> dashed: asynchronous event
+  <-- dashed: return value
+end legend
+
 @enduml

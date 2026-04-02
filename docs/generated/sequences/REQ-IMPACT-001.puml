@@ -17,14 +17,18 @@ end header
 
 Impact -> Parser: parse_source_file(file_path, config)
 activate Parser
-Parser --> Impact: return list | None
-activate Impact
+Parser <-- Impact: return list | None
+deactivate Parser
 == collect_changed_functions() ==
 loop file_path in file_paths
 alt changed_lines
 end alt
 end loop
-deactivate Impact
-deactivate Parser
+
+legend right
+  -> solid: synchronous call
+  --> dashed: asynchronous event
+  <-- dashed: return value
+end legend
 
 @enduml

@@ -350,7 +350,7 @@ def _resolve_return_label(func_name: str, ctx: WalkContext) -> str:
 
 
 ## @brief Place an ext edge for a resolved external call.
-#  @version 1.3
+#  @version 1.4
 #  @internal
 def _place_ext_edge(
     callee: str,
@@ -379,7 +379,7 @@ def _place_ext_edge(
     edges.append(ASTEdge(kind="ext", edge=Edge(from_name, to_name, label, style=style)))
     if ctx.show_returns:
         ret_label = _resolve_return_label(func_name, ctx)
-        edges.append(ASTEdge(kind="ext", edge=Edge(to_name, from_name, ret_label, style="-->")))
+        edges.append(ASTEdge(kind="ext", edge=Edge(to_name, from_name, ret_label, style="<--")))
 
 
 ## @brief Follow a handler's body to produce continuation edges.

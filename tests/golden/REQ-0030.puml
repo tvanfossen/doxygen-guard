@@ -27,7 +27,7 @@ alt sensor_value > threshold
 Controller --> Controller: EVENT_CONTROL_ACTION\nController_OnSensorData() -> Controller_ReportStatus()
 Controller -> Comm_Manager: Comm_SendStatus(&status)
 activate Comm_Manager
-Comm_Manager --> Controller: return
+Comm_Manager <-- Controller: return
 deactivate Comm_Manager
 end alt
 == MsgBus_QueueInbound() ==
@@ -37,10 +37,16 @@ loop queue_receive(&inbound_queue, &msg)
 alt msg.event_id == MSG_EVENT_STATUS_REQUEST
 Controller -> Comm_Manager: Comm_SendStatus(&status)
 activate Comm_Manager
-Comm_Manager --> Controller: return
+Comm_Manager <-- Controller: return
 deactivate Comm_Manager
 end alt
 end loop
 deactivate Controller
+
+legend right
+  -> solid: synchronous call
+  --> dashed: asynchronous event
+  <-- dashed: return value
+end legend
 
 @enduml

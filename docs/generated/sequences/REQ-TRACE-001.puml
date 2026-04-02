@@ -40,4 +40,10 @@ Trace -> Trace: generate_infrastructure_table(all_tagged)
 == language_for_file() ==
 Trace -> Trace: language_for_extension(ext)
 
+legend right
+  -> solid: synchronous call
+  --> dashed: asynchronous event
+  <-- dashed: return value
+end legend
+
 @enduml

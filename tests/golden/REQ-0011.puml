@@ -22,4 +22,10 @@ alt sensor_value > threshold
 Controller --> Controller: EVENT_CONTROL_ACTION\nController_OnSensorData() -> Controller_ReportStatus()
 end alt
 
+legend right
+  -> solid: synchronous call
+  --> dashed: asynchronous event
+  <-- dashed: return value
+end legend
+
 @enduml

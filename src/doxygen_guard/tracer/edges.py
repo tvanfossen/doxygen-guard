@@ -93,7 +93,7 @@ def _resolve_ext_participant(
 
 
 ## @brief Build ext call edges.
-#  @version 1.7
+#  @version 1.8
 #  @req REQ-TRACE-001
 def _build_ext_edges(
     tf: TaggedFunction,
@@ -116,7 +116,7 @@ def _build_ext_edges(
         style = "-->" if is_async else "->"
         edges.append(Edge(from_name, to_name, f"{func_name}()", style=style))
         if show_returns:
-            edges.append(Edge(to_name, from_name, "return", style="-->"))
+            edges.append(Edge(to_name, from_name, "return", style="<--"))
     return edges, warnings
 
 

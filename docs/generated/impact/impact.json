@@ -1,8 +1,56 @@
 [
   {
+    "req_id": "REQ-CONFIG-001",
+    "req_name": "YAML config loading and merging",
+    "functions": [
+      {
+        "name": "validate_config_schema",
+        "file": "src/doxygen_guard/config.py",
+        "version": "1.1"
+      },
+      {
+        "name": "load_config",
+        "file": "src/doxygen_guard/config.py",
+        "version": "1.2"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-CONFIG-002",
+    "req_name": "Per-language parse settings",
+    "functions": [
+      {
+        "name": "get_language_config",
+        "file": "src/doxygen_guard/config.py",
+        "version": "1.2"
+      },
+      {
+        "name": "resolve_parse_settings",
+        "file": "src/doxygen_guard/config.py",
+        "version": "1.4"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-PARSE-001",
+    "req_name": "Function detection",
+    "functions": [
+      {
+        "name": "parse_source_file_with_content",
+        "file": "src/doxygen_guard/config.py",
+        "version": "1.2"
+      }
+    ]
+  },
+  {
     "req_id": "REQ-TRACE-001",
     "req_name": "Sequence diagram generation",
     "functions": [
+      {
+        "name": "walk_function_body",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.2"
+      },
       {
         "name": "_build_emit_edges",
         "file": "src/doxygen_guard/tracer/edges.py",
@@ -11,7 +59,7 @@
       {
         "name": "_build_ext_edges",
         "file": "src/doxygen_guard/tracer/edges.py",
-        "version": "1.7"
+        "version": "1.8"
       },
       {
         "name": "_build_trigger_edges",

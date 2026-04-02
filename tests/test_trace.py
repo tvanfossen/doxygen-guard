@@ -345,7 +345,7 @@ class TestExtCrossModuleResolution:
         edges, warnings = _build_ext_edges(caller, "App", [], participants)
         assert len(edges) == 2  # forward + return arrow
         assert edges[0].to_name == "Controller"
-        assert edges[1].style == "-->"  # return arrow
+        assert edges[1].style == "<--"  # return arrow
         assert not warnings
 
     def test_ext_case_insensitive_match(self):
@@ -911,7 +911,7 @@ class TestRenderingImprovements:
         )
         edges, _w = _build_ext_edges(caller, "A", [])
         assert len(edges) == 2
-        assert edges[1].style == "-->"
+        assert edges[1].style == "<--"
 
     def test_show_returns_false_no_return_arrow(self):
         """show_returns: false suppresses return arrow."""
@@ -964,10 +964,10 @@ class TestRenderingImprovements:
         result = generate_plantuml("REQ-001", [], [], [], config)
         assert "legend right" in result
 
-    def test_no_legend_by_default(self):
-        """legend defaults to false."""
+    def test_legend_by_default(self):
+        """legend defaults to true."""
         result = generate_plantuml("REQ-001", [], [], [], TRACE_CONFIG)
-        assert "legend" not in result
+        assert "legend" in result
 
     def test_ext_async_arrow_for_external_participant(self):
         """@ext to participant with receives_prefix uses dashed arrow."""

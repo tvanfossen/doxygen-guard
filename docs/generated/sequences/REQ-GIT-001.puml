@@ -26,4 +26,10 @@ Git -> Git: get_merge_base(target_branch, run_command)
 Git -> Git: get_staged_diff(file_path, run_command)
 Git -> Git: parse_changed_lines(diff_output)
 
+legend right
+  -> solid: synchronous call
+  --> dashed: asynchronous event
+  <-- dashed: return value
+end legend
+
 @enduml

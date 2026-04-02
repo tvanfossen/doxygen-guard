@@ -18,9 +18,13 @@ end header
 == Sensor_Calibrate() ==
 Sensor_Driver -> Controller: Controller_GetCalibration()
 activate Controller
-Controller --> Sensor_Driver: return calibration_t
-activate Sensor_Driver
+Controller <-- Sensor_Driver: return calibration_t
 deactivate Controller
-deactivate Sensor_Driver
+
+legend right
+  -> solid: synchronous call
+  --> dashed: asynchronous event
+  <-- dashed: return value
+end legend
 
 @enduml

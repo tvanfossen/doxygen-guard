@@ -484,10 +484,10 @@ def _render_activation(ae, active: set[str] | None = None) -> list[str]:
 
 
 ## @brief Determine the activate/deactivate line for an edge.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _compute_activation(kind: str, label: str, f: str, t: str, active: set[str]) -> str | None:
-    if label == "return" and f in active:
+    if label.startswith("return") and f in active:
         active.discard(f)
         return f"deactivate {f}"
     if f != t and kind in ("entry", "ext") and t not in active:
@@ -526,14 +526,16 @@ def _render_block_start(ae) -> str | None:
 
 
 ## @brief Render an arrow style legend block.
-#  @version 1.1
+#  @version 1.2
 #  @internal
+#  @return List of PlantUML legend lines
 def _render_legend() -> list[str]:
     return [
         "",
         "legend right",
         "  -> solid: synchronous call",
         "  --> dashed: asynchronous event",
+        "  <-- dashed: return value",
         "end legend",
     ]
 
