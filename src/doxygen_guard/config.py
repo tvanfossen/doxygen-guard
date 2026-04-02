@@ -120,7 +120,7 @@ TRACE_DEFAULTS: dict[str, Any] = {
         "infer_ext": True,
         "event_emit_functions": ["event_post"],
         "show_returns": True,
-        "min_edges": 2,
+        "min_edges": 1,
         "label_mode": "full",
         "legend": False,
         "cross_req_depth": 1,

@@ -1,0 +1,20 @@
+@startuml REQ-CONFIG-001 YAML config loading and merging
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+box "System" #LightBlue
+  participant "Config" as Config
+end box
+
+header
+  **REQ-CONFIG-001: YAML config loading and merging**
+  //Description:// Load .doxygen-guard.yaml and deep-merge with built-in\ndefaults
+  //Acceptance Criteria:// User config overrides defaults; missing keys retain\ndefaults; invalid keys rejected
+end header
+
+
+== load_config() ==
+Config -> Config: validate_config_schema(user_config)
+
+@enduml

@@ -1,0 +1,20 @@
+@startuml REQ-0050 Event Bus Infrastructure
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+box "System" #LightBlue
+  participant "Event Bus" as Event_Bus
+end box
+
+header
+  **REQ-0050: Event Bus Infrastructure**
+  //Description:// Provide bitmask-based event registration and dispatch for\ndecoupled inter-module communication.
+  //Acceptance Criteria:// Event_register accepts bitmask and handler. Event_post\ndispatches to all matching handlers.
+end header
+
+
+== Event_post() ==
+Event_Bus --> Event_Bus: EVENT_DISPATCH_COMPLETE
+
+@enduml
