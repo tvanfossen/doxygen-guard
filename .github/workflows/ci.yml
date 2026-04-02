@@ -22,13 +22,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Create venv and install
         run: |
-          python -m pip install --upgrade pip
-          pip install -e . pytest pre-commit
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -e . pytest pre-commit
 
       - name: Pre-commit checks
-        run: pre-commit run --all-files
+        run: .venv/bin/pre-commit run --all-files
 
       - name: Test
-        run: pytest -v
+        run: .venv/bin/pytest -v
