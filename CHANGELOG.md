@@ -3,6 +3,34 @@
 All notable changes to doxygen-guard are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.3] - 2026-04-02
+
+### Added
+- **v1.1.0**: Project-defined function call visibility (root repo 7→13 diagrams)
+- Test coverage for `coverage.py` and `infrastructure.py`
+
+### Changed
+- `min_edges` default lowered from 2 to 1
+- `tracer/__init__.py` trimmed from 28 to 3 re-exports
+- ASTEdge and WalkContext moved to `tracer_models.py` (eliminates circular imports)
+- `git_add` scoped to specific written files instead of directories
+- WalkContext copy uses `dataclasses.replace()` instead of manual 16-field construction
+- README fully rewritten for all v0.4.0+ features
+
+### Fixed
+- Dead code removed: `clear_cache()`, unused backward-compat aliases
+- 12 `tf.participant_name or tf.name` sites → `TaggedFunction.display_name` property
+- 7 `get_trace(config).get("options", {})` sites → `get_trace_options()` accessor
+- 7 `ref.split("::", 1)` sites → `split_ext_ref()` / `ext_func_name()` utilities
+- REQ-relevance logic deduplicated → `is_req_relevant()` in `tracer_models.py`
+- 5 `except Exception` blocks narrowed to specific types
+- `trace.options` values validated at config load time
+- PlantUML `!include` directive sanitization
+- PyYAML capped to `<8`
+- LICENSE name corrected to Tristan VanFossen
+- CI runs pre-commit (all hooks) and triggers on develop branch
+- Release workflow adds PyPI publish via `pypa/gh-action-pypi-publish`
+
 ## [1.0.0] - 2026-04-02
 
 ### Breaking Changes

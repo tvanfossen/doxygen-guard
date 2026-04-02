@@ -1,6 +1,6 @@
 # doxygen-guard
 
-Pre-commit hook that validates doxygen comments, generates sequence diagrams from trace tags, and produces change-impact reports.
+Pre-commit hook that validates doxygen comments, generates PlantUML sequence diagrams, and produces change-impact reports. Architecture-agnostic — works with event-driven, sequential, async IPC, and any other pattern.
 
 ## Quick Start
 
@@ -9,7 +9,7 @@ Pre-commit hook that validates doxygen comments, generates sequence diagrams fro
 ```yaml
 repos:
   - repo: https://github.com/tvanfossen/doxygen-guard
-    rev: main
+    rev: v1.1.3
     hooks:
       - id: doxygen-guard
         types_or: [c, c++, java, python]
@@ -28,8 +28,6 @@ validate:
 trace:
   format: plantuml
   participant_field: "Subsystem"
-  options:
-    autonumber: true
 
 impact:
   requirements:
@@ -39,27 +37,25 @@ impact:
     format: csv
 ```
 
-### 3. Create your requirements file
+### 3. Add doxygen to your functions
 
-CSV format:
+```c
+/** @module Sensor Driver */
 
-```csv
-Req ID,Name,Subsystem,Description,Acceptance Criteria
-REQ-001,User Authentication,Auth Service,Authenticate users via OAuth2,Login flow completes within 5s
-REQ-002,Data Persistence,Storage,Persist records to database,Records survive restart
+/**
+ * @brief Read temperature from sensor hardware.
+ * @version 1.0
+ * @req REQ-0010
+ * @return Raw ADC value
+ */
+int Sensor_ReadTemperature(void) {
+    int raw = hw_read_adc(TEMP_CHANNEL);
+    event_post(EVENT_SENSOR_DATA_READY, raw);
+    return raw;
+}
 ```
 
-YAML format:
-
-```yaml
-- id: REQ-001
-  name: User Authentication
-  module: Auth Service
-  description: Authenticate users via OAuth2
-  acceptance_criteria: Login flow completes within 5s
-```
-
-Set `format: yaml` and adjust `id_column`/`name_column` to match your field names.
+Run `pre-commit run --all-files` — diagrams appear in `docs/generated/sequences/`.
 
 ## What It Does
 
@@ -67,32 +63,51 @@ Set `format: yaml` and adjust `id_column`/`name_column` to match your field name
 
 Every function in staged files is checked for:
 
-- **Presence** — must have a doxygen comment with `@brief` and `@version`
-- **Version staleness** — if the function body changed (git diff), `@version` must be updated
-- **Tag syntax** — tag values validated against configured patterns and prefixes
-- **Requirement coverage** — functions must have `@req` or an exemption tag (`@utility`, `@internal`, `@callback`)
+- **Presence** — must have `@brief`, `@version`, and `@return` (non-void functions)
+- **Version staleness** — if function body changed (git diff), `@version` must be updated
+- **Tag syntax** — tag values validated against configured patterns
+- **Requirement coverage** — functions must have `@req` or an exemption tag
 
 ### Sequence Diagrams (auto-generated)
 
-Functions tagged with `@emits`, `@handles`, `@ext`, and `@triggers` produce PlantUML sequence diagrams grouped by requirement. The tracer also scans function bodies for calls to other tagged functions.
+Diagrams are generated from the AST — most behavioral tags are **inferred**, not manually written:
 
-```c
-/**
- * @brief Handle incoming sensor data and decide on control action.
- * @version 1.0
- * @req REQ-030
- * @handles EVENT:SENSOR_DATA_READY
- * @emits EVENT:CONTROL_ACTION
- * @triggers THRESHOLD_CHECK
- */
-void Controller_OnSensorData(int sensor_value) {
-```
+| Tag | Purpose | Manual? |
+|-----|---------|---------|
+| `@req` | Requirement mapping | Yes — per function |
+| `@module` | Participant identity | Yes — once per file |
+| `@triggers` | State annotations | Yes — per function |
+| `@return` | Return value documentation | Yes — per function |
+| `@emit_source` | Infrastructure root (e.g., on `Event_post`) | Yes — once |
+| `@handle_source` | Registration root (e.g., on `Event_register`) | Yes — once |
+| `@emits` | Events emitted | **Inferred from AST** |
+| `@handles` | Events handled | **Inferred from AST** |
+| `@ext` | Cross-module calls | **Inferred from AST** |
 
-Diagrams are written to `<output_dir>/sequences/` with PNGs auto-generated if `plantuml` is on PATH.
+The tool scans function bodies via tree-sitter to detect `event_post()` calls, `Event_register()` patterns, and cross-participant function calls automatically.
 
-### Change-Impact Reports (auto-generated)
+**Project-defined function calls** are also shown in diagrams — any standalone call to a function defined in your scanned source files produces an edge, even without trace tags. Method calls (`.get()`, `.strip()`) are excluded via AST node type, not heuristics.
 
-Cross-references git diff with parsed functions to show which requirements are affected by staged changes. Reports written to `<output_dir>/impact/` in markdown and JSON.
+### Diagram Features
+
+- **Return types** on arrows (derived from AST or `@return` tag override)
+- **Control flow** blocks (if/else, loops, try/catch, switch)
+- **Error recovery** notes in catch blocks (callee extraction)
+- **Activation bars** with auto-close at diagram end
+- **Incremental generation** — SHA-256 manifest skips unchanged diagrams (493x speedup)
+- **Cross-REQ handler chain** following with configurable depth
+
+### Exemption Tags
+
+| Tag | Validation | Trace |
+|-----|-----------|-------|
+| `@internal` | Exempt from `@req` | **Invisible** — never in any diagram |
+| `@utility` | Exempt from `@req` | **Visible** — appears as call target |
+| `@callback` | Exempt from `@req` | Normal visibility |
+
+### Change-Impact Reports
+
+Cross-references git diff with parsed functions to show which requirements are affected by staged changes. Reports in markdown and JSON at `<output_dir>/impact/`.
 
 ## Configuration Reference
 
@@ -101,26 +116,41 @@ Cross-references git diff with parsed functions to show which requirements are a
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `languages` | dict | C, C++, Java, Python | Per-language function patterns and comment styles |
-| `comment_style.start` | regex | `/\*\*(?!\*)` | Doxygen comment start pattern |
-| `comment_style.end` | regex | `\*/` | Doxygen comment end pattern |
 | `presence.require_doxygen` | bool | `true` | Require doxygen on every function |
+| `presence.require_return` | bool | `true` | Require `@return` on non-void functions |
 | `presence.skip_forward_declarations` | bool | `true` | Skip C/C++ forward declarations |
-| `version.tag` | string | `@version` | Version tag name |
-| `version.require_present` | bool | `true` | Require version tag |
+| `version.require_present` | bool | `true` | Require `@version` tag |
 | `version.require_increment_on_change` | bool | `true` | Require version bump when body changes |
-| `tags` | dict | `{}` | Per-tag validation rules (pattern, prefix, confidence markers) |
 | `exclude` | list | `[]` | Regex patterns for files to skip |
-| `version_gate` | dict | — | Gate requirement enforcement by project version |
+| `version_gate.current_version` | string | — | `auto:git`, `auto:cmake`, or explicit version |
+| `version_gate.version_field` | string | — | Column in requirements file for version gating |
 
 ### `trace` section
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `format` | string | `plantuml` | Diagram format |
-| `participant_field` | string | — | Column/field in requirements file that maps REQs to diagram participants |
-| `external` | list | `[]` | External participants with `receives_prefix` for event routing |
-| `options.autonumber` | bool | `true` | Number sequence arrows |
-| `options.box_label` | string | `System` | Label for the internal participant box |
+| `format` | string | `plantuml` | Diagram output format |
+| `participant_field` | string | — | Requirements file column for participant resolution |
+| `external` | list | `[]` | External participants with `receives_prefix` |
+| `external_fallback` | string | `External` | Default name for unresolved external sources |
+
+### `trace.options`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `autonumber` | bool | `true` | Number sequence arrows |
+| `box_label` | string | `System` | Internal participant box label |
+| `min_edges` | int | `1` | Minimum behavioral edges to generate a diagram |
+| `show_returns` | bool | `true` | Show return arrows on ext calls |
+| `show_return_values` | bool | `true` | Label return arrows with type info |
+| `show_project_calls` | bool | `true` | Show calls to project-defined functions |
+| `show_recovery_notes` | bool | `true` | Show callee names in empty catch blocks |
+| `cross_req_depth` | int | `1` | Handler chain hops across REQ boundaries (-1=unlimited) |
+| `max_condition_length` | int | `80` | Truncation limit for alt/loop conditions |
+| `infer_emits` | bool | `true` | Infer @emits from emit function calls |
+| `infer_ext` | bool | `true` | Infer @ext from cross-module calls |
+| `legend` | bool | `false` | Render arrow style legend |
+| `label_mode` | string | `full` | Label style: `full`, `brief`, `label-only` |
 
 ### `impact` section
 
@@ -128,23 +158,8 @@ Cross-references git diff with parsed functions to show which requirements are a
 |-----|------|---------|-------------|
 | `requirements.file` | string | — | Path to requirements file |
 | `requirements.format` | string | `csv` | Format: `csv`, `json`, or `yaml` |
-| `requirements.id_column` | string | `Req ID` | Column/field containing requirement IDs |
-| `requirements.name_column` | string | `Requirement Name` | Column/field containing requirement names |
-
-### Tag validation rules
-
-```yaml
-validate:
-  tags:
-    req:
-      pattern: "^REQ-\\w+$"
-    emits:
-      require_prefix: ["EVENT:"]
-    handles:
-      require_prefix: ["EVENT:"]
-    ext:
-      require_contains: "::"
-```
+| `requirements.id_column` | string | `Req ID` | Requirement ID column/field |
+| `requirements.name_column` | string | `Requirement Name` | Requirement name column/field |
 
 ### External participants
 
@@ -154,51 +169,44 @@ Route unhandled events to named external actors by prefix:
 trace:
   external:
     - Cloud:
-        receives_prefix: ["EVENT:CLOUD_"]
+        receives_prefix: ["EVENT_CLOUD_"]
     - Hardware:
-        receives_prefix: ["EVENT:HW_"]
+        receives_prefix: ["EVENT_HW_"]
 ```
 
-### Version gate
+## File-Level Tags
 
-Gate requirement enforcement by project version (useful during incremental adoption):
+Use `@module` at the top of each source file to set the participant name:
 
-```yaml
-validate:
-  version_gate:
-    current_version: "auto:git"  # or "auto:cmake" or "v1.2.0"
-    version_field: "Min Version"  # column in requirements file
+```c
+/** @module Sensor Driver */
 ```
 
-## Requirements Models
+This overrides the requirements-file `participant_field` for all functions in the file.
 
-doxygen-guard supports both product-level and software-level requirements:
+## Infrastructure Roots
 
-**Product-level** — feature-oriented, spans multiple modules. One requirement traces to many functions across subsystems.
-
-```csv
-Req ID,Name,Subsystem
-REQ-PROD-001,Device Environmental Monitoring,Product
-```
-
-**Software-level** — module-oriented, maps tightly to code. One requirement per module boundary.
-
-```csv
-Req ID,Name,Subsystem
-REQ-SENSOR-001,ADC Read Abstraction,Sensor Driver
-```
-
-Functions can carry both levels simultaneously:
+Mark event bus functions once to enable automatic inference:
 
 ```c
 /**
- * @brief Read temperature from sensor hardware.
- * @req REQ-SENSOR-001
- * @req REQ-PROD-001
+ * @brief Post an event to all registered handlers.
+ * @version 1.0
+ * @req REQ-0050
+ * @emit_source
  */
+void Event_post(uint64_t event, void *data) { ... }
+
+/**
+ * @brief Register a handler for events matching a bitmask.
+ * @version 1.0
+ * @req REQ-0050
+ * @handle_source
+ */
+void Event_register(uint64_t mask, event_handler_fn handler) { ... }
 ```
 
-The `participant_field` config key determines which column resolves diagram participants. Switch configs to see different diagram perspectives of the same codebase.
+With these in place, `@emits` and `@handles` are derived from the AST for all other functions — zero manual behavioral tags needed.
 
 ## Supported Languages
 
@@ -207,9 +215,7 @@ The `participant_field` config key determines which column resolves diagram part
 | C | `.c`, `.h` | `/** ... */` | Brace matching |
 | C++ | `.cpp`, `.hpp`, `.cc`, `.cxx` | `/** ... */` | Brace matching |
 | Java | `.java` | `/** ... */` | Brace matching |
-| Python | `.py` | `## ... / # ...` | Indentation |
-
-Custom languages can be added in config under `validate.languages`.
+| Python | `.py` | `## ...` | Indentation |
 
 ## CLI Usage
 
@@ -222,7 +228,12 @@ doxygen-guard validate --no-git src/*.c
 doxygen-guard trace --all src/
 doxygen-guard trace --req REQ-001 src/
 doxygen-guard impact --staged src/*.c
+doxygen-guard coverage src/
 
 # Verbose mode
-doxygen-guard -v validate --no-git src/*.c
+doxygen-guard -v trace --all src/
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
