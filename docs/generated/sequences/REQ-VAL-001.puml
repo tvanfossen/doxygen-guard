@@ -39,7 +39,11 @@ end loop
 Validate -> Config: get_validate(config)
 == check_file_presence() ==
 Validate -> Config: get_validate(config)
-Validate -> Checks: _find_missing_file_doxygen(file_path, content)
+Validate -> Checks: _find_file_doxygen_start(lines)
+alt block_line is None
+Validate -> Checks: _first_code_line(lines)
+end alt
+Validate -> Checks: _check_file_block_tags(file_path, lines, block_line)
 == validate_file() ==
 Validate -> Config: get_validate(config)
 Validate -> Parser: parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)

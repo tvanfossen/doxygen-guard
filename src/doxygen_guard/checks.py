@@ -526,7 +526,7 @@ def check_req_exists(
 
 
 ## @brief Check for file-level doxygen documentation block.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-VAL-001
 def check_file_presence(
     file_path: str,
@@ -538,38 +538,85 @@ def check_file_presence(
     if not presence_config.get("require_file_doxygen", False):
         return []
 
-    violation_line = _find_missing_file_doxygen(file_path, content)
-    if violation_line is None:
-        return []
-    return [violation_line]
+    lines = content.splitlines()
+    block_line = _find_file_doxygen_start(lines)
+    if block_line is None:
+        first_code = _first_code_line(lines)
+        return [
+            Violation(
+                file=file_path,
+                line=first_code,
+                check="presence",
+                message=(
+                    f"File '{file_path}' has no file-level doxygen block"
+                    " — add /** @file @brief <desc> @version 1.0 */ before first code"
+                ),
+            )
+        ]
+
+    return _check_file_block_tags(file_path, lines, block_line)
 
 
-## @brief Scan for missing file-level doxygen, returning a violation if absent.
-#  @version 1.0
+## @brief Check required tags in a file-level doxygen block.
+#  @version 1.1
 #  @internal
-def _find_missing_file_doxygen(file_path: str, content: str) -> Violation | None:
+#  @return List of violations for missing required tags
+def _check_file_block_tags(file_path: str, lines: list[str], block_start: int) -> list[Violation]:
+    block_text = _extract_file_block_text(lines, block_start)
+    from doxygen_guard.parser import parse_doxygen_tags
+
+    tags = parse_doxygen_tags(block_text)
+    violations: list[Violation] = []
+    required = {"file": "@file", "brief": "@brief", "version": "@version"}
+    for tag_key, tag_name in required.items():
+        if tag_key not in tags:
+            violations.append(
+                Violation(
+                    file=file_path,
+                    line=block_start + 1,
+                    check="presence",
+                    message=f"File-level doxygen missing {tag_name} tag in '{file_path}'",
+                )
+            )
+    return violations
+
+
+## @brief Extract file-level doxygen block text from lines.
+#  @version 1.1
+#  @internal
+#  @return The raw text of the doxygen block
+def _extract_file_block_text(lines: list[str], start: int) -> str:
+    block_lines: list[str] = []
+    for i in range(start, min(start + 30, len(lines))):
+        block_lines.append(lines[i])
+        if "*/" in lines[i] or (i > start and not lines[i].strip().startswith(("*", "#", "//"))):
+            break
+    return "\n".join(block_lines)
+
+
+## @brief Find the line index of the file-level doxygen block start.
+#  @version 1.1
+#  @internal
+#  @return 0-indexed line number, or None if no block found
+def _find_file_doxygen_start(lines: list[str]) -> int | None:
     skip_prefixes = ("#include", "#pragma", "#ifndef", "#define")
-    for i, line in enumerate(content.splitlines()):
+    doxygen_starts = ("/**", "///", "## @", '"""')
+    for i, line in enumerate(lines):
         stripped = line.strip()
         if not stripped or any(stripped.startswith(p) for p in skip_prefixes):
             continue
-        if _is_file_doxygen_line(stripped):
-            return None
-        return Violation(
-            file=file_path,
-            line=i + 1,
-            check="presence",
-            message=(
-                f"File '{file_path}' has no file-level doxygen block"
-                " — add '/** @file */' or '/** @brief ... */' before first function"
-            ),
-        )
+        if any(stripped.startswith(s) for s in doxygen_starts):
+            return i
+        return None
     return None
 
 
-## @brief Check if a line is a file-level doxygen comment start.
-#  @version 1.0
+## @brief Find the first non-blank, non-preprocessor line number.
+#  @version 1.1
 #  @internal
-def _is_file_doxygen_line(line: str) -> bool:
-    doxygen_starts = ("/**", "///", "## @", '"""', "## @file", "## @brief")
-    return any(line.startswith(s) for s in doxygen_starts)
+#  @return 1-indexed line number for violation reporting
+def _first_code_line(lines: list[str]) -> int:
+    for i, line in enumerate(lines):
+        if line.strip():
+            return i + 1
+    return 1

@@ -92,11 +92,20 @@ class TestCheckReqExists:
 class TestCheckFilePresence:
     """Tests for file-level doxygen block enforcement."""
 
-    def test_c_file_with_file_block_passes(self):
-        content = "/** @file sensor_driver.c */\nvoid func(void) {}\n"
+    def test_c_file_with_complete_block_passes(self):
+        content = (
+            "/**\n * @file\n * @brief Sensor driver.\n * @version 1.0\n */\nvoid func(void) {}\n"
+        )
         config = deep_merge(BASE_CONFIG, {"validate": {"presence": {"require_file_doxygen": True}}})
         violations = check_file_presence("a.c", content, config)
         assert len(violations) == 0
+
+    def test_c_file_missing_tags_fails(self):
+        content = "/** @file sensor_driver.c */\nvoid func(void) {}\n"
+        config = deep_merge(BASE_CONFIG, {"validate": {"presence": {"require_file_doxygen": True}}})
+        violations = check_file_presence("a.c", content, config)
+        assert len(violations) >= 1
+        assert any("@brief" in v.message or "@version" in v.message for v in violations)
 
     def test_c_file_without_file_block_fails(self):
         content = "void func(void) {}\n"
@@ -104,8 +113,8 @@ class TestCheckFilePresence:
         violations = check_file_presence("a.c", content, config)
         assert len(violations) == 1
 
-    def test_python_docstring_passes(self):
-        content = '"""Module docstring."""\ndef func(): pass\n'
+    def test_python_file_with_complete_block_passes(self):
+        content = "## @file\n## @brief Module.\n## @version 1.0\ndef func(): pass\n"
         config = deep_merge(BASE_CONFIG, {"validate": {"presence": {"require_file_doxygen": True}}})
         violations = check_file_presence("a.py", content, config)
         assert len(violations) == 0
@@ -116,7 +125,11 @@ class TestCheckFilePresence:
         assert len(violations) == 0
 
     def test_include_guards_skipped(self):
-        content = "#ifndef FOO_H\n#define FOO_H\n/** @file */\nvoid f(void);\n#endif\n"
+        content = (
+            "#ifndef FOO_H\n#define FOO_H\n"
+            "/**\n * @file\n * @brief Header.\n * @version 1.0\n */\n"
+            "void f(void);\n#endif\n"
+        )
         config = deep_merge(BASE_CONFIG, {"validate": {"presence": {"require_file_doxygen": True}}})
         violations = check_file_presence("a.h", content, config)
         assert len(violations) == 0
