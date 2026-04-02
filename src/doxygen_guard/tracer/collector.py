@@ -11,7 +11,12 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from doxygen_guard.config import get_trace, get_validate, parse_source_file_with_content
+from doxygen_guard.config import (
+    get_trace,
+    get_trace_options,
+    get_validate,
+    parse_source_file_with_content,
+)
 from doxygen_guard.impact import load_requirements_full
 from doxygen_guard.tracer_models import (
     Participant,
@@ -140,7 +145,7 @@ def _extract_file_module(content: str) -> str | None:
 
 
 ## @brief Walk source directories and collect ALL tagged functions.
-#  @version 1.8
+#  @version 1.9
 #  @req REQ-TRACE-001
 def collect_all_tagged_functions(
     source_dirs: list[str],
@@ -162,7 +167,7 @@ def collect_all_tagged_functions(
         for source_file in source_files:
             tagged.extend(_process_source_file(source_file, config, req_participant_map))
             _cache_parsed_file(str(source_file), config, file_cache)
-    trace_options = get_trace(config).get("options", {})
+    trace_options = get_trace_options(config)
     source_roots = _discover_infrastructure_roots(tagged)
     if source_roots.get("emit_fns"):
         trace_options["event_emit_functions"] = source_roots["emit_fns"]
@@ -318,14 +323,14 @@ def _extract_tagged_function(
 
 
 ## @brief Infer @emits from emit function calls found in the function body.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _apply_emit_inference(
     tf: TaggedFunction,
     body_text: str,
     config: dict[str, Any],
 ) -> None:
-    trace_options = get_trace(config).get("options", {})
+    trace_options = get_trace_options(config)
     if not trace_options.get("infer_emits", True):
         return
 
@@ -349,13 +354,13 @@ def _apply_emit_inference(
 
 
 ## @brief Detect phantom @emits — declared but no matching call in body.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def detect_phantom_emits(
     tf: TaggedFunction,
     config: dict[str, Any],
 ) -> list[str]:
-    trace_options = get_trace(config).get("options", {})
+    trace_options = get_trace_options(config)
     emit_fns = trace_options.get("event_emit_functions", ["event_post"])
 
     called_constants: set[str] = set()

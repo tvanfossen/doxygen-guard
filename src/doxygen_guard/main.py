@@ -116,7 +116,7 @@ def _add_coverage_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 ## @brief Orchestrate presence, staleness, and tag checks for one file.
-#  @version 1.5
+#  @version 1.6
 #  @req REQ-VAL-001
 def validate_file(
     file_path: str,
@@ -156,7 +156,7 @@ def validate_file(
         try:
             changed_lines = get_changed_lines_for_file(file_path)
             violations.extend(check_version_staleness(functions, file_path, config, changed_lines))
-        except Exception:
+        except (subprocess.CalledProcessError, OSError):
             logger.warning(
                 "Could not get git diff for %s — skipping staleness check",
                 file_path,
@@ -216,7 +216,7 @@ def run_validate(args: argparse.Namespace, config: dict[str, Any]) -> int:
 
 
 ## @brief Detect version from git describe --tags.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _detect_git_version() -> str | None:
     try:
@@ -228,20 +228,20 @@ def _detect_git_version() -> str | None:
             timeout=10,
         )
         return result.stdout.strip()
-    except Exception:
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         logger.warning("Could not detect version from git tags")
         return None
 
 
 ## @brief Detect version from CMakeLists.txt project() directive.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _detect_cmake_version() -> str | None:
     try:
         cmake = Path("CMakeLists.txt").read_text()
         match = re.search(r"project\s*\([^)]*VERSION\s+([\d.]+)", cmake)
         return f"v{match.group(1)}" if match else None
-    except Exception:
+    except (OSError, re.error):
         logger.warning("Could not detect version from CMakeLists.txt")
         return None
 

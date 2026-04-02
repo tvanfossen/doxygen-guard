@@ -3,10 +3,11 @@
 | REQ | Name | Functions Changed |
 |-----|------|-------------------|
 | REQ-CONFIG-001 | YAML config loading and merging | validate_config_schema, load_config |
-| REQ-CONFIG-002 | Per-language parse settings | get_language_config, resolve_parse_settings |
-| REQ-PARSE-001 | Function detection | parse_source_file_with_content |
-| REQ-TRACE-001 | Sequence diagram generation | walk_function_body, collect_all_tagged_functions, _infer_entry_edges, build_sequence_edges_ast |
-| REQ-TRACE-002 | Participant resolution from requirements | _build_req_participant_map, _resolve_participant_from_reqs |
+| REQ-PARSE-001 | Function detection | parse_source_file, parse_source_file_with_content |
+| REQ-TRACE-001 | Sequence diagram generation | run_trace, walk_function_body, _build_emit_edges, _build_ext_edges, _build_trigger_edges, _build_call_edges, build_sequence_edges |
+
+**Total: 3 requirement(s) affected, 11 function(s) changed**
+02 | Participant resolution from requirements | _build_req_participant_map, _resolve_participant_from_reqs |
 | REQ-TRACE-003 | External participant prefix routing | _load_external_participants |
 
-**Total: 6 requirement(s) affected, 12 function(s) changed**
+**Total: 6 requirement(s) affected, 13 function(s) changed**

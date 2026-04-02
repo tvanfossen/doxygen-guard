@@ -52,6 +52,7 @@ loop source_file in source_files
 Trace -> Collector: _cache_parsed_file(str(source_file), config, file_cache)
 end loop
 end loop
+Trace -> Config: get_trace_options(config)
 Trace -> Collector: _warn_unreferenced_functions(tagged)
 == _build_ext_edges() ==
 loop ext_ref in tf.ext
@@ -74,6 +75,7 @@ Trace -> Edges_Ast: _build_emitter_participant_map(all_tagged)
 == build_sequence_edges_ast() ==
 Trace -> Edges: _build_handler_map(all_tagged)
 Trace -> Config: get_trace(config)
+Trace -> Config: get_trace_options(config)
 Trace -> Edges_Ast: _detect_dominant_spec(emitters, config)
 Trace -> Trace: get_language_spec("c")
 Trace -> Edges_Ast: _collect_extra_qualifiers(config)
@@ -88,6 +90,7 @@ end loop
 == write_infrastructure_table() ==
 Trace -> Trace: generate_infrastructure_table(all_tagged)
 == generate_plantuml() ==
+Trace -> Config: get_trace_options(config)
 Trace -> Renderer: _get_name_col(config)
 Trace -> Renderer: _collect_all_active_names(edges, functions)
 loop edge in edges
@@ -98,6 +101,7 @@ end alt
 Trace -> Renderer: _safe_filename(req_id)
 Trace -> Renderer: _render_png(puml_file)
 == generate_plantuml_ast() ==
+Trace -> Config: get_trace_options(config)
 Trace -> Renderer: _get_name_col(config)
 Trace -> Renderer: _collect_all_active_names(flat_edges, functions)
 alt options.get("legend", False)

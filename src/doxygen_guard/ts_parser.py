@@ -51,7 +51,7 @@ def get_parsed_file(file_path: str, lang_name: str) -> ParsedFile | None:
 
 
 ## @brief Parse a source file and index its function nodes.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _parse_and_index(file_path: str, lang_name: str) -> ParsedFile | None:
     parser = get_parser_for_language(lang_name)
@@ -61,18 +61,11 @@ def _parse_and_index(file_path: str, lang_name: str) -> ParsedFile | None:
     content = Path(file_path).read_text(errors="replace")
     try:
         tree = parser.parse(content.encode("utf-8"))
-    except Exception:
+    except (ValueError, OSError):
         logger.warning("Tree-sitter parse failed for %s, skipping AST", file_path)
         return None
     func_nodes = _index_function_nodes(tree.root_node, spec)
     return ParsedFile(tree=tree, func_nodes=func_nodes)
-
-
-## @brief Clear the parsed file cache.
-#  @version 1.0
-#  @internal
-def clear_cache() -> None:
-    _file_cache.clear()
 
 
 ## @brief Index function definition nodes by name from the AST root.

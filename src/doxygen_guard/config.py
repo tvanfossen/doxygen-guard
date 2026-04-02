@@ -320,6 +320,14 @@ def get_trace(config: dict[str, Any]) -> dict[str, Any]:
     return config.get("trace", {})
 
 
+## @brief Access the trace options subsection of config.
+#  @version 1.0
+#  @internal
+#  @return The trace.options dict, or empty dict if not configured
+def get_trace_options(config: dict[str, Any]) -> dict[str, Any]:
+    return get_trace(config).get("options", {})
+
+
 ## @brief Access the impact section of config.
 #  @version 1.0
 #  @internal

@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -69,7 +70,7 @@ def _collect_changed_lines(
 
 
 ## @brief Get raw diff output for a single file.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _get_file_diff(
     file_path: str,
@@ -82,7 +83,7 @@ def _get_file_diff(
             return get_staged_diff(file_path, run_command)
         if diff_range:
             return get_diff(file_path, diff_range, run_command)
-    except Exception:
+    except (subprocess.CalledProcessError, OSError):
         logger.warning("Could not get diff for %s", file_path)
     return None
 

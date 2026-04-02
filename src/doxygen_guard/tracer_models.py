@@ -24,7 +24,7 @@ class Participant:
 
 
 ## @brief Function metadata needed for diagram generation.
-#  @version 1.6
+#  @version 1.7
 #  @internal
 @dataclass
 class TaggedFunction:
@@ -42,6 +42,14 @@ class TaggedFunction:
     marker_tags: set[str] = field(default_factory=set)
     return_desc: str | None = None
     is_internal: bool = False
+
+    ## @brief Return the display name for this function in diagrams.
+    #  @version 1.0
+    #  @internal
+    #  @return participant_name if set, otherwise the function name
+    @property
+    def display_name(self) -> str:
+        return self.participant_name or self.name
 
 
 ## @brief Context for rendering a diagram header (req metadata + preconditions).

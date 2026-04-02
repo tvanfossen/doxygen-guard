@@ -62,7 +62,7 @@ activate Git
 Git <-- Validate: return set[int]
 deactivate Git
 end group
-group catch (Exception)
+group catch
 note right: logger
 end group
 end alt

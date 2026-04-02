@@ -78,7 +78,7 @@ class _WalkState:
 
 
 ## @brief Walk a function body AST to produce edges in source execution order.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-001
 def walk_function_body(
     func_node: Node,
@@ -90,7 +90,7 @@ def walk_function_body(
     if body is None:
         return []
 
-    from_name = tf.participant_name or tf.name
+    from_name = tf.display_name
     edges: list[ASTEdge] = []
 
     for trigger in tf.triggers:
@@ -159,13 +159,13 @@ def _handle_call(
 
 
 ## @brief Place a call edge for a tagged function target.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _place_tagged_call(call_node: Node, callee: str, state: _WalkState) -> None:
     target = _find_tagged_function(callee, state.ctx)
     if target is None:
         return
-    to_name = target.participant_name or target.name
+    to_name = target.display_name
     args_text = _extract_call_args_label(call_node)
     label = f"{callee}({args_text})" if args_text else f"{callee}()"
     state.edges.append(ASTEdge(kind="call", edge=Edge(state.from_name, to_name, label)))
@@ -271,7 +271,7 @@ def _flush_remaining_emits(
 
 
 ## @brief Resolve an emit event to an edge and optionally a handler for chain following.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _resolve_emit(
     event: str,
@@ -282,7 +282,7 @@ def _resolve_emit(
     handlers = ctx.handler_map.get(event, [])
     if handlers:
         handler = handlers[0]
-        to_name = handler.participant_name or handler.name
+        to_name = handler.display_name
         label = f"{func_name}() -> {handler.name}()"
         edge = Edge(from_name, to_name, label, event, "-->")
         return edge, handler

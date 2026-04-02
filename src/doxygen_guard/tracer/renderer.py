@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from doxygen_guard.config import get_impact, get_trace
+from doxygen_guard.config import get_impact, get_trace_options
 from doxygen_guard.impact import load_requirements_full
 from doxygen_guard.tracer_models import (
     DiagramBuildParams,
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 ## @brief Collect all participant names from edges and function listings.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _collect_all_active_names(
     edges: list[Edge],
@@ -35,14 +35,14 @@ def _collect_all_active_names(
 ) -> list[str]:
     names = _collect_active_participants(edges)
     for tf in functions:
-        pname = tf.participant_name or tf.name
+        pname = tf.display_name
         if pname not in names:
             names.append(pname)
     return names
 
 
 ## @brief Render notes for init-only functions not referenced in edges or sections.
-#  @version 1.3
+#  @version 1.4
 #  @internal
 def _render_unlisted_functions(
     functions: list[TaggedFunction],
@@ -63,19 +63,19 @@ def _render_unlisted_functions(
             continue
         if init_only_names is not None and tf.name not in init_only_names:
             continue
-        pname = _safe_id(tf.participant_name or tf.name)
+        pname = _safe_id(tf.display_name)
         lines.append(f"note over {pname}: {tf.name}()")
     return lines
 
 
 ## @brief Render supports annotations as diagram notes.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _render_supports_notes(functions: list[TaggedFunction]) -> list[str]:
     lines: list[str] = []
     for tf in functions:
         if tf.supports:
-            pname = _safe_id(tf.participant_name or tf.name)
+            pname = _safe_id(tf.display_name)
             supports_text = ", ".join(tf.supports)
             lines.append(f"note over {pname}: {tf.name}() supports {supports_text}")
     return lines
@@ -210,7 +210,7 @@ def _render_req_header(
 
 
 ## @brief Render edges and function listings as a PlantUML block.
-#  @version 1.11
+#  @version 1.12
 #  @req REQ-TRACE-001
 def generate_plantuml(
     req_id: str,
@@ -220,7 +220,7 @@ def generate_plantuml(
     config: dict[str, Any],
     context: DiagramContext | None = None,
 ) -> str:
-    options = get_trace(config).get("options", {})
+    options = get_trace_options(config)
     name_col = _get_name_col(config)
     req_row = context.req_row if context else None
     preconditions = context.preconditions if context else None
@@ -541,7 +541,7 @@ def _render_legend() -> list[str]:
 
 
 ## @brief Generate PlantUML from AST-ordered edges.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-TRACE-001
 def generate_plantuml_ast(
     req_id: str,
@@ -551,7 +551,7 @@ def generate_plantuml_ast(
     config: dict[str, Any],
     context: DiagramContext | None = None,
 ) -> str:
-    options = get_trace(config).get("options", {})
+    options = get_trace_options(config)
     name_col = _get_name_col(config)
     req_row = context.req_row if context else None
     preconditions = context.preconditions if context else None
@@ -606,10 +606,10 @@ def _resolve_preconditions(
 
 
 ## @brief Collect infrastructure function names from config and marker tags.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _get_infra_fn_names(config: dict[str, Any], all_tagged: list[TaggedFunction]) -> set[str]:
-    trace_options = get_trace(config).get("options", {})
+    trace_options = get_trace_options(config)
     names = set(trace_options.get("event_emit_functions", ["event_post"]))
     names |= set(trace_options.get("event_register_functions", ["Event_register"]))
     names |= {t.name for t in all_tagged if t.marker_tags}
@@ -628,7 +628,7 @@ def _is_init_only(tf: TaggedFunction, infra_fn_names: set[str]) -> bool:
 
 
 ## @brief Generate PlantUML for a single requirement using AST or legacy path.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _generate_req_diagram(
     r: str,
@@ -642,7 +642,7 @@ def _generate_req_diagram(
     at = params.all_tagged
     pp = params.participants
     cfg = params.config
-    min_edges = get_trace(cfg).get("options", {}).get("min_edges", 0)
+    min_edges = get_trace_options(cfg).get("min_edges", 0)
 
     if params.file_cache:
         infra_fns = _get_infra_fn_names(cfg, at)

@@ -11,7 +11,7 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
-from doxygen_guard.config import get_trace
+from doxygen_guard.config import get_trace, get_trace_options
 from doxygen_guard.tracer_models import (
     Edge,
     Participant,
@@ -65,7 +65,7 @@ def _group_entry_edges(entries: list[Edge]) -> list:
 
 
 ## @brief Infer entry edges from unresolved or cross-REQ events within a REQ scope.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-001
 #  @return List of entry edges for events not produced by in-scope emitters
 def _infer_entry_edges(
@@ -94,7 +94,7 @@ def _infer_entry_edges(
                 or (emitter_participant[0] if emitter_participant else None)
                 or fallback_name
             )
-            to_name = tf.participant_name or tf.name
+            to_name = tf.display_name
             label = f"{tf.name}()"
             entries.append(Edge(source, to_name, label, event=event, style="-->"))
 
@@ -196,7 +196,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.6
+#  @version 1.7
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -213,7 +213,7 @@ def build_sequence_edges_ast(
     externals = [p for p in participants if p.receives_prefix]
 
     trace_config = get_trace(config)
-    trace_options = trace_config.get("options", {})
+    trace_options = get_trace_options(config)
     emit_fns = set(trace_options.get("event_emit_functions", ["event_post"]))
     max_depth = trace_options.get("max_chain_depth", 3)
     fallback_name = trace_config.get("external_fallback", "External")

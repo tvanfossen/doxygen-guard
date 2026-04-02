@@ -19,10 +19,6 @@ from doxygen_guard.tracer_models import (
 
 logger = logging.getLogger(__name__)
 
-# Re-export for backward compatibility
-_resolve_by_prefix = resolve_by_prefix
-_resolve_ext_target = resolve_ext_target
-
 
 ## @brief Build the global handler map from ALL tagged functions.
 #  @version 1.1
@@ -46,7 +42,7 @@ def _build_handler_map(
 
 
 ## @brief Build emit edges, resolving handlers globally and falling back to prefix routing.
-#  @version 1.6
+#  @version 1.7
 #  @req REQ-TRACE-001
 def _build_emit_edges(
     tf: TaggedFunction,
@@ -60,11 +56,11 @@ def _build_emit_edges(
         handlers = handler_map.get(event, [])
         if handlers:
             for handler in handlers:
-                to_name = handler.participant_name or handler.name
+                to_name = handler.display_name
                 label = f"{tf.name}() -> {handler.name}()"
                 edges.append(Edge(from_name, to_name, label, event, "-->"))
         else:
-            prefix_target = _resolve_by_prefix(event, externals)
+            prefix_target = resolve_by_prefix(event, externals)
             if prefix_target:
                 edges.append(Edge(from_name, prefix_target, f"{tf.name}()", event, "-->"))
             else:
@@ -73,7 +69,7 @@ def _build_emit_edges(
 
 
 ## @brief Resolve a single ext reference to a target participant name.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _resolve_ext_participant(
     ext_ref: str,
@@ -84,7 +80,7 @@ def _resolve_ext_participant(
     parts = ext_ref.split("::", 1)
     func_name = parts[1] if len(parts) == 2 else ext_ref
     mod = parts[0] if len(parts) == 2 else ext_ref
-    resolved = _resolve_ext_target(func_name, mod, all_tagged, participants)
+    resolved = resolve_ext_target(func_name, mod, all_tagged, participants)
     to_name = resolved or mod
     if to_name == from_name and mod != ext_ref:
         to_name = mod.replace("_", " ").title()
@@ -131,7 +127,7 @@ def _build_trigger_edges(
 
 
 ## @brief Scan function bodies for calls to other known functions.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
 def _build_call_edges(
     caller: TaggedFunction,
@@ -149,7 +145,7 @@ def _build_call_edges(
         if req_id and not _is_req_relevant_target(target, req_id):
             continue
         if re.search(rf"\b{re.escape(target.name)}\s*\(", caller.body):
-            to_name = target.participant_name or target.name
+            to_name = target.display_name
             edges.append(Edge(from_name, to_name, f"{target.name}()"))
     return edges
 
@@ -190,7 +186,7 @@ def _find_inbound_callers(
 
 
 ## @brief Build inbound caller edges scoped to only the target function call.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _build_inbound_edges(
     caller: TaggedFunction,
@@ -203,13 +199,13 @@ def _build_inbound_edges(
         if target.name not in target_names:
             continue
         if re.search(rf"\b{re.escape(target.name)}\s*\(", caller.body):
-            to_name = target.participant_name or target.name
+            to_name = target.display_name
             edges.append(Edge(from_name, to_name, f"{target.name}()"))
     return edges
 
 
 ## @brief Build edges for emitting functions, using global handler resolution.
-#  @version 1.9
+#  @version 1.10
 #  @req REQ-TRACE-001
 #  @return Tuple of (edges, warnings) for the requirement
 def build_sequence_edges(
@@ -235,7 +231,7 @@ def build_sequence_edges(
 
     # Direct emitters get full edge building
     for tf in emitters:
-        from_name = tf.participant_name or tf.name
+        from_name = tf.display_name
         emit_edges, warnings = _build_emit_edges(tf, from_name, handler_map, externals)
         edges.extend(emit_edges)
         all_warnings.extend(warnings)
@@ -247,7 +243,7 @@ def build_sequence_edges(
 
     # Inbound callers get ONLY edges to target functions
     for tf in inbound:
-        from_name = tf.participant_name or tf.name
+        from_name = tf.display_name
         edges.extend(_build_inbound_edges(tf, from_name, emitter_names, all_tagged))
 
     return edges, all_warnings

@@ -19,8 +19,6 @@ from doxygen_guard.tracer_models import (
     Edge,
     Participant,
     TaggedFunction,
-    resolve_by_prefix,
-    resolve_ext_target,
 )
 
 from .collector import (
@@ -59,10 +57,6 @@ from .renderer import (
 
 logger = logging.getLogger(__name__)
 
-# Re-export for backward compatibility
-_resolve_by_prefix = resolve_by_prefix
-_resolve_ext_target = resolve_ext_target
-
 __all__ = [
     "DiagramBuildParams",
     "DiagramContext",
@@ -78,8 +72,6 @@ __all__ = [
     "_find_undeclared_participants",
     "_infer_entry_edges",
     "_is_req_relevant_target",
-    "_resolve_by_prefix",
-    "_resolve_ext_target",
     "_safe_id",
     "_sanitize_label",
     "_select_label_text",
