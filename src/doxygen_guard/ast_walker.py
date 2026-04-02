@@ -564,13 +564,17 @@ def _collect_try_children(node: Node) -> list:
 
 
 ## @brief Render a single try handler (catch/except/finally/else).
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _render_try_handler(handler: Node, state: _WalkState) -> None:
     if handler.type in ("catch_clause", "except_clause"):
         label = _extract_exception_type(handler)
         state.edges.append(ASTEdge(kind="catch_start", label=label))
+        before = len(state.edges)
         _walk_statements(handler, state)
+        if len(state.edges) == before:
+            note = _extract_catch_summary(handler, state.ctx.spec)
+            state.edges.append(ASTEdge(kind="recovery_note", label=note))
         state.edges.append(ASTEdge(kind="catch_end"))
     elif handler.type == "finally_clause":
         state.edges.append(ASTEdge(kind="finally_start"))
@@ -578,6 +582,29 @@ def _render_try_handler(handler: Node, state: _WalkState) -> None:
         state.edges.append(ASTEdge(kind="finally_end"))
     elif handler.type == "else_clause":
         _walk_statements(handler, state)
+
+
+## @brief Extract callee names from a catch/except body for recovery notes.
+#  @version 1.0
+#  @internal
+def _extract_catch_summary(handler: Node, spec: LanguageSpec) -> str:
+    callees: list[str] = []
+    _collect_callees(handler, spec, callees)
+    if not callees:
+        return "(empty handler)"
+    return ", ".join(callees[:3]) + ("..." if len(callees) > 3 else "")
+
+
+## @brief Recursively collect callee names from a node.
+#  @version 1.0
+#  @internal
+def _collect_callees(node: Node, spec: LanguageSpec, result: list[str]) -> None:
+    if node.type == spec.call_node_type:
+        name = _extract_callee_name(node, spec)
+        if name and name not in result:
+            result.append(name)
+    for child in node.named_children:
+        _collect_callees(child, spec, result)
 
 
 ## @brief Extract the exception type from a catch/except clause.

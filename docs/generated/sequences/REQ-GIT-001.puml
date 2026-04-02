@@ -18,6 +18,7 @@ end header
 group try
 end group
 group catch
+note right: logger
 end group
 == get_branch_diff_range() ==
 Git -> Git: get_merge_base(target_branch, run_command)

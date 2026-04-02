@@ -27,6 +27,7 @@ activate Validate
 group try
 end group
 group catch (OSError)
+note right: (empty handler)
 end group
 alt content is not None
 end alt
@@ -39,12 +40,14 @@ activate Git
 Git --> Validate: return set[int]
 end group
 group catch (Exception)
+note right: logger
 end group
 end alt
 == run_precommit() ==
 group try
 end group
 group catch
+note right: print
 end group
 alt trace_enabled
 Validate -> Trace: run_trace(source_dirs=source_dirs, config=config, trace_all=True,)

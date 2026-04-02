@@ -125,6 +125,7 @@ TRACE_DEFAULTS: dict[str, Any] = {
         "legend": False,
         "cross_req_depth": 1,
         "show_return_values": True,
+        "show_recovery_notes": True,
     },
 }
 

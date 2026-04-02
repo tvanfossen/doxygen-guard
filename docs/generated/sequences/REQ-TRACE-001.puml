@@ -22,6 +22,7 @@ Trace -> Trace: analyze_coverage(source_dirs, config)
 group try
 end group
 group catch
+note right: print
 end group
 Trace -> Trace: run_trace(source_dirs=args.source_dirs, config=config, req_id=args.req, trace_all=args.trace_all,)
 == run_trace() ==

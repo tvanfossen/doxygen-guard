@@ -434,7 +434,7 @@ def _close_activations(active: set[str], lines: list[str]) -> None:
 
 
 ## @brief Render ASTEdge list as PlantUML lines with activate/deactivate.
-#  @version 1.5
+#  @version 1.6
 #  @internal
 def _render_ast_edges(ast_edges: list, label_mode: str = "full") -> list[str]:
     edges = _prune_empty_sections(ast_edges)
@@ -443,6 +443,8 @@ def _render_ast_edges(ast_edges: list, label_mode: str = "full") -> list[str]:
     for ae in edges:
         if ae.kind == "section":
             lines.append(f"== {ae.label} ==")
+        elif ae.kind == "recovery_note":
+            lines.append(f"note right: {ae.label}")
         elif ae.kind in _EDGE_KINDS:
             if ae.edge:
                 lines.append(_render_edge(ae.edge, label_mode))
