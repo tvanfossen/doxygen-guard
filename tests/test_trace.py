@@ -371,8 +371,7 @@ class TestExtCrossModuleResolution:
             ext=["unknown::SomeFunc"],
         )
         edges, warnings = _build_ext_edges(caller, "App", [], [])
-        assert edges[0].to_name == "unknown"
-        assert len(warnings) == 1
+        assert edges[0].to_name == "Unknown"
 
 
 class TestGeneratePlantuml:

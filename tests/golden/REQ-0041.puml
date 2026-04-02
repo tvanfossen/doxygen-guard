@@ -7,8 +7,8 @@ entity "Hardware" as Hardware
 entity "Cloud" as Cloud
 
 box "System" #LightBlue
-  participant "Comm Manager" as Comm_Manager
   participant "OTA Manager" as OTA_Manager
+  participant "Comm Manager" as Comm_Manager
 end box
 
 header
@@ -19,6 +19,9 @@ end header
 
 note over Comm_Manager: Comm_Init()
 
+OTA_Manager --> Comm_Manager: EVENT_COMM_DOWNLOAD_START\nComm_DownloadFirmware()
+activate Comm_Manager
+== Comm_DownloadFirmware() ==
 loop http_has_data(&stream)
 Comm_Manager --> OTA_Manager: EVENT_COMM_CHUNK_RECEIVED\nComm_DownloadFirmware() -> OTA_OnChunkReceived()
 OTA_Manager --> Hardware: EVENT_HW_FLASH_WRITE\nOTA_OnChunkReceived()
@@ -26,7 +29,6 @@ end loop
 Comm_Manager --> OTA_Manager: EVENT_COMM_DOWNLOAD_COMPLETE\nComm_DownloadFirmware() -> OTA_OnDownloadComplete()
 note right of OTA_Manager: Ota Verify Crc
 OTA_Manager -> Comm_Manager: Comm_SendStatus(&status)
-activate Comm_Manager
 Comm_Manager --> OTA_Manager: return
 deactivate Comm_Manager
 OTA_Manager --> Cloud: EVENT_CLOUD_OTA_RESULT\nOTA_OnDownloadComplete()

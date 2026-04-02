@@ -63,18 +63,18 @@ def _group_entry_edges(entries: list[Edge]) -> list:
     return result
 
 
-## @brief Infer entry edges from unresolved handles events within a REQ scope.
-#  @version 1.1
+## @brief Infer entry edges from unresolved or cross-REQ events within a REQ scope.
+#  @version 1.2
 #  @req REQ-TRACE-001
+#  @return List of entry edges for events not produced by in-scope emitters
 def _infer_entry_edges(
     req_funcs: list[TaggedFunction],
     all_tagged: list[TaggedFunction],
     participants: list[Participant],
     fallback_name: str = "External",
 ) -> list[Edge]:
-    all_emitted: set[str] = set()
-    for tf in all_tagged:
-        all_emitted.update(tf.emits)
+    req_names = {tf.name for tf in req_funcs}
+    emitter_map = _build_emitter_participant_map(all_tagged)
 
     externals = [p for p in participants if p.receives_prefix]
     entries: list[Edge] = []
@@ -82,15 +82,37 @@ def _infer_entry_edges(
 
     for tf in req_funcs:
         for event in tf.handles:
-            if event in all_emitted or event in seen:
+            if event in seen:
+                continue
+            emitter_participant = emitter_map.get(event)
+            if emitter_participant and emitter_participant[1] in req_names:
                 continue
             seen.add(event)
-            source = resolve_by_prefix(event, externals) or fallback_name
+            source = (
+                resolve_by_prefix(event, externals)
+                or (emitter_participant[0] if emitter_participant else None)
+                or fallback_name
+            )
             to_name = tf.participant_name or tf.name
             label = f"{tf.name}()"
             entries.append(Edge(source, to_name, label, event=event, style="-->"))
 
     return entries
+
+
+## @brief Map events to their emitter's (participant_name, func_name).
+#  @version 1.0
+#  @internal
+#  @return Dict mapping event name to (participant, func_name) of first emitter
+def _build_emitter_participant_map(
+    all_tagged: list[TaggedFunction],
+) -> dict[str, tuple[str, str]]:
+    result: dict[str, tuple[str, str]] = {}
+    for tf in sorted(all_tagged, key=lambda t: t.name):
+        for event in tf.emits:
+            if event not in result and tf.participant_name:
+                result[event] = (tf.participant_name, tf.name)
+    return result
 
 
 ## @brief Build a causal dependency graph from emitters' emit/handle relationships.

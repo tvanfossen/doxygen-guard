@@ -109,7 +109,7 @@ def _resolve_ext_from_tagged(
 
 
 ## @brief Resolve an ext reference to a participant via function name, module path, or name match.
-#  @version 1.5
+#  @version 1.6
 #  @internal
 def resolve_ext_target(
     func_name: str,
@@ -121,4 +121,6 @@ def resolve_ext_target(
     if not result and participants:
         module_lower = module.lower()
         result = next((p.name for p in participants if p.name.lower() == module_lower), None)
+    if not result and module:
+        result = module.replace("_", " ").title()
     return result
