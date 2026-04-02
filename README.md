@@ -9,7 +9,7 @@ Pre-commit hook that validates doxygen comments, generates PlantUML sequence dia
 ```yaml
 repos:
   - repo: https://github.com/tvanfossen/doxygen-guard
-    rev: v1.1.3
+    rev: main
     hooks:
       - id: doxygen-guard
         types_or: [c, c++, java, python]
