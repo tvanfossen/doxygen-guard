@@ -38,7 +38,7 @@ class ASTEdge:
 
 
 ## @brief Context passed through the recursive AST walk.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 @dataclass
 class WalkContext:
@@ -55,6 +55,8 @@ class WalkContext:
     participants: list[Participant] | None = None
     cross_req_depth: int = 1
     cross_req_hops: int = 0
+    extra_qualifiers: set[str] | None = None
+    return_type_map: dict[str, str] | None = None
 
 
 ## @brief Mutable state threaded through the recursive AST walk.
@@ -130,7 +132,7 @@ def _walk_statements(
 
 
 ## @brief Handle a call expression node, producing the appropriate edge type.
-#  @version 1.4
+#  @version 1.5
 #  @internal
 def _handle_call(
     call_node: Node,
@@ -155,9 +157,9 @@ def _handle_call(
         target = _find_tagged_function(callee, state.ctx)
         if target:
             to_name = target.participant_name or target.name
-            state.edges.append(
-                ASTEdge(kind="call", edge=Edge(state.from_name, to_name, f"{callee}()"))
-            )
+            args_text = _extract_call_args_label(call_node)
+            label = f"{callee}({args_text})" if args_text else f"{callee}()"
+            state.edges.append(ASTEdge(kind="call", edge=Edge(state.from_name, to_name, label)))
 
 
 ## @brief Place an emit at the call site by matching the event argument.
@@ -281,8 +283,73 @@ def _extract_call_args_label(call_node: Node | None) -> str:
     return " ".join(raw.split())
 
 
+## @brief Extract return type from a function's AST node.
+#  @details Handles C pointer types, macro qualifiers (STATIC/INLINE/WEAK parsed
+#  as type identifiers), and per-language return type field names.
+#  @version 1.0
+#  @internal
+def _extract_return_type(
+    func_node: Node,
+    spec: LanguageSpec,
+    extra_qualifiers: set[str] | None = None,
+) -> str | None:
+    type_node = func_node.child_by_field_name(spec.return_type_field)
+    if type_node is None:
+        return None
+    base_type = type_node.text.decode("utf-8")
+    if extra_qualifiers and base_type in extra_qualifiers:
+        recovered = _recover_type_after_macro(func_node, type_node)
+        base_type = recovered if recovered else None
+    if base_type is None or base_type in spec.void_types:
+        return None
+    pointer_depth = _count_pointer_depth(func_node)
+    return f"{base_type} {'*' * pointer_depth}" if pointer_depth else base_type
+
+
+## @brief Recover real return type when a macro is parsed as the type field.
+#  @version 1.0
+#  @internal
+def _recover_type_after_macro(func_node: Node, macro_node: Node) -> str | None:
+    decl_node = func_node.child_by_field_name("declarator")
+    parts: list[str] = []
+    past_macro = False
+    for child in func_node.children:
+        if child == macro_node:
+            past_macro = True
+            continue
+        if child == decl_node:
+            break
+        if past_macro:
+            parts.append(child.text.decode("utf-8"))
+    return " ".join(parts) if parts else None
+
+
+## @brief Count pointer depth from declarator chain.
+#  @version 1.0
+#  @internal
+def _count_pointer_depth(func_node: Node) -> int:
+    decl = func_node.child_by_field_name("declarator")
+    depth = 0
+    while decl and decl.type == "pointer_declarator":
+        depth += 1
+        decl = decl.child_by_field_name("declarator")
+    return depth
+
+
+## @brief Resolve the return label for a function: @return desc > AST type > "return".
+#  @version 1.0
+#  @internal
+def _resolve_return_label(func_name: str, ctx: WalkContext) -> str:
+    target = _find_tagged_function(func_name, ctx)
+    if target and target.return_desc:
+        return f"return {target.return_desc}"
+    if ctx.return_type_map and func_name in ctx.return_type_map:
+        return f"return {ctx.return_type_map[func_name]}"
+    return "return"
+
+
 ## @brief Place an ext edge for a resolved external call.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _place_ext_edge(
     callee: str,
@@ -310,11 +377,12 @@ def _place_ext_edge(
     label = f"{func_name}({args_text})" if args_text else f"{func_name}()"
     edges.append(ASTEdge(kind="ext", edge=Edge(from_name, to_name, label, style=style)))
     if ctx.show_returns:
-        edges.append(ASTEdge(kind="ext", edge=Edge(to_name, from_name, "return", style="-->")))
+        ret_label = _resolve_return_label(func_name, ctx)
+        edges.append(ASTEdge(kind="ext", edge=Edge(to_name, from_name, ret_label, style="-->")))
 
 
 ## @brief Follow a handler's body to produce continuation edges.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _follow_handler_chain(
     handler_tf: TaggedFunction,
@@ -348,6 +416,8 @@ def _follow_handler_chain(
         participants=ctx.participants,
         cross_req_depth=ctx.cross_req_depth,
         cross_req_hops=new_hops,
+        extra_qualifiers=ctx.extra_qualifiers,
+        return_type_map=ctx.return_type_map,
     )
     return walk_function_body(handler_node, handler_tf, chain_ctx, depth + 1)
 
@@ -640,12 +710,12 @@ def _has_tagged_content(
     return any(_has_tagged_content(child, ctx, ext_names) for child in node.named_children)
 
 
-## @brief Check if a callee name is a known tagged function (REQ-filtered).
-#  @version 1.1
+## @brief Check if a callee name is a known tagged function (REQ-filtered, not @internal).
+#  @version 1.2
 #  @internal
 def _is_tagged_call_target(callee: str, ctx: WalkContext) -> bool:
     for tf in ctx.all_tagged:
-        if tf.name != callee:
+        if tf.name != callee or tf.is_internal:
             continue
         if ctx.req_id is None:
             return True

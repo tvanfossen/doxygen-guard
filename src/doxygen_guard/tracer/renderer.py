@@ -372,8 +372,9 @@ def _safe_filename(req_id: str) -> str:
 
 
 ## @brief Save .puml content to the configured output directory.
-#  @version 1.5
+#  @version 1.6
 #  @req REQ-TRACE-001
+#  @return Path to the written .puml file
 def write_diagram(req_id: str, puml_content: str, output_dir: str) -> Path:
     out_path = Path(output_dir)
     if ".." in out_path.parts:

@@ -62,8 +62,9 @@ _INLINE_SPLIT_RE = re.compile(r"(?=\s@\w+(?:\s|$))")
 
 
 ## @brief Parse all doxygen tag entries from comment text.
-#  @version 1.7
+#  @version 1.8
 #  @req REQ-PARSE-002
+#  @return Dict mapping tag names to lists of their values
 def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
     tags: dict[str, list[str]] = {}
     current_tag: str | None = None
@@ -165,8 +166,9 @@ def find_doxygen_block_before(
 
 
 ## @brief Locate the end of a function body by matching braces.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-PARSE-001
+#  @return 0-indexed line number of the closing brace
 def find_body_end(lines: list[str], start_line: int) -> int:
     brace_depth = 0
     found_open = False
@@ -185,8 +187,9 @@ def find_body_end(lines: list[str], start_line: int) -> int:
 
 
 ## @brief Locate the last line of a Python function body by tracking indentation.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-PARSE-003
+#  @return 0-indexed line number of the last body line
 def find_body_end_indent(lines: list[str], start_line: int) -> int:
     def_indent = len(lines[start_line]) - len(lines[start_line].lstrip())
     body_start = _find_body_start(lines, start_line)
@@ -231,8 +234,9 @@ def _find_body_start(lines: list[str], start_line: int) -> int:
 
 
 ## @brief Detect forward declarations to skip them during validation.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-PARSE-001
+#  @return True if the function signature ends with a semicolon (no body)
 def is_forward_declaration(lines: list[str], func_line: int) -> bool:
     for i in range(func_line, min(func_line + 3, len(lines))):
         stripped = lines[i].rstrip()

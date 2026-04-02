@@ -99,6 +99,69 @@ def check_presence(
     return violations
 
 
+_VOID_PATTERNS = re.compile(r"\bvoid\b")
+_PYTHON_NONE_RETURN = re.compile(r"->\s*None\b")
+
+
+## @brief Verify non-void functions have @return or @returns tag.
+#  @version 1.0
+#  @req REQ-VAL-001
+def check_return_presence(
+    functions: list[Function],
+    file_path: str,
+    config: dict[str, Any],
+    content: str,
+) -> list[Violation]:
+    validate = get_validate(config)
+    if not validate.get("presence", {}).get("require_return", True):
+        return []
+
+    lines = content.splitlines()
+    violations: list[Violation] = []
+    for func in functions:
+        if func.doxygen is None:
+            continue
+        tags = func.doxygen.tags
+        if EXEMPTION_TAGS & set(tags.keys()):
+            continue
+        if tags.get("return") or tags.get("returns"):
+            continue
+        if _is_void_function(func, lines):
+            continue
+        violations.append(
+            Violation(
+                file=file_path,
+                line=func.doxygen.start_line + 1,
+                check="presence",
+                message=(
+                    f"Function '{func.name}' doxygen missing @return tag"
+                    " — add '@return <description>' to the doxygen comment"
+                ),
+            )
+        )
+    return violations
+
+
+## @brief Check if a function returns void based on its definition lines.
+#  @version 1.1
+#  @internal
+def _is_void_function(func: Function, lines: list[str]) -> bool:
+    for offset in range(3):
+        idx = func.def_line + offset
+        if idx >= len(lines):
+            break
+        line = lines[idx]
+        name_pos = line.find(func.name)
+        if name_pos <= 0:
+            continue
+        prefix = line[:name_pos]
+        is_c_void = bool(_VOID_PATTERNS.search(prefix))
+        is_python_none = bool(_PYTHON_NONE_RETURN.search(line))
+        is_python_untyped = line.strip().startswith("def ") and "->" not in line
+        return is_c_void or is_python_none or is_python_untyped
+    return False
+
+
 EXEMPTION_TAGS = {"utility", "internal", "callback", "supports"}
 
 

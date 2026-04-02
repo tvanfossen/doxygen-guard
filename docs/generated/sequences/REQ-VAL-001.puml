@@ -22,20 +22,21 @@ note over Validate: run_precommit() supports REQ-TRACE-001, REQ-IMPACT-003
 == validate_file() ==
 Validate -> Parser: parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)
 activate Parser
-Parser --> Validate: return
-deactivate Parser
+Parser --> Validate: return list | None
+activate Validate
 group try
 end group
 group catch (OSError)
 end group
+alt content is not None
+end alt
 loop
 end loop
 alt not no_git
 group try
 Validate -> Git: get_changed_lines_for_file(file_path)
 activate Git
-Git --> Validate: return
-deactivate Git
+Git --> Validate: return set[int]
 end group
 group catch (Exception)
 end group
@@ -48,29 +49,26 @@ end group
 alt trace_enabled
 Validate -> Trace: run_trace(source_dirs=source_dirs, config=config, trace_all=True,)
 activate Trace
-Trace --> Validate: return
-deactivate Trace
+Trace --> Validate: return tuple[list[Path], list[str]]
 end alt
 alt impact_config.get("requirements")
 Validate -> Git: get_branch_diff_range()
-activate Git
-Git --> Validate: return
-deactivate Git
+Git --> Validate: return str | None
 alt diff_range
 Validate -> Impact: collect_changed_functions(file_paths, config, diff_range=diff_range)
 activate Impact
-Impact --> Validate: return
-deactivate Impact
+Impact --> Validate: return list[ChangedFunction]
 else
 Validate -> Impact: collect_changed_functions(file_paths, config, staged=True)
-activate Impact
-Impact --> Validate: return
-deactivate Impact
+Impact --> Validate: return list[ChangedFunction]
 end alt
 Validate -> Impact: build_impact_report(changed, config)
-activate Impact
-Impact --> Validate: return
-deactivate Impact
+Impact --> Validate: return list[ImpactEntry]
 end alt
+deactivate Git
+deactivate Impact
+deactivate Parser
+deactivate Trace
+deactivate Validate
 
 @enduml

@@ -20,6 +20,7 @@ from doxygen_guard.checks import (
     check_presence,
     check_req_coverage,
     check_req_exists,
+    check_return_presence,
     check_tags,
     check_unknown_tags,
     check_version_staleness,
@@ -115,7 +116,7 @@ def _add_coverage_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 ## @brief Orchestrate presence, staleness, and tag checks for one file.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-VAL-001
 def validate_file(
     file_path: str,
@@ -136,12 +137,15 @@ def validate_file(
         return []
 
     violations: list[Violation] = []
+    content: str | None = None
     try:
         content = Path(file_path).read_text(errors="replace")
         violations.extend(check_file_presence(file_path, content, config))
     except OSError:
         pass
     violations.extend(check_presence(functions, file_path, config))
+    if content is not None:
+        violations.extend(check_return_presence(functions, file_path, config, content))
     violations.extend(check_tags(functions, file_path, config))
     violations.extend(check_req_coverage(functions, file_path, config))
     for func in functions:
@@ -195,8 +199,9 @@ def _report_violations(violations: list[Violation]) -> int:
 
 
 ## @brief Run validation checks on all specified files and report violations.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-VAL-001
+#  @return Exit code: 0 if no violations, 1 if violations found
 def run_validate(args: argparse.Namespace, config: dict[str, Any]) -> int:
     files = args.files or []
     if not files:
@@ -358,8 +363,9 @@ def _parse_precommit_args(
 
 
 ## @brief Execute the trace subcommand.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-001
+#  @return Exit code: 0 if diagrams generated, 1 on error or no output
 def _run_trace_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
     base_dir = config.get("output_dir", "docs/generated/")
     try:
@@ -384,8 +390,9 @@ def _run_trace_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
 
 
 ## @brief Execute the impact subcommand.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-IMPACT-003
+#  @return Exit code: 0 on success, 1 if output path is invalid
 def _run_impact_command(args: argparse.Namespace, config: dict[str, Any]) -> int:
     file_paths = args.files or []
     report = run_impact(

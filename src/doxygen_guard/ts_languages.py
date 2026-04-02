@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 ## @brief Node type mappings and grammar module for a single language.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 @dataclass(frozen=True)
 class LanguageSpec:
@@ -26,6 +26,8 @@ class LanguageSpec:
     call_node_type: str
     comment_node_types: tuple[str, ...]
     control_flow_types: dict[str, str] = field(default_factory=dict)
+    return_type_field: str = "type"
+    void_types: tuple[str, ...] = ("void",)
 
 
 LANGUAGE_SPECS: dict[str, LanguageSpec] = {
@@ -73,6 +75,8 @@ LANGUAGE_SPECS: dict[str, LanguageSpec] = {
             "with_statement": "group",
             "match_statement": "switch",
         },
+        return_type_field="return_type",
+        void_types=("None",),
     ),
     "java": LanguageSpec(
         grammar_module="tree_sitter_java",
@@ -116,8 +120,9 @@ def _load_language(grammar_module: str) -> Language:
 
 
 ## @brief Get a tree-sitter Parser for a named language.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-TRACE-001
+#  @return Configured Parser instance, or None if language is unsupported
 def get_parser_for_language(lang_name: str) -> Parser | None:
     spec = LANGUAGE_SPECS.get(lang_name)
     if spec is None:
@@ -128,22 +133,25 @@ def get_parser_for_language(lang_name: str) -> Parser | None:
 
 
 ## @brief Get the LanguageSpec for a named language.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-TRACE-001
+#  @return LanguageSpec for the language, or None if not defined
 def get_language_spec(lang_name: str) -> LanguageSpec | None:
     return LANGUAGE_SPECS.get(lang_name)
 
 
 ## @brief Resolve a file extension to a language name.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-TRACE-001
+#  @return Language name string, or None if the extension is unrecognized
 def language_for_extension(ext: str) -> str | None:
     return EXTENSION_TO_LANGUAGE.get(ext)
 
 
 ## @brief Resolve a file path to a language name using config extensions.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-TRACE-001
+#  @return Language name string, or None if no language matches the file
 def language_for_file(file_path: str, config: dict[str, Any]) -> str | None:
     from pathlib import Path
 

@@ -1,6 +1,7 @@
 /**
  * @brief Return a status enum value.
  * @version 1.0
+ * @return Status for the given ID
  */
 status_t get_status(int id) {
     return lookup(id);
@@ -9,6 +10,7 @@ status_t get_status(int id) {
 /**
  * @brief Return a pointer to a config struct.
  * @version 1.0
+ * @return Pointer to config entry, or NULL if key not found
  */
 config_entry_t* find_config(int key) {
     return &entries[key];

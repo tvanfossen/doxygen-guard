@@ -17,12 +17,14 @@ end header
 
 Impact -> Parser: parse_source_file(file_path, config)
 activate Parser
-Parser --> Impact: return
-deactivate Parser
+Parser --> Impact: return list | None
+activate Impact
 == collect_changed_functions() ==
 loop
 alt changed_lines
 end alt
 end loop
+deactivate Impact
+deactivate Parser
 
 @enduml

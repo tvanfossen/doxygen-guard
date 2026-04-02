@@ -98,6 +98,7 @@ VALIDATE_DEFAULTS: dict[str, Any] = {
     "presence": {
         "require_doxygen": True,
         "skip_forward_declarations": True,
+        "require_return": True,
     },
     "version": {
         "tag": "@version",
@@ -123,6 +124,7 @@ TRACE_DEFAULTS: dict[str, Any] = {
         "label_mode": "full",
         "legend": False,
         "cross_req_depth": 1,
+        "show_return_values": True,
     },
 }
 
@@ -145,7 +147,11 @@ CONFIG_SCHEMA: dict[str, Any] = {
     "validate": {
         "languages": _OPEN_DICT,
         "comment_style": {"start": str, "end": str},
-        "presence": {"require_doxygen": bool, "skip_forward_declarations": bool},
+        "presence": {
+            "require_doxygen": bool,
+            "skip_forward_declarations": bool,
+            "require_return": bool,
+        },
         "version": {
             "tag": str,
             "require_present": bool,
@@ -220,8 +226,9 @@ def _validate_node(user: Any, schema: Any, path: str) -> list[str]:
 
 
 ## @brief Validate user config keys and types against CONFIG_SCHEMA.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-CONFIG-001
+#  @return List of error strings, empty if config is valid
 def validate_config_schema(user_config: dict[str, Any]) -> list[str]:
     return _validate_node(user_config, CONFIG_SCHEMA, "")
 
@@ -268,8 +275,9 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
 
 
 ## @brief Load .doxygen-guard.yaml and merge with built-in defaults.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-CONFIG-001
+#  @return Merged config dict with defaults applied
 def load_config(config_path: Path | None = None) -> dict[str, Any]:
     if config_path is None:
         config_path = Path(".doxygen-guard.yaml")
@@ -334,8 +342,9 @@ def validate_output_path(path: str) -> Path:
 
 
 ## @brief Match a file path to its language config by extension.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-CONFIG-002
+#  @return Language config dict, or None if no language matches the file extension
 def get_language_config(config: dict[str, Any], file_path: str) -> dict[str, Any] | None:
     ext = Path(file_path).suffix
     languages = get_validate(config).get("languages", {})
@@ -390,8 +399,9 @@ def parse_source_file_with_content(
 
 
 ## @brief Resolve comment style and body style for a given language config.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-CONFIG-002
+#  @return ParseSettings with comment style and body detection mode
 def resolve_parse_settings(config: dict[str, Any], lang_config: dict[str, Any]) -> ParseSettings:
     from doxygen_guard.parser import ParseSettings
 

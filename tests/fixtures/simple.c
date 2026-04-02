@@ -13,6 +13,7 @@ void Module_Init(void) {
  * @version 1.2
  * @emits EVENT_DATA_READY
  * @handles EVENT_DATA_RECEIVED
+ * @return 0 on success, -1 if data is NULL
  */
 int Module_Process(const char *data, size_t len) {
     if (data == NULL) {

@@ -173,7 +173,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -196,10 +196,16 @@ def build_sequence_edges_ast(
     fallback_name = trace_config.get("external_fallback", "External")
     show_returns = trace_options.get("show_returns", True)
     cross_req_depth = trace_options.get("cross_req_depth", 1)
+    show_return_values = trace_options.get("show_return_values", True)
 
     spec = _detect_dominant_spec(emitters, config) or get_language_spec("c")
     if not spec:
         return []
+
+    extra_qualifiers = _collect_extra_qualifiers(config)
+    return_type_map = (
+        _build_return_type_map(file_cache, spec, extra_qualifiers) if show_return_values else {}
+    )
 
     ast_edges: list[ASTEdge] = []
     visited: set[str] = set()
@@ -236,11 +242,46 @@ def build_sequence_edges_ast(
             show_returns=show_returns,
             participants=participants,
             cross_req_depth=cross_req_depth,
+            extra_qualifiers=extra_qualifiers,
+            return_type_map=return_type_map,
         )
         visited.add(tf.name)
         ast_edges.extend(walk_function_body(func_node, tf, ctx))
 
     return ast_edges
+
+
+## @brief Collect extra qualifier macros from all language configs.
+#  @version 1.0
+#  @internal
+def _collect_extra_qualifiers(config: dict[str, Any]) -> set[str]:
+    from doxygen_guard.config import get_validate
+
+    quals: set[str] = set()
+    for lang_cfg in get_validate(config).get("languages", {}).values():
+        quals.update(lang_cfg.get("extra_qualifiers", []))
+    return quals
+
+
+## @brief Build a map of function name → return type string from file cache AST.
+#  @version 1.0
+#  @internal
+def _build_return_type_map(
+    file_cache: dict | None,
+    spec: Any,
+    extra_qualifiers: set[str],
+) -> dict[str, str]:
+    from doxygen_guard.ast_walker import _extract_return_type
+
+    if file_cache is None:
+        return {}
+    result: dict[str, str] = {}
+    for parsed in file_cache.values():
+        for func_name, func_node in parsed.func_nodes.items():
+            ret = _extract_return_type(func_node, spec, extra_qualifiers)
+            if ret:
+                result[func_name] = ret
+    return result
 
 
 ## @brief Look up a function's AST node from the file cache.

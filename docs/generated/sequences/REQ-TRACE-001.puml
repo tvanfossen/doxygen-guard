@@ -3,8 +3,6 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "_apply_ext_inference" as _apply_ext_inference
-
 box "System" #LightBlue
   participant "Trace" as Trace
 end box
@@ -17,34 +15,30 @@ end header
 
 
 == analyze_coverage() ==
-Trace -> Trace: collect_all_tagged_functions()
+Trace -> Trace: collect_all_tagged_functions(source_dirs, config, full_reqs)
 == run_coverage() ==
-Trace -> Trace: analyze_coverage()
+Trace -> Trace: analyze_coverage(source_dirs, config)
 == _run_trace_command() ==
 group try
 end group
 group catch
 end group
-Trace -> Trace: run_trace()
+Trace -> Trace: run_trace(source_dirs=args.source_dirs, config=config, req_id=args.req, trace_all=args.trace_all,)
 == run_trace() ==
-Trace -> Trace: collect_all_tagged_functions()
-== collect_all_tagged_functions() ==
-alt trace_options.get("infer_ext", True)
-Trace -> _apply_ext_inference: _apply_ext_inference()
-end alt
+Trace -> Trace: collect_all_tagged_functions(source_dirs, config, full_reqs)
 == build_sequence_edges() ==
 loop
-Trace -> Trace: _build_emit_edges()
-Trace -> Trace: _build_ext_edges()
+Trace -> Trace: _build_emit_edges(tf, from_name, handler_map, externals)
+Trace -> Trace: _build_ext_edges(tf, from_name, all_tagged, participants)
 end loop
 == build_sequence_edges_ast() ==
-Trace -> Trace: get_language_spec()
-Trace -> Trace: _infer_entry_edges()
+Trace -> Trace: get_language_spec("c")
+Trace -> Trace: _infer_entry_edges(emitters, all_tagged, participants, fallback_name)
 loop
 end loop
 == write_infrastructure_table() ==
-Trace -> Trace: generate_infrastructure_table()
+Trace -> Trace: generate_infrastructure_table(all_tagged)
 == language_for_file() ==
-Trace -> Trace: language_for_extension()
+Trace -> Trace: language_for_extension(ext)
 
 @enduml

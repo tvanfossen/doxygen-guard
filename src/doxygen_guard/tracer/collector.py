@@ -58,8 +58,9 @@ def _resolve_participant_from_reqs(
 
 
 ## @brief Load external participants from trace config.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-TRACE-003
+#  @return List of Participant objects declared as external in config
 def _load_external_participants(config: dict[str, Any]) -> list[Participant]:
     raw = get_trace(config).get("external", [])
     participants: list[Participant] = []
@@ -259,7 +260,7 @@ def _rglob_source_files(source_dir: str, extensions: set[str]) -> list[Path] | N
 
 
 ## @brief Build a TaggedFunction, resolving participant and capturing body text.
-#  @version 1.9
+#  @version 2.0
 #  @internal
 def _extract_tagged_function(
     func: Function,
@@ -287,6 +288,8 @@ def _extract_tagged_function(
     declared_emits = tags.get("emits", [])
 
     marker_tags = {t for t in ("emit_source", "handle_source") if t in tags}
+    return_vals = tags.get("return") or tags.get("returns")
+    return_desc = return_vals[0] if return_vals else None
 
     tf = TaggedFunction(
         name=func.name,
@@ -301,6 +304,8 @@ def _extract_tagged_function(
         assumes=assumes,
         body=body_text,
         marker_tags=marker_tags,
+        return_desc=return_desc,
+        is_internal="internal" in tags,
     )
 
     if config:

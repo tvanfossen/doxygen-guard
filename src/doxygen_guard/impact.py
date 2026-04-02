@@ -194,8 +194,9 @@ def load_requirements_full(config: dict[str, Any]) -> dict[str, dict[str, str]]:
 
 
 ## @brief Load requirement id -> name mapping (convenience wrapper).
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-IMPACT-002
+#  @return Dict mapping requirement IDs to their display names, empty if unconfigured
 def load_requirements(config: dict[str, Any]) -> dict[str, str]:
     req_info = _get_requirements_config(config)
     if req_info is None:
@@ -286,8 +287,9 @@ def build_impact_report(
 
 
 ## @brief Render impact entries as a markdown table with summary.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-IMPACT-003
+#  @return Markdown-formatted impact report string
 def format_markdown(entries: list[ImpactEntry]) -> str:
     if not entries:
         return "No requirements affected.\n"
@@ -311,8 +313,9 @@ def format_markdown(entries: list[ImpactEntry]) -> str:
 
 
 ## @brief Render impact entries as a JSON array.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-IMPACT-003
+#  @return JSON-formatted impact report string
 def format_json(entries: list[ImpactEntry]) -> str:
     data = [
         {
@@ -329,8 +332,9 @@ def format_json(entries: list[ImpactEntry]) -> str:
 
 
 ## @brief Render impact entries as human-readable text.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-IMPACT-003
+#  @return Plain-text summary of affected requirement IDs
 def format_text(entries: list[ImpactEntry]) -> str:
     if not entries:
         return "No requirements affected.\n"

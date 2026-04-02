@@ -20,9 +20,9 @@ end group
 group catch
 end group
 == get_branch_diff_range() ==
-Git -> Git: get_merge_base()
+Git -> Git: get_merge_base(target_branch, run_command)
 == get_changed_lines_for_file() ==
-Git -> Git: get_staged_diff()
-Git -> Git: parse_changed_lines()
+Git -> Git: get_staged_diff(file_path, run_command)
+Git -> Git: parse_changed_lines(diff_output)
 
 @enduml

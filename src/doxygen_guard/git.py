@@ -48,8 +48,9 @@ def get_diff(
 
 
 ## @brief Extract the set of modified line numbers from a unified diff.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-GIT-001
+#  @return Set of 0-indexed line numbers that were added or modified
 #
 #  Parses @@ hunk headers to determine which lines in the new file were
 #  added or modified. Returns 0-indexed line numbers to match parser conventions.
