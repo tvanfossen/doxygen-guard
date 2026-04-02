@@ -7,8 +7,8 @@ import tree_sitter_cpp
 import tree_sitter_python
 from tree_sitter import Language, Parser
 
-from doxygen_guard.ast_walker import WalkContext, walk_function_body
-from doxygen_guard.tracer import TaggedFunction
+from doxygen_guard.ast_walker import walk_function_body
+from doxygen_guard.tracer_models import TaggedFunction, WalkContext
 from doxygen_guard.ts_languages import get_language_spec
 
 C_LANG = Language(tree_sitter_c.language())

@@ -13,9 +13,11 @@ from typing import Any
 
 from doxygen_guard.config import get_trace, get_trace_options
 from doxygen_guard.tracer_models import (
+    ASTEdge,
     Edge,
     Participant,
     TaggedFunction,
+    WalkContext,
     resolve_by_prefix,
 )
 
@@ -42,8 +44,6 @@ def _collect_assumes(funcs: list[TaggedFunction]) -> list[str]:
 #  @version 1.0
 #  @internal
 def _group_entry_edges(entries: list[Edge]) -> list:
-    from doxygen_guard.ast_walker import ASTEdge
-
     groups: dict[str, list[Edge]] = {}
     for edge in entries:
         groups.setdefault(edge.label, []).append(edge)
@@ -196,7 +196,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.7
+#  @version 1.8
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -206,7 +206,7 @@ def build_sequence_edges_ast(
     req_id: str | None = None,
     file_cache: dict | None = None,
 ) -> list:
-    from doxygen_guard.ast_walker import ASTEdge, WalkContext, walk_function_body
+    from doxygen_guard.ast_walker import walk_function_body
     from doxygen_guard.ts_languages import get_language_spec
 
     handler_map = _build_handler_map(all_tagged)

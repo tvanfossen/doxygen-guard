@@ -9,7 +9,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from doxygen_guard.ts_languages import LanguageSpec
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +92,41 @@ class DiagramContext:
     req_row: dict[str, str] | None = None
     preconditions: list[str] | None = None
     init_only_names: set[str] | None = None
+
+
+## @brief An edge or control flow marker produced by the AST walk.
+#  @version 1.0
+#  @internal
+@dataclass
+class ASTEdge:
+    kind: str
+    edge: Edge | None = None
+    label: str = ""
+
+
+## @brief Context passed through the recursive AST walk.
+#  @version 1.3
+#  @internal
+@dataclass
+class WalkContext:
+    handler_map: dict[str, list[TaggedFunction]]
+    all_tagged: list[TaggedFunction]
+    externals: list[Participant]
+    emit_functions: set[str]
+    spec: LanguageSpec
+    req_id: str | None = None
+    max_depth: int = 3
+    visited: set[str] | None = None
+    file_cache: dict[str, Any] | None = None
+    show_returns: bool = True
+    participants: list[Participant] | None = None
+    cross_req_depth: int = 1
+    cross_req_hops: int = 0
+    extra_qualifiers: set[str] | None = None
+    return_type_map: dict[str, str] | None = None
+    max_condition_length: int = 80
+    project_functions: dict[str, str] | None = None
+    tagged_names: set[str] | None = None
 
 
 ## @brief A directed edge in a sequence diagram.
