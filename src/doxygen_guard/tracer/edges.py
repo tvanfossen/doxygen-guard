@@ -209,14 +209,22 @@ def _build_inbound_edges(
 
 
 ## @brief Build edges for emitting functions, using global handler resolution.
-#  @version 1.8
+#  @version 1.9
 #  @req REQ-TRACE-001
+#  @return Tuple of (edges, warnings) for the requirement
 def build_sequence_edges(
     emitters: list[TaggedFunction],
     all_tagged: list[TaggedFunction],
     participants: list[Participant],
     req_id: str | None = None,
 ) -> tuple[list[Edge], list[str]]:
+    import warnings
+
+    warnings.warn(
+        "build_sequence_edges is deprecated; use build_sequence_edges_ast with file_cache",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     handler_map = _build_handler_map(all_tagged)
     externals = [p for p in participants if p.receives_prefix]
     edges: list[Edge] = []

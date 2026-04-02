@@ -41,18 +41,25 @@ def _collect_all_active_names(
     return names
 
 
-## @brief Render notes for init-only functions not referenced in any edge.
-#  @version 1.2
+## @brief Render notes for init-only functions not referenced in edges or sections.
+#  @version 1.3
 #  @internal
 def _render_unlisted_functions(
     functions: list[TaggedFunction],
     edges: list[Edge],
     init_only_names: set[str] | None = None,
+    section_names: set[str] | None = None,
 ) -> list[str]:
     funcs_in_edges = {e.label for e in edges}
+    seen: set[str] = set()
     lines: list[str] = []
     for tf in functions:
+        if tf.name in seen:
+            continue
+        seen.add(tf.name)
         if any(tf.name in label for label in funcs_in_edges):
+            continue
+        if section_names and tf.name in section_names:
             continue
         if init_only_names is not None and tf.name not in init_only_names:
             continue
@@ -532,7 +539,7 @@ def _render_legend() -> list[str]:
 
 
 ## @brief Generate PlantUML from AST-ordered edges.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
 def generate_plantuml_ast(
     req_id: str,
@@ -565,7 +572,8 @@ def generate_plantuml_ast(
 
     lines.append("")
     lines.extend(_render_req_header(req_id, req_row, name_col, preconditions=preconditions))
-    lines.extend(_render_unlisted_functions(functions, flat_edges, init_only_names))
+    section_names = {ae.label.rstrip("()") for ae in ast_edges if ae.kind == "section"}
+    lines.extend(_render_unlisted_functions(functions, flat_edges, init_only_names, section_names))
     lines.extend(_render_supports_notes(functions))
 
     if ast_edges:
