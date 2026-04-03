@@ -410,6 +410,7 @@ _KNOWN_TAGS: frozenset[str] = frozenset(
         "assumes",
         "internal",
         "utility",
+        "callback",
         "param",
         "return",
         "returns",
