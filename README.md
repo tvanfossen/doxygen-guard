@@ -121,7 +121,8 @@ Cross-references git diff with parsed functions to show which requirements are a
 | `presence.skip_forward_declarations` | bool | `true` | Skip C/C++ forward declarations |
 | `version.require_present` | bool | `true` | Require `@version` tag |
 | `version.require_increment_on_change` | bool | `true` | Require version bump when body changes |
-| `exclude` | list | `[]` | Regex patterns for files to skip |
+| `exclude` | list | `[]` | Regex patterns for files to skip (applies to both validation and trace) |
+| `tags.req.cross_reference` | bool | `true` | Validate @req IDs exist in requirements file |
 | `version_gate.current_version` | string | — | `auto:git`, `auto:cmake`, or explicit version |
 | `version_gate.version_field` | string | — | Column in requirements file for version gating |
 
@@ -149,6 +150,8 @@ Cross-references git diff with parsed functions to show which requirements are a
 | `max_condition_length` | int | `80` | Truncation limit for alt/loop conditions |
 | `infer_emits` | bool | `true` | Infer @emits from emit function calls |
 | `infer_ext` | bool | `true` | Infer @ext from cross-module calls |
+| `event_emit_functions` | list | `[]` | Emit function names for generated code (escape hatch) |
+| `event_register_functions` | list | `[]` | Registration function names for generated code (escape hatch) |
 | `legend` | bool | `false` | Render arrow style legend |
 | `label_mode` | string | `full` | Label style: `full`, `brief`, `label-only` |
 

@@ -1,18 +1,1 @@
-[
-  {
-    "req_id": "REQ-TRACE-001",
-    "req_name": "Sequence diagram generation",
-    "functions": [
-      {
-        "name": "collect_all_tagged_functions",
-        "file": "src/doxygen_guard/tracer/collector.py",
-        "version": "2.0"
-      },
-      {
-        "name": "build_sequence_edges_ast",
-        "file": "src/doxygen_guard/tracer/edges_ast.py",
-        "version": "1.9"
-      }
-    ]
-  }
-]
+[]
