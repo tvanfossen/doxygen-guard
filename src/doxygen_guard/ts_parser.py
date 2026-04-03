@@ -107,7 +107,7 @@ def _index_recursive(
 
 ## @brief Resolve a child node to a function_definition, handling wrappers.
 #  @version 1.0
-#  @internal
+#  @req REQ-PARSE-002
 #  @return The function_definition node, or None
 def _resolve_function_node(child: Node, spec: LanguageSpec) -> Node | None:
     unwrapped = _unwrap_decorated(child)
@@ -122,7 +122,7 @@ def _resolve_function_node(child: Node, spec: LanguageSpec) -> Node | None:
 
 ## @brief Find the doxygen comment preceding a node via AST sibling.
 #  @version 1.0
-#  @internal
+#  @req REQ-PARSE-002
 #  @return Raw comment text, or None if no doxygen comment found
 def _find_doxygen_comment(node: Node, spec: LanguageSpec) -> str | None:
     prev = node.prev_sibling
@@ -210,7 +210,7 @@ def _collect_c_comment(
 
 ## @brief Find the doxygen comment block preceding a function node.
 #  @version 1.2
-#  @internal
+#  @req REQ-PARSE-002
 def _find_preceding_doxygen(
     func_node: Node,
     spec: LanguageSpec,

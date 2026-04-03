@@ -297,6 +297,8 @@ The tool generates useful diagrams from day one — `show_project_calls` shows a
 | Java | `.java` | `/** ... */` | Brace matching |
 | Python | `.py` | `## ...` | Indentation |
 
+C++ template functions (`template<typename T> void func(...)`) are fully supported — doxygen comments are associated via tree-sitter AST sibling detection, handling `template_declaration` wrappers correctly.
+
 ## CLI Usage
 
 ```bash

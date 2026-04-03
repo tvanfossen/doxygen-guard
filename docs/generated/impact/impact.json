@@ -1,1 +1,23 @@
-[]
+[
+  {
+    "req_id": "REQ-PARSE-002",
+    "req_name": "Doxygen block extraction",
+    "functions": [
+      {
+        "name": "_resolve_function_node",
+        "file": "src/doxygen_guard/ts_parser.py",
+        "version": "1.0"
+      },
+      {
+        "name": "_find_doxygen_comment",
+        "file": "src/doxygen_guard/ts_parser.py",
+        "version": "1.0"
+      },
+      {
+        "name": "_find_preceding_doxygen",
+        "file": "src/doxygen_guard/ts_parser.py",
+        "version": "1.2"
+      }
+    ]
+  }
+]
