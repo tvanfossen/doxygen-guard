@@ -9,8 +9,8 @@ end box
 
 header
   **REQ-PARSE-002: Doxygen block extraction**
-  //Description:// Find and parse doxygen comment blocks immediately before\nfunction definitions
-  //Acceptance Criteria:// Doxygen blocks associated with correct functions; all tags\nparsed including multi-tag single lines
+  //Description:// Find and parse doxygen comment blocks immediately before\nfunction definitions using tree-sitter AST sibling detection\nwith regex fallback
+  //Acceptance Criteria:// Doxygen blocks associated with correct functions including\nC++ template functions; tree-sitter prev_sibling handles\ntemplate_declaration and decorated_definition wrappers; all\ntags parsed including multi-tag single lines
 end header
 
 

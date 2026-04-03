@@ -26,13 +26,14 @@ logger = logging.getLogger(__name__)
 
 
 ## @brief Cached parse result for a source file, retaining AST for walker use.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 @dataclass
 class ParsedFile:
     tree: Tree
     func_nodes: dict[str, Node] = field(default_factory=dict)
     module_name: str | None = None
+    comment_map: dict[str, str] = field(default_factory=dict)
 
 
 _file_cache: dict[str, ParsedFile] = {}
@@ -51,7 +52,7 @@ def get_parsed_file(file_path: str, lang_name: str) -> ParsedFile | None:
 
 
 ## @brief Parse a source file and index its function nodes.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _parse_and_index(file_path: str, lang_name: str) -> ParsedFile | None:
     parser = get_parser_for_language(lang_name)
@@ -64,38 +65,73 @@ def _parse_and_index(file_path: str, lang_name: str) -> ParsedFile | None:
     except (ValueError, OSError):
         logger.warning("Tree-sitter parse failed for %s, skipping AST", file_path)
         return None
-    func_nodes = _index_function_nodes(tree.root_node, spec)
-    return ParsedFile(tree=tree, func_nodes=func_nodes)
+    func_nodes, comment_map = _index_function_nodes(tree.root_node, spec)
+    return ParsedFile(tree=tree, func_nodes=func_nodes, comment_map=comment_map)
 
 
 ## @brief Index function definition nodes by name from the AST root.
-#  @version 1.0
+#  @version 1.1
 #  @internal
+#  @return Tuple of (func_nodes dict, comment_map dict)
 def _index_function_nodes(
     root: Node,
     spec: LanguageSpec,
-) -> dict[str, Node]:
-    result: dict[str, Node] = {}
-    _index_recursive(root, spec, result)
-    return result
+) -> tuple[dict[str, Node], dict[str, str]]:
+    func_nodes: dict[str, Node] = {}
+    comment_map: dict[str, str] = {}
+    _index_recursive(root, spec, func_nodes, comment_map)
+    return func_nodes, comment_map
 
 
-## @brief Recursively index function nodes by name.
-#  @version 1.0
+## @brief Recursively index function nodes and their doxygen comments.
+#  @version 1.1
 #  @internal
 def _index_recursive(
     node: Node,
     spec: LanguageSpec,
-    result: dict[str, Node],
+    func_nodes: dict[str, Node],
+    comment_map: dict[str, str],
 ) -> None:
     for child in node.children:
-        unwrapped = _unwrap_decorated(child)
-        if unwrapped.type in spec.function_node_types:
-            name = _extract_function_name(unwrapped, spec)
+        func_node = _resolve_function_node(child, spec)
+        if func_node:
+            name = _extract_function_name(func_node, spec)
             if name:
-                result[name] = unwrapped
+                func_nodes[name] = func_node
+                comment = _find_doxygen_comment(child, spec)
+                if comment:
+                    comment_map[name] = comment
         else:
-            _index_recursive(child, spec, result)
+            _index_recursive(child, spec, func_nodes, comment_map)
+
+
+## @brief Resolve a child node to a function_definition, handling wrappers.
+#  @version 1.0
+#  @internal
+#  @return The function_definition node, or None
+def _resolve_function_node(child: Node, spec: LanguageSpec) -> Node | None:
+    unwrapped = _unwrap_decorated(child)
+    if unwrapped.type in spec.function_node_types:
+        return unwrapped
+    if child.type == "template_declaration":
+        for sub in child.children:
+            if sub.type in spec.function_node_types:
+                return sub
+    return None
+
+
+## @brief Find the doxygen comment preceding a node via AST sibling.
+#  @version 1.0
+#  @internal
+#  @return Raw comment text, or None if no doxygen comment found
+def _find_doxygen_comment(node: Node, spec: LanguageSpec) -> str | None:
+    prev = node.prev_sibling
+    if prev is None or prev.type not in spec.comment_node_types:
+        return None
+    text = prev.text.decode("utf-8")
+    if text.startswith("/**") or text.startswith("##"):
+        return text
+    return None
 
 
 ## @brief Unwrap a decorated_definition to get the inner definition.
@@ -173,7 +209,7 @@ def _collect_c_comment(
 
 
 ## @brief Find the doxygen comment block preceding a function node.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _find_preceding_doxygen(
     func_node: Node,
@@ -181,7 +217,10 @@ def _find_preceding_doxygen(
     comment_start_pattern: str,
 ) -> DoxygenBlock | None:
     target = func_node
-    if func_node.parent and func_node.parent.type == "decorated_definition":
+    if func_node.parent and func_node.parent.type in (
+        "decorated_definition",
+        "template_declaration",
+    ):
         target = func_node.parent
 
     prev = target.prev_named_sibling
@@ -230,7 +269,7 @@ def parse_functions_ts(
 
 
 ## @brief Recursively collect function definitions from the AST.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _collect_functions(
     node: Node,
@@ -240,23 +279,20 @@ def _collect_functions(
     functions: list[Function],
 ) -> None:
     for child in node.children:
-        unwrapped = _unwrap_decorated(child)
-        if unwrapped.type in spec.function_node_types:
-            name = _extract_function_name(unwrapped, spec)
+        func_node = _resolve_function_node(child, spec)
+        if func_node:
+            name = _extract_function_name(func_node, spec)
             if name is None or name in exclude:
                 continue
-
-            body_node = unwrapped.child_by_field_name("body")
+            body_node = func_node.child_by_field_name("body")
             if body_node is None:
                 continue
-
-            doxygen = _find_preceding_doxygen(unwrapped, spec, comment_start_pattern)
-
+            doxygen = _find_preceding_doxygen(func_node, spec, comment_start_pattern)
             functions.append(
                 Function(
                     name=name,
-                    def_line=unwrapped.start_point[0],
-                    body_end=unwrapped.end_point[0],
+                    def_line=func_node.start_point[0],
+                    body_end=func_node.end_point[0],
                     doxygen=doxygen,
                 )
             )
