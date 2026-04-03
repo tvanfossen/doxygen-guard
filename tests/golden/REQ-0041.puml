@@ -9,6 +9,7 @@ entity "Cloud" as Cloud
 box "System" #LightBlue
   participant "OTA Manager" as OTA_Manager
   participant "Comm Manager" as Comm_Manager
+  participant "Event Bus" as Event_Bus
 end box
 
 header
@@ -17,10 +18,18 @@ header
   //Acceptance Criteria:// Comm_DownloadFirmware streams chunks and posts completion\nevent.
 end header
 
-note over Comm_Manager: Comm_Init()
 
 OTA_Manager --> Comm_Manager: EVENT_COMM_DOWNLOAD_START\nComm_DownloadFirmware()
 activate Comm_Manager
+== Comm_Init() ==
+Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_RX_RECEIVED, Comm_OnRemoteCommand)
+activate Event_Bus
+Event_Bus <-- Comm_Manager: return
+deactivate Event_Bus
+Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_START, Comm_DownloadFirmware)
+activate Event_Bus
+Event_Bus <-- Comm_Manager: return
+deactivate Event_Bus
 == Comm_DownloadFirmware() ==
 loop http_has_data(&stream)
 Comm_Manager --> OTA_Manager: EVENT_COMM_CHUNK_RECEIVED\nComm_DownloadFirmware() -> OTA_OnChunkReceived()

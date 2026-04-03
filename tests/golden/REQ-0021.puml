@@ -7,6 +7,7 @@ entity "External" as External
 
 box "System" #LightBlue
   participant "Comm Manager" as Comm_Manager
+  participant "Event Bus" as Event_Bus
   participant "Controller" as Controller
 end box
 
@@ -16,10 +17,18 @@ header
   //Acceptance Criteria:// Comm_OnRemoteCommand parses command and posts\nEVENT_CONTROL_ACTION.
 end header
 
-note over Comm_Manager: Comm_Init()
 
 External --> Comm_Manager: EVENT_COMM_RX_RECEIVED\nComm_OnRemoteCommand()
 activate Comm_Manager
+== Comm_Init() ==
+Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_RX_RECEIVED, Comm_OnRemoteCommand)
+activate Event_Bus
+Event_Bus <-- Comm_Manager: return
+deactivate Event_Bus
+Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_START, Comm_DownloadFirmware)
+activate Event_Bus
+Event_Bus <-- Comm_Manager: return
+deactivate Event_Bus
 == Comm_OnRemoteCommand() ==
 Comm_Manager --> Controller: EVENT_CONTROL_ACTION\nComm_OnRemoteCommand() -> Controller_ReportStatus()
 Controller -> Comm_Manager: Comm_SendStatus(&status)

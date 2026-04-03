@@ -196,7 +196,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.8
+#  @version 1.9
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -214,7 +214,7 @@ def build_sequence_edges_ast(
 
     trace_config = get_trace(config)
     trace_options = get_trace_options(config)
-    emit_fns = set(trace_options.get("event_emit_functions", ["event_post"]))
+    emit_fns = set(trace_options.get("event_emit_functions", []))
     max_depth = trace_options.get("max_chain_depth", 3)
     fallback_name = trace_config.get("external_fallback", "External")
     show_returns = trace_options.get("show_returns", True)

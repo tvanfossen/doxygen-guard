@@ -226,6 +226,21 @@ void Event_register(uint64_t mask, event_handler_fn handler) { ... }
 
 With these in place, `@emits` and `@handles` are derived from the AST for all other functions — zero manual behavioral tags needed.
 
+## Generated Code
+
+For code generators that rebuild files on every build (UDM, protobuf, HAL generators), annotations on generated files are destroyed. Use `event_emit_functions` and `event_register_functions` as config-level overrides:
+
+```yaml
+trace:
+  options:
+    event_emit_functions: ["dm_event_callback"]
+    event_register_functions: ["register_fsm_handler"]
+```
+
+These tell the tool to treat calls to these functions as emit/registration points, equivalent to `@emit_source` / `@handle_source` but without requiring tags on the generated source. **Use this only for generated code you cannot annotate.** For code you own, use `@emit_source` / `@handle_source` tags instead.
+
+Both default to empty lists — `@emit_source` / `@handle_source` tags are the primary mechanism.
+
 ## Config Validation
 
 The config file is validated at load time against a built-in schema. Unknown keys are rejected with an error message:

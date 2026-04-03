@@ -7,6 +7,7 @@ box "System" #LightBlue
   participant "Sensor Driver" as Sensor_Driver
   participant "Controller" as Controller
   participant "Comm Manager" as Comm_Manager
+  participant "Event Bus" as Event_Bus
 end box
 
 header
@@ -15,12 +16,19 @@ header
   //Acceptance Criteria:// Controller_OnSensorData evaluates thresholds.\nController_ReportStatus sends status via Comm_SendStatus.
 end header
 
-note over Controller: Controller_Init()
-note over Controller: MsgBus_Init()
 
 Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY\nController_OnSensorData()
 activate Controller
 Comm_Manager --> Controller: EVENT_CONTROL_ACTION\nController_ReportStatus()
+== Controller_Init() ==
+Controller -> Event_Bus: Event_register(EVENT_SENSOR_DATA_READY, Controller_OnSensorData)
+activate Event_Bus
+Event_Bus <-- Controller: return
+deactivate Event_Bus
+Controller -> Event_Bus: Event_register(EVENT_CONTROL_ACTION, Controller_ReportStatus)
+activate Event_Bus
+Event_Bus <-- Controller: return
+deactivate Event_Bus
 == Controller_OnSensorData() ==
 note right of Controller: Threshold Check
 alt sensor_value > threshold
@@ -30,6 +38,11 @@ activate Comm_Manager
 Comm_Manager <-- Controller: return
 deactivate Comm_Manager
 end alt
+== MsgBus_Init() ==
+Controller -> Event_Bus: Event_register(EVENT_MSG_QUEUED, MsgBus_ProcessQueue)
+activate Event_Bus
+Event_Bus <-- Controller: return
+deactivate Event_Bus
 == MsgBus_QueueInbound() ==
 Controller --> Controller: EVENT_MSG_QUEUED\nMsgBus_QueueInbound() -> MsgBus_ProcessQueue()
 note right of Controller: Msg Dispatch Cycle

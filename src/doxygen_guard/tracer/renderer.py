@@ -608,12 +608,12 @@ def _resolve_preconditions(
 
 
 ## @brief Collect infrastructure function names from config and marker tags.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _get_infra_fn_names(config: dict[str, Any], all_tagged: list[TaggedFunction]) -> set[str]:
     trace_options = get_trace_options(config)
-    names = set(trace_options.get("event_emit_functions", ["event_post"]))
-    names |= set(trace_options.get("event_register_functions", ["Event_register"]))
+    names = set(trace_options.get("event_emit_functions", []))
+    names |= set(trace_options.get("event_register_functions", []))
     names |= {t.name for t in all_tagged if t.marker_tags}
     return names
 

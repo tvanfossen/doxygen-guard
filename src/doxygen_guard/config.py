@@ -118,7 +118,7 @@ TRACE_DEFAULTS: dict[str, Any] = {
         "event_name_pattern": r"^[A-Z][A-Z0-9_]*$",
         "infer_emits": True,
         "infer_ext": True,
-        "event_emit_functions": ["event_post"],
+        "event_emit_functions": [],
         "show_returns": True,
         "min_edges": 1,
         "label_mode": "full",

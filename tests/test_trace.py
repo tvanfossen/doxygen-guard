@@ -43,6 +43,9 @@ TRACE_CONFIG = deep_merge(
             "external": [
                 {"External System": {"receives_prefix": ["EXT:"]}},
             ],
+            "options": {
+                "event_emit_functions": ["event_post"],
+            },
         },
         "impact": {
             "requirements": {

@@ -7,6 +7,7 @@ entity "WiFi Stack" as WiFi_Stack
 
 box "System" #LightBlue
   participant "Comm Manager" as Comm_Manager
+  participant "Event Bus" as Event_Bus
 end box
 
 header
@@ -16,8 +17,6 @@ header
   //Preconditions:// REQ-0030 (Control Loop Processing)
 end header
 
-note over Comm_Manager: Comm_Init()
-note over Comm_Manager: Shadow_Initialize()
 
 alt EVENT_WIFI_DISCONNECTED
 WiFi_Stack --> Comm_Manager: EVENT_WIFI_DISCONNECTED\nShadow_OnConnectivityEvent()
@@ -29,8 +28,22 @@ WiFi_Stack --> Comm_Manager: EVENT_MQTT_CONNACK\nShadow_OnConnectivityEvent()
 else [EVENT_MQTT_CLOSE]
 WiFi_Stack --> Comm_Manager: EVENT_MQTT_CLOSE\nShadow_OnConnectivityEvent()
 end alt
+== Comm_Init() ==
+Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_RX_RECEIVED, Comm_OnRemoteCommand)
+activate Event_Bus
+Event_Bus <-- Comm_Manager: return
+deactivate Event_Bus
+Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_START, Comm_DownloadFirmware)
+activate Event_Bus
+Event_Bus <-- Comm_Manager: return
+deactivate Event_Bus
 == Comm_SendStatus() ==
 Comm_Manager --> Comm_Manager: EVENT_COMM_TX_COMPLETE
+== Shadow_Initialize() ==
+Comm_Manager -> Event_Bus: Event_register(EVENT_WIFI_DISCONNECTED | EVENT_WIFI_CONNECTED | EVENT_MQTT_CONNACK | EVENT_MQTT_CLOSE, Shadow_OnConnectivityEvent)
+activate Event_Bus
+Event_Bus <-- Comm_Manager: return
+deactivate Event_Bus
 deactivate Comm_Manager
 
 @enduml

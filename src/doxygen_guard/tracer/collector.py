@@ -146,7 +146,7 @@ def _extract_file_module(content: str) -> str | None:
 
 
 ## @brief Walk source directories and collect ALL tagged functions.
-#  @version 1.9
+#  @version 2.0
 #  @req REQ-TRACE-001
 def collect_all_tagged_functions(
     source_dirs: list[str],
@@ -163,7 +163,7 @@ def collect_all_tagged_functions(
     file_cache: dict = {}
     file_count = 0
     for source_dir in source_dirs:
-        source_files = _find_source_files(source_dir, config)
+        source_files = [f for f in _find_source_files(source_dir, config) if f.exists()]
         file_count += len(source_files)
         for source_file in source_files:
             tagged.extend(_process_source_file(source_file, config, req_participant_map))
@@ -171,9 +171,11 @@ def collect_all_tagged_functions(
     trace_options = get_trace_options(config)
     source_roots = _discover_infrastructure_roots(tagged)
     if source_roots.get("emit_fns"):
-        trace_options["event_emit_functions"] = source_roots["emit_fns"]
+        existing = set(trace_options.get("event_emit_functions", []))
+        trace_options["event_emit_functions"] = list(existing | set(source_roots["emit_fns"]))
     if source_roots.get("handle_fns"):
-        trace_options["event_register_functions"] = source_roots["handle_fns"]
+        existing = set(trace_options.get("event_register_functions", []))
+        trace_options["event_register_functions"] = list(existing | set(source_roots["handle_fns"]))
     if trace_options.get("infer_ext", True):
         _apply_ext_inference(tagged)
     _infer_handles_from_registration(tagged, trace_options)
@@ -324,7 +326,7 @@ def _extract_tagged_function(
 
 
 ## @brief Infer @emits from emit function calls found in the function body.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _apply_emit_inference(
     tf: TaggedFunction,
@@ -335,7 +337,7 @@ def _apply_emit_inference(
     if not trace_options.get("infer_emits", True):
         return
 
-    emit_fns = trace_options.get("event_emit_functions", ["event_post"])
+    emit_fns = trace_options.get("event_emit_functions", [])
     name_pattern = trace_options.get("event_name_pattern", r"^[A-Z][A-Z0-9_]*$")
     declared = set(tf.emits)
 
@@ -355,14 +357,14 @@ def _apply_emit_inference(
 
 
 ## @brief Detect phantom @emits — declared but no matching call in body.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def detect_phantom_emits(
     tf: TaggedFunction,
     config: dict[str, Any],
 ) -> list[str]:
     trace_options = get_trace_options(config)
-    emit_fns = trace_options.get("event_emit_functions", ["event_post"])
+    emit_fns = trace_options.get("event_emit_functions", [])
 
     called_constants: set[str] = set()
     for fn_name in emit_fns:
@@ -424,13 +426,13 @@ def _build_register_pattern(handle_fns: list[str]) -> re.Pattern:
 ## @brief Infer handles from registration function call patterns.
 #  @details Parses calls to @handle_source functions. Extracts event constants
 #  from first argument (bitmask) and handler name from second argument.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _infer_handles_from_registration(
     all_tagged: list[TaggedFunction],
     trace_options: dict[str, Any],
 ) -> None:
-    handle_fns = trace_options.get("event_register_functions", ["Event_register"])
+    handle_fns = trace_options.get("event_register_functions", [])
     register_pattern = _build_register_pattern(handle_fns)
     name_to_tf = {tf.name: tf for tf in all_tagged}
 
