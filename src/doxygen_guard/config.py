@@ -23,7 +23,7 @@ VALIDATE_DEFAULTS: dict[str, Any] = {
         "c": {
             "extensions": [".c", ".h"],
             "function_pattern": (
-                r"^(?:(?:static|inline|extern|STATIC|INLINE|WEAK)\s+)*"
+                r"^\s*(?:(?:static|inline|extern|STATIC|INLINE|WEAK)\s+)*"
                 r"(?:(?:const|volatile|unsigned|signed|long|short|struct|enum)\s+)*"
                 r"(?:[A-Za-z_]\w*)[\s*]+"
                 r"(\w+)\s*\("
@@ -47,7 +47,7 @@ VALIDATE_DEFAULTS: dict[str, Any] = {
         "cpp": {
             "extensions": [".cpp", ".hpp", ".cc", ".cxx"],
             "function_pattern": (
-                r"^(?:(?:static|inline|extern(?:\s+\"C\")?|virtual|explicit|constexpr)\s+)*"
+                r"^\s*(?:(?:static|inline|extern(?:\s+\"C\")?|virtual|explicit|constexpr)\s+)*"
                 r"(?:template\s*<[^>]*>\s*)?"
                 r"(?:(?:const|volatile|unsigned|signed|long|short|struct|enum)\s+)*"
                 r"(?:[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*(?:<[^>]*>)?)[\s*&]+"

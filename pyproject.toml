@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "doxygen-guard"
-version = "1.1.6"
+version = "1.1.7"
 description = "Pre-commit hook that validates doxygen comments for presence, version staleness, and custom tag syntax"
 readme = "README.md"
 license = "MIT"
