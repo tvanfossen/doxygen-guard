@@ -35,6 +35,8 @@ end group
 Parser -> Ts_Parser: _index_function_nodes(tree.root_node, spec)
 == _resolve_function_node() ==
 Parser -> Ts_Parser: _unwrap_decorated(child)
+== _find_doxygen_comment() ==
+Parser -> Parser: _resolve_comment_node(prev, spec)
 == _find_preceding_doxygen() ==
 Parser -> Ts_Parser: _collect_python_comments(prev, spec)
 Parser -> Ts_Parser: _collect_c_comment(prev, spec)

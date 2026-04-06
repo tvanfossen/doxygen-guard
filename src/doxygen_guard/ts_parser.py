@@ -123,17 +123,39 @@ def _resolve_function_node(child: Node, spec: LanguageSpec) -> Node | None:
 
 
 ## @brief Find the doxygen comment preceding a node via AST sibling.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-PARSE-004
 #  @return Raw comment text, or None if no doxygen comment found
 def _find_doxygen_comment(node: Node, spec: LanguageSpec) -> str | None:
     prev = node.prev_sibling
-    if prev is None or prev.type not in spec.comment_node_types:
+    comment = _resolve_comment_node(prev, spec)
+    if comment is None:
         return None
-    text = prev.text.decode("utf-8")
+    text = comment.text.decode("utf-8")
     if text.startswith("/**") or text.startswith("##"):
         return text
     return None
+
+
+## @brief Resolve a preceding sibling to a comment node.
+#  @details When a macro call like FSM_INITIAL_STATE() precedes a doxygen block,
+#  tree-sitter parses the comment as a child of the expression_statement. This
+#  function checks the last child of such nodes to find swallowed comments.
+#  @version 1.0
+#  @req REQ-PARSE-004
+#  @return The comment node, or None
+def _resolve_comment_node(prev: Node | None, spec: LanguageSpec) -> Node | None:
+    if prev is None:
+        return None
+    if prev.type in spec.comment_node_types:
+        return prev
+    # Macro calls (e.g. FSM_INITIAL_STATE) can swallow trailing comments as children
+    last = (
+        prev.named_children[-1]
+        if prev.type == "expression_statement" and prev.named_children
+        else None
+    )
+    return last if last is not None and last.type in spec.comment_node_types else None
 
 
 ## @brief Unwrap a decorated_definition to get the inner definition.
@@ -196,18 +218,19 @@ def _collect_python_comments(
 
 
 ## @brief Collect C-style doxygen comment block preceding a node.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _collect_c_comment(
     prev: Node | None,
     spec: LanguageSpec,
 ) -> list[Node] | None:
-    if prev is None or prev.type not in spec.comment_node_types:
+    comment = _resolve_comment_node(prev, spec)
+    if comment is None:
         return None
-    block_text = prev.text.decode("utf-8").strip()
+    block_text = comment.text.decode("utf-8").strip()
     if not block_text.startswith("/**") or block_text.startswith("/***"):
         return None
-    return [prev]
+    return [comment]
 
 
 ## @brief Find the doxygen comment block preceding a function node.
