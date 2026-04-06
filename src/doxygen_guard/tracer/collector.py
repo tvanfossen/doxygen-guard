@@ -109,7 +109,7 @@ def _collect_all_participants(
 
 
 ## @brief Parse a single source file and extract tagged functions.
-#  @version 1.7
+#  @version 1.8
 #  @internal
 def _process_source_file(
     source_file: Path,
@@ -126,7 +126,7 @@ def _process_source_file(
     tagged: list[TaggedFunction] = []
     for func in functions:
         tf = _extract_tagged_function(
-            func, str(source_file), req_participant_map, lines, config, file_module
+            func, str(source_file), req_participant_map, lines, file_module
         )
         if tf is not None:
             tagged.append(tf)
@@ -146,7 +146,7 @@ def _extract_file_module(content: str) -> str | None:
 
 
 ## @brief Walk source directories and collect ALL tagged functions.
-#  @version 2.0
+#  @version 2.1
 #  @req REQ-TRACE-001
 def collect_all_tagged_functions(
     source_dirs: list[str],
@@ -176,10 +176,13 @@ def collect_all_tagged_functions(
     if source_roots.get("handle_fns"):
         existing = set(trace_options.get("event_register_functions", []))
         trace_options["event_register_functions"] = list(existing | set(source_roots["handle_fns"]))
+    if trace_options.get("infer_emits", True):
+        for tf in tagged:
+            _apply_emit_inference(tf, tf.body, config, file_cache)
     if trace_options.get("infer_ext", True):
-        _apply_ext_inference(tagged)
+        _apply_ext_inference(tagged, file_cache)
     _infer_handles_from_registration(tagged, trace_options)
-    _warn_unreferenced_functions(tagged)
+    _warn_unreferenced_functions(tagged, file_cache)
 
     logger.info(
         "Trace scan: %d file(s), %d tagged function(s), %d participant(s)",
@@ -271,14 +274,13 @@ def _rglob_source_files(source_dir: str, extensions: set[str]) -> list[Path] | N
 
 
 ## @brief Build a TaggedFunction, resolving participant and capturing body text.
-#  @version 2.0
+#  @version 2.1
 #  @internal
 def _extract_tagged_function(
     func: Function,
     file_path: str,
     req_participant_map: dict[str, str],
     lines: list[str],
-    config: dict[str, Any] | None = None,
     file_module: str | None = None,
 ) -> TaggedFunction | None:
     if func.doxygen is None:
@@ -319,19 +321,17 @@ def _extract_tagged_function(
         is_internal="internal" in tags,
     )
 
-    if config:
-        _apply_emit_inference(tf, body_text, config)
-
     return tf
 
 
 ## @brief Infer @emits from emit function calls found in the function body.
-#  @version 1.3
-#  @internal
+#  @version 1.5
+#  @req REQ-TRACE-001
 def _apply_emit_inference(
     tf: TaggedFunction,
     body_text: str,
     config: dict[str, Any],
+    file_cache: dict | None = None,
 ) -> None:
     trace_options = get_trace_options(config)
     if not trace_options.get("infer_emits", True):
@@ -341,36 +341,50 @@ def _apply_emit_inference(
     name_pattern = trace_options.get("event_name_pattern", r"^[A-Z][A-Z0-9_]*$")
     declared = set(tf.emits)
 
-    for fn_name in emit_fns:
-        pattern = rf"\b{re.escape(fn_name)}\s*\(\s*(\w+)"
-        for match in re.finditer(pattern, body_text):
-            constant = match.group(1)
-            if not re.match(name_pattern, constant):
-                logger.warning(
-                    "Rejected inferred event '%s' in %s() — fails pattern", constant, tf.name
-                )
-                continue
-            if constant not in declared:
-                tf.emits.append(constant)
-                declared.add(constant)
-                logger.info("Inferred @emits %s in %s()", constant, tf.name)
+    body_node = _get_ast_body(tf, file_cache)
+    if body_node is not None:
+        call_type = _call_node_type_for_file(tf.file_path)
+        constants = _ast_emit_call_args(body_node, call_type, set(emit_fns))
+    else:
+        constants = []
+        for fn_name in emit_fns:
+            pattern = rf"\b{re.escape(fn_name)}\s*\(\s*(\w+)"
+            constants.extend(m.group(1) for m in re.finditer(pattern, body_text))
+
+    for constant in constants:
+        if not re.match(name_pattern, constant):
+            logger.warning(
+                "Rejected inferred event '%s' in %s() — fails pattern", constant, tf.name
+            )
+            continue
+        if constant not in declared:
+            tf.emits.append(constant)
+            declared.add(constant)
+            logger.info("Inferred @emits %s in %s()", constant, tf.name)
 
 
 ## @brief Detect phantom @emits — declared but no matching call in body.
-#  @version 1.3
-#  @internal
+#  @version 1.5
+#  @req REQ-TRACE-001
+#  @return List of event names declared but not called in function body
 def detect_phantom_emits(
     tf: TaggedFunction,
     config: dict[str, Any],
+    file_cache: dict | None = None,
 ) -> list[str]:
     trace_options = get_trace_options(config)
     emit_fns = trace_options.get("event_emit_functions", [])
 
-    called_constants: set[str] = set()
-    for fn_name in emit_fns:
-        pattern = rf"\b{re.escape(fn_name)}\s*\(\s*(\w+)"
-        for match in re.finditer(pattern, tf.body):
-            called_constants.add(match.group(1))
+    body_node = _get_ast_body(tf, file_cache)
+    if body_node is not None:
+        call_type = _call_node_type_for_file(tf.file_path)
+        called_constants = set(_ast_emit_call_args(body_node, call_type, set(emit_fns)))
+    else:
+        called_constants: set[str] = set()
+        for fn_name in emit_fns:
+            pattern = rf"\b{re.escape(fn_name)}\s*\(\s*(\w+)"
+            for match in re.finditer(pattern, tf.body):
+                called_constants.add(match.group(1))
 
     phantoms: list[str] = []
     for event in tf.emits:
@@ -387,32 +401,179 @@ def detect_phantom_emits(
 #  different participants. If found and not already declared via @ext, add the
 #  inferred ext reference. Manual @ext always takes precedence.
 #  Also detects system boundary calls (callees not defined in scanned source).
-#  @version 1.1
-#  @internal
-def _apply_ext_inference(all_tagged: list[TaggedFunction]) -> None:
+#  @version 1.3
+#  @req REQ-TRACE-001
+def _apply_ext_inference(
+    all_tagged: list[TaggedFunction],
+    file_cache: dict | None = None,
+) -> None:
     for tf in all_tagged:
         if tf.participant_name:
-            _infer_ext_for_function(tf, all_tagged)
+            _infer_ext_for_function(tf, all_tagged, file_cache)
 
 
 ## @brief Scan a single function's body for cross-module calls.
-#  @version 1.1
-#  @internal
-def _infer_ext_for_function(tf: TaggedFunction, all_tagged: list[TaggedFunction]) -> None:
+#  @version 1.3
+#  @req REQ-TRACE-001
+#  @return None (modifies tf.ext in place)
+def _infer_ext_for_function(
+    tf: TaggedFunction,
+    all_tagged: list[TaggedFunction],
+    file_cache: dict | None = None,
+) -> None:
     declared_ext_funcs = {ext_func_name(ref) for ref in tf.ext}
+    callees = _resolve_body_callees(tf, file_cache)
+
     for target in all_tagged:
         if target.name == tf.name or target.name in declared_ext_funcs:
             continue
         if not target.participant_name or target.participant_name == tf.participant_name:
             continue
-        if re.search(rf"\b{re.escape(target.name)}\s*\(", tf.body):
-            module = Path(target.file_path).stem
-            ext_ref = f"{module}::{target.name}"
-            tf.ext.append(ext_ref)
-            logger.info("Inferred @ext %s in %s()", ext_ref, tf.name)
+        if not _body_calls_target(target.name, callees, tf.body):
+            continue
+        module = Path(target.file_path).stem
+        ext_ref = f"{module}::{target.name}"
+        tf.ext.append(ext_ref)
+        logger.info("Inferred @ext %s in %s()", ext_ref, tf.name)
+
+
+## @brief Resolve callee set from AST or return None for regex fallback.
+#  @version 1.0
+#  @internal
+#  @return Set of callee names, or None if AST unavailable
+def _resolve_body_callees(
+    tf: TaggedFunction,
+    file_cache: dict | None,
+) -> set[str] | None:
+    body_node = _get_ast_body(tf, file_cache)
+    if body_node is None:
+        return None
+    call_type = _call_node_type_for_file(tf.file_path)
+    return _ast_callee_set(body_node, call_type)
+
+
+## @brief Check if a target function name appears in body callees or via regex.
+#  @version 1.0
+#  @internal
+#  @return True if the target name is called in the body
+def _body_calls_target(target_name: str, callees: set[str] | None, body: str) -> bool:
+    if callees is not None:
+        return target_name in callees
+    return bool(re.search(rf"\b{re.escape(target_name)}\s*\(", body))
 
 
 _EVENT_CONSTANT_PATTERN = re.compile(r"\b(EVENT_\w+)\b")
+
+
+## @brief Look up a tagged function's AST body node from file cache.
+#  @version 1.0
+#  @internal
+#  @return AST body node, or None if unavailable
+def _get_ast_body(tf: TaggedFunction, file_cache: dict | None) -> Any:
+    if file_cache is None:
+        return None
+    parsed = file_cache.get(tf.file_path)
+    func_node = parsed.func_nodes.get(tf.name) if parsed else None
+    return func_node.child_by_field_name("body") if func_node else None
+
+
+## @brief Determine the call expression node type from a file path.
+#  @version 1.0
+#  @internal
+#  @return Tree-sitter node type string for call expressions
+def _call_node_type_for_file(file_path: str) -> str:
+    return "call" if file_path.endswith(".py") else "call_expression"
+
+
+## @brief Walk AST body for calls to target functions, extract first arg constants.
+#  @version 1.0
+#  @internal
+#  @return List of first-argument identifier texts from matching calls
+def _ast_emit_call_args(
+    body_node: Any,
+    call_type: str,
+    target_callees: set[str],
+) -> list[str]:
+    result: list[str] = []
+    _collect_emit_first_args(body_node, call_type, target_callees, result)
+    return result
+
+
+## @brief Extract the first identifier argument from a call node.
+#  @version 1.0
+#  @internal
+#  @return First identifier argument text, or None
+def _first_identifier_arg(call_node: Any) -> str | None:
+    args = call_node.child_by_field_name("arguments")
+    if args is None:
+        return None
+    for child in args.named_children:
+        if child.type == "identifier":
+            return child.text.decode("utf-8")
+    return None
+
+
+## @brief Recursively collect first argument identifiers from matching call nodes.
+#  @version 1.0
+#  @internal
+def _collect_emit_first_args(
+    node: Any,
+    call_type: str,
+    target_callees: set[str],
+    result: list[str],
+) -> None:
+    if node.type == call_type:
+        func_node = node.child_by_field_name("function")
+        if func_node and func_node.type == "identifier":
+            callee = func_node.text.decode("utf-8")
+            if callee in target_callees:
+                arg = _first_identifier_arg(node)
+                if arg:
+                    result.append(arg)
+    for child in node.named_children:
+        _collect_emit_first_args(child, call_type, target_callees, result)
+
+
+## @brief Walk AST body and collect all callee function names.
+#  @version 1.0
+#  @internal
+#  @return Set of callee names from call expressions
+def _ast_callee_set(body_node: Any, call_type: str) -> set[str]:
+    result: set[str] = set()
+    _collect_callee_names_ast(body_node, call_type, result)
+    return result
+
+
+## @brief Recursively collect callee names from call expression nodes.
+#  @version 1.0
+#  @internal
+def _collect_callee_names_ast(node: Any, call_type: str, result: set[str]) -> None:
+    if node.type == call_type:
+        func_node = node.child_by_field_name("function")
+        if func_node and func_node.type == "identifier":
+            result.add(func_node.text.decode("utf-8"))
+    for child in node.named_children:
+        _collect_callee_names_ast(child, call_type, result)
+
+
+## @brief Walk AST body and collect all identifier references.
+#  @version 1.0
+#  @internal
+#  @return Set of all identifier names in the body
+def _ast_all_identifiers(body_node: Any) -> set[str]:
+    result: set[str] = set()
+    _collect_identifiers_ast(body_node, result)
+    return result
+
+
+## @brief Recursively collect identifier names from AST nodes.
+#  @version 1.0
+#  @internal
+def _collect_identifiers_ast(node: Any, result: set[str]) -> None:
+    if node.type == "identifier":
+        result.add(node.text.decode("utf-8"))
+    for child in node.named_children:
+        _collect_identifiers_ast(child, result)
 
 
 ## @brief Build regex pattern for handle source function calls.
@@ -426,8 +587,8 @@ def _build_register_pattern(handle_fns: list[str]) -> re.Pattern:
 ## @brief Infer handles from registration function call patterns.
 #  @details Parses calls to @handle_source functions. Extracts event constants
 #  from first argument (bitmask) and handler name from second argument.
-#  @version 1.2
-#  @internal
+#  @version 1.3
+#  @req REQ-TRACE-001
 def _infer_handles_from_registration(
     all_tagged: list[TaggedFunction],
     trace_options: dict[str, Any],
@@ -465,8 +626,9 @@ def _add_inferred_handles(
 ## @brief Discover infrastructure root functions from @emit_source / @handle_source tags.
 #  @details Scans the parsed doxygen tags dict for emit_source and handle_source
 #  marker tags. These are set during parse_doxygen_tags as tag names with empty values.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-TRACE-001
+#  @return Dict mapping "emit_fns"/"handle_fns" to lists of function names
 def _discover_infrastructure_roots(
     all_tagged: list[TaggedFunction],
 ) -> dict[str, list[str]]:
@@ -485,17 +647,14 @@ def _discover_infrastructure_roots(
 #  @details Scans all function bodies for call references. Functions that have
 #  doxygen tags but are never referenced as a callee or handler argument are
 #  likely dead code or missing Event_register() calls.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _warn_unreferenced_functions(
     all_tagged: list[TaggedFunction],
+    file_cache: dict | None = None,
 ) -> None:
     all_names = {tf.name for tf in all_tagged}
-    referenced: set[str] = set()
-    for tf in all_tagged:
-        for name in all_names:
-            if name != tf.name and re.search(rf"\b{re.escape(name)}\b", tf.body):
-                referenced.add(name)
+    referenced = _collect_referenced_names(all_tagged, all_names, file_cache)
 
     for tf in all_tagged:
         if tf.name not in referenced and tf.handles and not tf.marker_tags:
@@ -504,3 +663,25 @@ def _warn_unreferenced_functions(
                 " — possible dead code or missing Event_register()",
                 tf.name,
             )
+
+
+## @brief Collect names of tagged functions that are referenced in any body.
+#  @version 1.0
+#  @internal
+#  @return Set of referenced function names
+def _collect_referenced_names(
+    all_tagged: list[TaggedFunction],
+    all_names: set[str],
+    file_cache: dict | None,
+) -> set[str]:
+    referenced: set[str] = set()
+    for tf in all_tagged:
+        body_node = _get_ast_body(tf, file_cache)
+        if body_node is not None:
+            identifiers = _ast_all_identifiers(body_node)
+            referenced.update((identifiers & all_names) - {tf.name})
+        else:
+            for name in all_names:
+                if name != tf.name and re.search(rf"\b{re.escape(name)}\b", tf.body):
+                    referenced.add(name)
+    return referenced

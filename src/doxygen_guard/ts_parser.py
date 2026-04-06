@@ -40,8 +40,9 @@ _file_cache: dict[str, ParsedFile] = {}
 
 
 ## @brief Get or create a ParsedFile for the given source.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-PARSE-004
+#  @return ParsedFile instance, or None if parsing fails
 def get_parsed_file(file_path: str, lang_name: str) -> ParsedFile | None:
     if file_path in _file_cache:
         return _file_cache[file_path]
@@ -52,8 +53,9 @@ def get_parsed_file(file_path: str, lang_name: str) -> ParsedFile | None:
 
 
 ## @brief Parse a source file and index its function nodes.
-#  @version 1.3
-#  @internal
+#  @version 1.4
+#  @req REQ-PARSE-004
+#  @return ParsedFile with AST tree and function index, or None on failure
 def _parse_and_index(file_path: str, lang_name: str) -> ParsedFile | None:
     parser = get_parser_for_language(lang_name)
     spec = get_language_spec(lang_name)
@@ -106,8 +108,8 @@ def _index_recursive(
 
 
 ## @brief Resolve a child node to a function_definition, handling wrappers.
-#  @version 1.0
-#  @req REQ-PARSE-002
+#  @version 1.1
+#  @req REQ-PARSE-004
 #  @return The function_definition node, or None
 def _resolve_function_node(child: Node, spec: LanguageSpec) -> Node | None:
     unwrapped = _unwrap_decorated(child)
@@ -121,8 +123,8 @@ def _resolve_function_node(child: Node, spec: LanguageSpec) -> Node | None:
 
 
 ## @brief Find the doxygen comment preceding a node via AST sibling.
-#  @version 1.0
-#  @req REQ-PARSE-002
+#  @version 1.1
+#  @req REQ-PARSE-004
 #  @return Raw comment text, or None if no doxygen comment found
 def _find_doxygen_comment(node: Node, spec: LanguageSpec) -> str | None:
     prev = node.prev_sibling
@@ -209,8 +211,8 @@ def _collect_c_comment(
 
 
 ## @brief Find the doxygen comment block preceding a function node.
-#  @version 1.2
-#  @req REQ-PARSE-002
+#  @version 1.3
+#  @req REQ-PARSE-004
 def _find_preceding_doxygen(
     func_node: Node,
     spec: LanguageSpec,
@@ -242,8 +244,9 @@ def _find_preceding_doxygen(
 
 
 ## @brief Parse functions from source content using tree-sitter.
-#  @version 1.0
-#  @req REQ-PARSE-001
+#  @version 1.1
+#  @req REQ-PARSE-004
+#  @return List of Function objects detected in the source content
 def parse_functions_ts(
     content: str,
     lang_name: str,
@@ -269,8 +272,8 @@ def parse_functions_ts(
 
 
 ## @brief Recursively collect function definitions from the AST.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-PARSE-004
 def _collect_functions(
     node: Node,
     spec: LanguageSpec,

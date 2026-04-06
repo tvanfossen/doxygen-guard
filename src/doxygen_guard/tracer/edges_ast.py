@@ -41,8 +41,9 @@ def _collect_assumes(funcs: list[TaggedFunction]) -> list[str]:
 
 
 ## @brief Group entry edges by handler; wrap multi-event handlers in alt blocks.
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-TRACE-001
+#  @return List of ASTEdge objects with entry edges and alt wrappers
 def _group_entry_edges(entries: list[Edge]) -> list:
     groups: dict[str, list[Edge]] = {}
     for edge in entries:
@@ -102,8 +103,8 @@ def _infer_entry_edges(
 
 
 ## @brief Map events to their emitter's (participant_name, func_name).
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-TRACE-001
 #  @return Dict mapping event name to (participant, func_name) of first emitter
 def _build_emitter_participant_map(
     all_tagged: list[TaggedFunction],
@@ -284,9 +285,9 @@ def build_sequence_edges_ast(
 
 
 ## @brief Map every project-defined function to its participant name.
-#  @version 1.0
-#  @internal
-#  @return Dict mapping function name to resolved participant name
+#  @version 1.1
+#  @req REQ-TRACE-001
+#  @return Dict mapping function name to participant name
 def _build_project_functions_map(
     file_cache: dict | None,
     all_tagged: list[TaggedFunction],

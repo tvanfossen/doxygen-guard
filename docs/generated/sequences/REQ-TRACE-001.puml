@@ -4,11 +4,10 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 entity "Ast Walker" as Ast_Walker
-entity "Coverage" as Coverage
+entity "Tracer Models" as Tracer_Models
 entity "  Init  " as __Init__
 entity "Collector" as Collector
 entity "Edges" as Edges
-entity "Tracer Models" as Tracer_Models
 entity "Edges Ast" as Edges_Ast
 entity "Renderer" as Renderer
 entity "Ts Languages" as Ts_Languages
@@ -27,14 +26,76 @@ end header
 
 Trace -> Ast_Walker: _walk_statements(body, state)
 alt remaining
-Trace -> Ast_Walker: _flush_remaining_emits(remaining, from_name, tf.name, ctx, depth, edges)
+Trace -> Trace: _flush_remaining_emits(remaining, from_name, tf.name, ctx, depth, edges)
 end alt
-== analyze_coverage() ==
-Trace -> Trace: collect_all_tagged_functions(source_dirs, config, full_reqs)
-Trace -> Coverage: _collect_req_ids(all_tagged)
-Trace -> Coverage: _collect_unmapped_functions(all_tagged)
-== run_coverage() ==
-Trace -> Trace: analyze_coverage(source_dirs, config)
+== _handle_call() ==
+Trace -> Ast_Walker: _extract_callee_name(call_node, state.ctx.spec)
+alt callee in state.ctx.emit_functions and unplaced
+Trace -> Trace: _place_matched_emit(call_node, state)
+else
+Trace -> Trace: _place_ext_edge(callee, state.ext_refs[callee], state.from_name, state.ctx, state.edges, call_node)
+end alt
+== _place_tagged_call() ==
+Trace -> Ast_Walker: _find_tagged_function(callee, state.ctx)
+Trace -> Ast_Walker: _extract_call_args_label(call_node)
+== _place_project_call() ==
+Trace -> Ast_Walker: _extract_call_args_label(call_node)
+== _place_matched_emit() ==
+Trace -> Ast_Walker: _extract_emit_event_arg(call_node, state)
+alt event and event in state.emit_set
+Trace -> Trace: _place_emit_edge(event, state)
+end alt
+alt unplaced
+Trace -> Trace: _place_emit_edge(event, state)
+end alt
+== _place_emit_edge() ==
+Trace -> Trace: _resolve_emit(event, state.from_name, state.tf.name, state.ctx)
+alt handler_tf and state.depth < state.ctx.max_depth
+Trace -> Trace: _follow_handler_chain(handler_tf, state.ctx, state.depth)
+end alt
+== _flush_remaining_emits() ==
+loop event in sorted(remaining)
+Trace -> Trace: _resolve_emit(event, from_name, func_name, ctx)
+alt handler_tf and depth < ctx.max_depth
+Trace -> Trace: _follow_handler_chain(handler_tf, ctx, depth)
+end alt
+end loop
+== _place_ext_edge() ==
+Trace -> Tracer_Models: split_ext_ref(ext_ref)
+Trace -> Tracer_Models: resolve_ext_target(func_name, module, ctx.all_tagged, all_participants)
+Trace -> Ast_Walker: _extract_call_args_label(call_node)
+alt ctx.show_returns
+Trace -> Ast_Walker: _resolve_return_label(func_name, ctx)
+end alt
+== _follow_handler_chain() ==
+Trace -> Ast_Walker: _lookup_handler_node(handler_tf, ctx)
+Trace -> Trace: walk_function_body(handler_node, handler_tf, chain_ctx, depth + 1)
+== _handle_control_flow() ==
+Trace -> Ast_Walker: _dispatch_specialized_control_flow(node, state, puml_type)
+Trace -> Ast_Walker: _handle_standard_control_flow(node, state, puml_type)
+== _handle_alt_block() ==
+alt consequence
+Trace -> Ast_Walker: _walk_statements(consequence, state)
+end alt
+alt alternative and _has_tagged_content(alternative, state.ctx, ext_names)
+Trace -> Ast_Walker: _walk_statements(alternative, state)
+end alt
+== _handle_try_block() ==
+Trace -> Ast_Walker: _collect_try_children(node)
+Trace -> Ast_Walker: _has_tagged_content(body_node, state.ctx, ext_names)
+alt body_node
+Trace -> Ast_Walker: _walk_statements(body_node, state)
+end alt
+loop handler in handlers
+Trace -> Ast_Walker: _render_try_handler(handler, state)
+end loop
+== _handle_switch() ==
+Trace -> Ast_Walker: _extract_condition_text(node, state.ctx.max_condition_length)
+Trace -> Ast_Walker: _collect_switch_cases(body)
+loop case_node in cases
+Trace -> Ast_Walker: _extract_case_label(case_node)
+Trace -> Ast_Walker: _walk_statements(case_node, state)
+end loop
 == _run_trace_command() ==
 group try
 end group
@@ -54,7 +115,50 @@ Trace -> Collector: _cache_parsed_file(str(source_file), config, file_cache)
 end loop
 end loop
 Trace -> Config: get_trace_options(config)
-Trace -> Collector: _warn_unreferenced_functions(tagged)
+Trace -> Trace: _discover_infrastructure_roots(tagged)
+alt trace_options.get("infer_emits", True)
+loop tf in tagged
+Trace -> Trace: _apply_emit_inference(tf, tf.body, config, file_cache)
+end loop
+end alt
+alt trace_options.get("infer_ext", True)
+Trace -> Trace: _apply_ext_inference(tagged, file_cache)
+end alt
+Trace -> Trace: _infer_handles_from_registration(tagged, trace_options)
+Trace -> Collector: _warn_unreferenced_functions(tagged, file_cache)
+== _apply_emit_inference() ==
+Trace -> Config: get_trace_options(config)
+Trace -> Collector: _get_ast_body(tf, file_cache)
+alt body_node is not None
+Trace -> Collector: _call_node_type_for_file(tf.file_path)
+Trace -> Collector: _ast_emit_call_args(body_node, call_type, set(emit_fns))
+end alt
+Trace --> Trace: from emit function calls found in the function body.
+== detect_phantom_emits() ==
+Trace -> Config: get_trace_options(config)
+Trace -> Collector: _get_ast_body(tf, file_cache)
+alt body_node is not None
+Trace -> Collector: _call_node_type_for_file(tf.file_path)
+end alt
+Trace --> Trace: — declared but no matching call in body.
+== _apply_ext_inference() ==
+loop tf in all_tagged
+alt tf.participant_name
+Trace -> Trace: _infer_ext_for_function(tf, all_tagged, file_cache)
+end alt
+end loop
+== _infer_ext_for_function() ==
+Trace -> Tracer_Models: ext_func_name(ref)
+Trace -> Collector: _resolve_body_callees(tf, file_cache)
+loop target in all_tagged
+end loop
+== _infer_handles_from_registration() ==
+Trace -> Collector: _build_register_pattern(handle_fns)
+loop tf in all_tagged
+loop match in register_pattern.finditer(tf.body)
+Trace -> Collector: _add_inferred_handles(bitmask_expr, handler_tf)
+end loop
+end loop
 == _build_ext_edges() ==
 loop ext_ref in tf.ext
 Trace -> Edges: _resolve_ext_participant(ext_ref, from_name, all_tagged, participants)
@@ -73,7 +177,7 @@ end loop
 loop tf in inbound
 end loop
 == _infer_entry_edges() ==
-Trace -> Edges_Ast: _build_emitter_participant_map(all_tagged)
+Trace -> Trace: _build_emitter_participant_map(all_tagged)
 == build_sequence_edges_ast() ==
 Trace -> Edges: _build_handler_map(all_tagged)
 Trace -> Config: get_trace(config)
@@ -82,7 +186,7 @@ Trace -> Edges_Ast: _detect_dominant_spec(emitters, config)
 Trace -> Trace: get_language_spec("c")
 Trace -> Edges_Ast: _collect_extra_qualifiers(config)
 Trace -> Edges_Ast: _build_return_type_map(file_cache, spec, extra_qualifiers)
-Trace -> Edges_Ast: _build_project_functions_map(file_cache, all_tagged)
+Trace -> Trace: _build_project_functions_map(file_cache, all_tagged)
 Trace -> Trace: _infer_entry_edges(emitters, all_tagged, participants, fallback_name)
 Trace -> Edges_Ast: _toposort_emitters(emitters)
 loop tf in sorted_emitters
@@ -91,6 +195,21 @@ Trace -> Edges_Ast: _spec_for_file(tf.file_path, config)
 end loop
 == write_infrastructure_table() ==
 Trace -> Trace: generate_infrastructure_table(all_tagged)
+== _render_participants() ==
+Trace -> Renderer: _partition_participants(active_names, participants)
+Trace -> Renderer: _find_undeclared_participants(active_names, participant_set)
+loop pname in external
+alt pname in participant_set
+end alt
+end loop
+loop pname in undeclared
+end loop
+alt internal
+loop pname in internal
+alt pname in participant_set
+end alt
+end loop
+end alt
 == generate_plantuml() ==
 Trace -> Config: get_trace_options(config)
 Trace -> Renderer: _get_name_col(config)
@@ -99,15 +218,50 @@ loop edge in edges
 end loop
 alt options.get("legend", False)
 end alt
+== _render_edge() ==
+Trace -> Renderer: _safe_id(edge.from_name)
+Trace -> Renderer: _safe_id(edge.to_name)
+alt edge.style == "note"
+Trace -> Renderer: _humanize_note(_sanitize_label(edge.label))
+end alt
+Trace -> Renderer: _select_label_text(edge.label, edge.event, label_mode)
 == write_diagram() ==
 Trace -> Renderer: _safe_filename(req_id)
 Trace -> Renderer: _render_png(puml_file)
+== _render_ast_edges() ==
+Trace -> Renderer: _prune_empty_sections(ast_edges)
+loop ae in edges
+end loop
+Trace -> Renderer: _close_activations(active, lines)
+== _render_activation() ==
+Trace -> Renderer: _safe_id(edge.from_name)
+Trace -> Renderer: _safe_id(edge.to_name)
+Trace -> Renderer: _compute_activation(ae.kind, edge.label, f, t, active)
 == generate_plantuml_ast() ==
 Trace -> Config: get_trace_options(config)
 Trace -> Renderer: _get_name_col(config)
 Trace -> Renderer: _collect_all_active_names(flat_edges, functions)
 alt options.get("legend", False)
 end alt
+== _generate_req_diagram() ==
+alt params.file_cache
+Trace -> Renderer: _get_infra_fn_names(cfg, at)
+Trace -> Renderer: _is_init_only(tf, infra_fns)
+Trace -> Trace: build_sequence_edges_ast(emitters, at, pp, cfg, req_id=r, file_cache=params.file_cache)
+Trace -> Renderer: _is_init_only(tf, infra_fns)
+Trace -> Trace: generate_plantuml_ast(r, ast_edges, funcs, pp, cfg, context=diagram_ctx)
+else
+Trace -> Trace: build_sequence_edges(funcs, at, pp, req_id=r)
+Trace -> Trace: generate_plantuml(r, edges, funcs, pp, cfg, context=diagram_ctx)
+end alt
+== _write_diagrams_for_reqs() ==
+Trace -> Renderer: _get_name_col(params.config)
+loop r, funcs in sorted(req_groups.items())
+Trace -> Renderer: _build_diagram_context(funcs, req_data, r, name_col)
+Trace -> Trace: _generate_req_diagram(r, funcs, params, ctx)
+alt puml is not None
+end alt
+end loop
 == get_parser_for_language() ==
 Trace -> Ts_Languages: _load_language(spec.grammar_module)
 == language_for_file() ==

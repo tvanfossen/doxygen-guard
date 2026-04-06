@@ -106,8 +106,9 @@ def _find_undeclared_participants(
 
 
 ## @brief Render participant declarations with box grouping and entity stereotypes.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-TRACE-001
+#  @return List of PlantUML participant declaration lines
 def _render_participants(
     active_names: list[str],
     participants: list[Participant],
@@ -313,8 +314,9 @@ def _render_skinparam(options: dict[str, Any]) -> list[str]:
 
 
 ## @brief Render a single edge as a PlantUML line.
-#  @version 1.7
-#  @internal
+#  @version 1.8
+#  @req REQ-TRACE-001
+#  @return PlantUML line string for the edge
 def _render_edge(edge: Edge, label_mode: str = "full") -> str:
     f = _safe_id(edge.from_name)
     t = _safe_id(edge.to_name)
@@ -443,8 +445,9 @@ def _close_activations(active: set[str], lines: list[str]) -> None:
 
 
 ## @brief Render ASTEdge list as PlantUML lines with activate/deactivate.
-#  @version 1.6
-#  @internal
+#  @version 1.7
+#  @req REQ-TRACE-001
+#  @return List of PlantUML lines
 def _render_ast_edges(ast_edges: list, label_mode: str = "full") -> list[str]:
     edges = _prune_empty_sections(ast_edges)
     lines: list[str] = []
@@ -471,8 +474,9 @@ def _render_ast_edges(ast_edges: list, label_mode: str = "full") -> list[str]:
 ## @brief Emit activate/deactivate lines for an edge.
 #  @details Only activates on entry edges and @ext calls. Deactivates on returns.
 #  Avoids stacking activations inside loops or handler chains.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-TRACE-001
+#  @return List of activate/deactivate PlantUML lines
 def _render_activation(ae, active: set[str] | None = None) -> list[str]:
     edge = ae.edge
     if edge is None or ae.kind == "trigger" or edge.style == "note":
@@ -630,8 +634,9 @@ def _is_init_only(tf: TaggedFunction, infra_fn_names: set[str]) -> bool:
 
 
 ## @brief Generate PlantUML for a single requirement using AST or legacy path.
-#  @version 1.3
-#  @internal
+#  @version 1.4
+#  @req REQ-TRACE-001
+#  @return Tuple of (PlantUML content or None, warning list)
 def _generate_req_diagram(
     r: str,
     funcs: list[TaggedFunction],
@@ -669,8 +674,9 @@ def _generate_req_diagram(
 
 
 ## @brief Generate diagrams, filtering emitters by REQ but resolving handlers globally.
-#  @version 1.10
-#  @internal
+#  @version 1.11
+#  @req REQ-TRACE-001
+#  @return Tuple of (written file paths, warning list)
 def _write_diagrams_for_reqs(
     params: DiagramBuildParams,
     output_dir: str,

@@ -1,0 +1,22 @@
+@startuml REQ-VAL-005 Return tag enforcement
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+box "System" #LightBlue
+  participant "Validate" as Validate
+  participant "Config" as Config
+end box
+
+header
+  **REQ-VAL-005: Return tag enforcement**
+  //Description:// Non-void functions with doxygen must have @return or\n@returns tag
+  //Acceptance Criteria:// Non-void functions without @return produce violations; void\nfunctions and exemption-tagged functions are exempt;\nrequire_return config controls enforcement
+end header
+
+
+Validate -> Config: get_validate(config)
+loop func in functions
+end loop
+
+@enduml

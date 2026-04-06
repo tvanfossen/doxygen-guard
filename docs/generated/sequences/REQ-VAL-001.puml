@@ -24,10 +24,6 @@ end header
 note over Validate: run_precommit() supports REQ-TRACE-001, REQ-IMPACT-003
 
 Validate -> Config: get_validate(config)
-== check_return_presence() ==
-Validate -> Config: get_validate(config)
-loop func in functions
-end loop
 == check_unknown_tags() ==
 Validate -> Config: get_validate(config)
 loop tag_name in func.doxygen.tags
@@ -37,13 +33,6 @@ end alt
 end loop
 == check_req_exists() ==
 Validate -> Config: get_validate(config)
-== check_file_presence() ==
-Validate -> Config: get_validate(config)
-Validate -> Checks: _find_file_doxygen_start(lines)
-alt block_line is None
-Validate -> Checks: _first_code_line(lines)
-end alt
-Validate -> Checks: _check_file_block_tags(file_path, lines, block_line)
 == validate_file() ==
 Validate -> Config: get_validate(config)
 Validate -> Parser: parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)
@@ -55,8 +44,6 @@ end group
 group catch (OSError)
 note right: (empty handler)
 end group
-alt content is not None
-end alt
 loop func in functions
 end loop
 alt not no_git

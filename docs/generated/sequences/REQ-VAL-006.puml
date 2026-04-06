@@ -1,0 +1,34 @@
+@startuml REQ-VAL-006 File-level doxygen validation
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+entity "Checks" as Checks
+
+box "System" #LightBlue
+  participant "Validate" as Validate
+  participant "Config" as Config
+  participant "Parser" as Parser
+end box
+
+header
+  **REQ-VAL-006: File-level doxygen validation**
+  //Description:// Source files must have file-level doxygen block with @file\n@brief @version when configured
+  //Acceptance Criteria:// Files missing file-level doxygen produce violation when\nrequire_file_doxygen enabled; blocks missing @file @brief or\n@version produce tag violations
+end header
+
+
+Validate -> Config: get_validate(config)
+Validate -> Validate: _find_file_doxygen_start(lines)
+alt block_line is None
+Validate -> Checks: _first_code_line(lines)
+end alt
+Validate -> Validate: _check_file_block_tags(file_path, lines, block_line)
+== _check_file_block_tags() ==
+Validate -> Checks: _extract_file_block_text(lines, block_start)
+Validate -> Parser: parse_doxygen_tags(block_text)
+activate Parser
+Parser <-- Validate: return Dict mapping tag names to lists of their values
+deactivate Parser
+
+@enduml

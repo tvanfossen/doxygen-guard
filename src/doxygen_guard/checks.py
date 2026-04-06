@@ -104,8 +104,9 @@ _PYTHON_NONE_RETURN = re.compile(r"->\s*None\b")
 
 
 ## @brief Verify non-void functions have @return or @returns tag.
-#  @version 1.0
-#  @req REQ-VAL-001
+#  @version 1.1
+#  @req REQ-VAL-005
+#  @return List of violations for missing @return tags
 def check_return_presence(
     functions: list[Function],
     file_path: str,
@@ -143,8 +144,9 @@ def check_return_presence(
 
 
 ## @brief Check if a function returns void based on its definition lines.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-VAL-005
+#  @return True if the function returns void/None
 def _is_void_function(func: Function, lines: list[str]) -> bool:
     for offset in range(3):
         idx = func.def_line + offset
@@ -527,8 +529,9 @@ def check_req_exists(
 
 
 ## @brief Check for file-level doxygen documentation block.
-#  @version 1.1
-#  @req REQ-VAL-001
+#  @version 1.2
+#  @req REQ-VAL-006
+#  @return List of violations for missing or incomplete file-level doxygen
 def check_file_presence(
     file_path: str,
     content: str,
@@ -559,8 +562,8 @@ def check_file_presence(
 
 
 ## @brief Check required tags in a file-level doxygen block.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-VAL-006
 #  @return List of violations for missing required tags
 def _check_file_block_tags(file_path: str, lines: list[str], block_start: int) -> list[Violation]:
     block_text = _extract_file_block_text(lines, block_start)
@@ -596,8 +599,8 @@ def _extract_file_block_text(lines: list[str], start: int) -> str:
 
 
 ## @brief Find the line index of the file-level doxygen block start.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-VAL-006
 #  @return 0-indexed line number, or None if no block found
 def _find_file_doxygen_start(lines: list[str]) -> int | None:
     skip_prefixes = ("#include", "#pragma", "#ifndef", "#define")

@@ -104,8 +104,8 @@ def _walk_statements(
 
 
 ## @brief Handle a call expression node, producing the appropriate edge type.
-#  @version 1.6
-#  @internal
+#  @version 1.7
+#  @req REQ-TRACE-001
 def _handle_call(
     call_node: Node,
     state: _WalkState,
@@ -128,8 +128,8 @@ def _handle_call(
 
 
 ## @brief Place a call edge for a tagged function target.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-TRACE-001
 def _place_tagged_call(call_node: Node, callee: str, state: _WalkState) -> None:
     target = _find_tagged_function(callee, state.ctx)
     if target is None:
@@ -143,8 +143,8 @@ def _place_tagged_call(call_node: Node, callee: str, state: _WalkState) -> None:
 ## @brief Place an edge for a project-defined function not in the tagged set.
 #  @details Only matches standalone calls (identifier type, not method calls).
 #  Skips functions in tagged_names (those were intentionally filtered by tagged path).
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-TRACE-001
 def _place_project_call(call_node: Node, callee: str, state: _WalkState) -> None:
     ctx = state.ctx
     if ctx.project_functions is None or callee not in ctx.project_functions:
@@ -161,8 +161,8 @@ def _place_project_call(call_node: Node, callee: str, state: _WalkState) -> None
 
 
 ## @brief Place an emit at the call site by matching the event argument.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-TRACE-001
 def _place_matched_emit(call_node: Node, state: _WalkState) -> None:
     event = _extract_emit_event_arg(call_node, state)
     if event and event in state.emit_set:
@@ -178,8 +178,8 @@ def _place_matched_emit(call_node: Node, state: _WalkState) -> None:
 
 
 ## @brief Place a single emit edge and follow the handler chain.
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-TRACE-001
 def _place_emit_edge(event: str, state: _WalkState) -> None:
     emit_edge, handler_tf = _resolve_emit(event, state.from_name, state.tf.name, state.ctx)
     if emit_edge:
@@ -220,8 +220,8 @@ def _map_constant_to_event(constant: str, emit_set: set[str]) -> str | None:
 
 
 ## @brief Flush remaining emits that weren't matched to any call site.
-#  @version 1.3
-#  @internal
+#  @version 1.4
+#  @req REQ-TRACE-001
 def _flush_remaining_emits(
     remaining: set[str],
     from_name: str,
@@ -240,8 +240,9 @@ def _flush_remaining_emits(
 
 
 ## @brief Resolve an emit event to an edge and optionally a handler for chain following.
-#  @version 1.2
-#  @internal
+#  @version 1.3
+#  @req REQ-TRACE-001
+#  @return Tuple of (Edge or None, handler TaggedFunction or None)
 def _resolve_emit(
     event: str,
     from_name: str,
@@ -347,8 +348,8 @@ def _resolve_return_label(func_name: str, ctx: WalkContext) -> str:
 
 
 ## @brief Place an ext edge for a resolved external call.
-#  @version 1.5
-#  @internal
+#  @version 1.6
+#  @req REQ-TRACE-001
 def _place_ext_edge(
     callee: str,
     ext_ref: str,
@@ -377,8 +378,9 @@ def _place_ext_edge(
 
 
 ## @brief Follow a handler's body to produce continuation edges.
-#  @version 1.6
-#  @internal
+#  @version 1.7
+#  @req REQ-TRACE-001
+#  @return List of ASTEdge objects from handler body walk
 def _follow_handler_chain(
     handler_tf: TaggedFunction,
     ctx: WalkContext,
@@ -418,8 +420,8 @@ def _lookup_handler_node(
 
 
 ## @brief Handle a control flow statement dispatching by puml_type.
-#  @version 1.3
-#  @internal
+#  @version 1.4
+#  @req REQ-TRACE-001
 def _handle_control_flow(
     node: Node,
     state: _WalkState,
@@ -477,8 +479,8 @@ def _handle_standard_control_flow(
 
 
 ## @brief Handle an alt (if/else) control flow block.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-TRACE-001
 def _handle_alt_block(
     node: Node,
     state: _WalkState,
@@ -507,8 +509,8 @@ def _handle_alt_block(
 #  @details Error blocks (catch/except/finally) are NEVER pruned — their existence
 #  is valuable even without tagged calls. Only the outer try is prunable if neither
 #  body nor any handler has tagged content.
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-TRACE-001
 def _handle_try_block(node: Node, state: _WalkState) -> None:
     body_node = node.child_by_field_name("body")
     handlers = _collect_try_children(node)
@@ -597,8 +599,8 @@ def _extract_exception_type(node: Node) -> str:
 
 
 ## @brief Handle a switch/case/match block.
-#  @version 1.1
-#  @internal
+#  @version 1.2
+#  @req REQ-TRACE-001
 def _handle_switch(node: Node, state: _WalkState) -> None:
     condition = _extract_condition_text(node, state.ctx.max_condition_length)
     body = node.child_by_field_name("body")

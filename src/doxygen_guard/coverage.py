@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 ## @brief Analyze requirement coverage across all tagged functions.
-#  @version 1.0
-#  @req REQ-TRACE-001
+#  @version 1.1
+#  @req REQ-COVERAGE-001
+#  @return Dict with covered, uncovered, supports_only, orphan_refs, unmapped_functions
 def analyze_coverage(
     source_dirs: list[str],
     config: dict[str, Any],
@@ -45,8 +46,9 @@ def analyze_coverage(
 
 
 ## @brief Collect all requirement IDs referenced across tagged functions.
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-COVERAGE-001
+#  @return Set of all unique requirement IDs
 def _collect_req_ids(all_tagged: list[TaggedFunction]) -> set[str]:
     result: set[str] = set()
     for tf in all_tagged:
@@ -55,8 +57,9 @@ def _collect_req_ids(all_tagged: list[TaggedFunction]) -> set[str]:
 
 
 ## @brief Find requirements only referenced via @supports (no @req).
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-COVERAGE-001
+#  @return Set of requirement IDs only found in @supports tags
 def _collect_supports_only(all_tagged: list[TaggedFunction]) -> set[str]:
     req_refs: set[str] = set()
     supports_refs: set[str] = set()
@@ -67,15 +70,17 @@ def _collect_supports_only(all_tagged: list[TaggedFunction]) -> set[str]:
 
 
 ## @brief Find tagged functions with no requirement mapping.
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-COVERAGE-001
+#  @return Set of function names with no requirement mapping
 def _collect_unmapped_functions(all_tagged: list[TaggedFunction]) -> set[str]:
     return {tf.name for tf in all_tagged if not tf.reqs}
 
 
 ## @brief Format coverage report as text.
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-COVERAGE-001
+#  @return Formatted text report string
 def format_coverage_text(report: dict[str, Any]) -> str:
     lines = [f"Requirements coverage: {len(report['covered'])}/{report['total_requirements']}"]
     if report["uncovered"]:
@@ -98,15 +103,17 @@ def format_coverage_text(report: dict[str, Any]) -> str:
 
 
 ## @brief Format coverage report as JSON.
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-COVERAGE-001
+#  @return JSON string of the coverage report
 def format_coverage_json(report: dict[str, Any]) -> str:
     return json.dumps(report, indent=2)
 
 
 ## @brief Format coverage report as markdown.
-#  @version 1.0
-#  @internal
+#  @version 1.1
+#  @req REQ-COVERAGE-001
+#  @return Markdown formatted coverage report string
 def format_coverage_markdown(report: dict[str, Any]) -> str:
     lines = [f"# Requirements Coverage: {len(report['covered'])}/{report['total_requirements']}"]
     if report["uncovered"]:
@@ -129,8 +136,9 @@ def format_coverage_markdown(report: dict[str, Any]) -> str:
 
 
 ## @brief Run coverage analysis and return exit code.
-#  @version 1.1
-#  @req REQ-TRACE-001
+#  @version 1.2
+#  @req REQ-COVERAGE-001
+#  @return Exit code: 0 if no gaps, 1 if gaps exist
 def run_coverage(
     source_dirs: list[str],
     config: dict[str, Any],

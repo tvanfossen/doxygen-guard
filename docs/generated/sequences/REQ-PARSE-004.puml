@@ -1,0 +1,62 @@
+@startuml REQ-PARSE-004 Tree-sitter function indexing
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+entity "Ts Parser" as Ts_Parser
+
+box "System" #LightBlue
+  participant "Parser" as Parser
+  participant "Trace" as Trace
+end box
+
+header
+  **REQ-PARSE-004: Tree-sitter function indexing**
+  //Description:// Parse source files using tree-sitter AST to detect function\ndefinitions and associate doxygen comment blocks
+  //Acceptance Criteria:// Functions detected via AST node types including\ntemplate_declaration and decorated_definition wrappers;\ndoxygen blocks associated via prev_sibling with correct\nhandling of comment styles per language
+end header
+
+
+Parser -> Parser: _parse_and_index(file_path, lang_name)
+== _parse_and_index() ==
+Parser -> Trace: get_parser_for_language(lang_name)
+activate Trace
+Trace <-- Parser: return Configured Parser instance, or None if language is unsupported
+deactivate Trace
+Parser -> Trace: get_language_spec(lang_name)
+activate Trace
+Trace <-- Parser: return LanguageSpec for the language, or None if not defined
+deactivate Trace
+group try
+end group
+group catch
+note right: logger
+end group
+Parser -> Ts_Parser: _index_function_nodes(tree.root_node, spec)
+== _resolve_function_node() ==
+Parser -> Ts_Parser: _unwrap_decorated(child)
+== _find_preceding_doxygen() ==
+Parser -> Ts_Parser: _collect_python_comments(prev, spec)
+Parser -> Ts_Parser: _collect_c_comment(prev, spec)
+== parse_functions_ts() ==
+Parser -> Trace: get_parser_for_language(lang_name)
+activate Trace
+Trace <-- Parser: return Configured Parser instance, or None if language is unsupported
+deactivate Trace
+Parser -> Trace: get_language_spec(lang_name)
+activate Trace
+Trace <-- Parser: return LanguageSpec for the language, or None if not defined
+deactivate Trace
+Parser -> Parser: _collect_functions(tree.root_node, spec, exclude, comment_start_pattern, functions)
+== _collect_functions() ==
+loop child in node.children
+Parser -> Parser: _resolve_function_node(child, spec)
+alt func_node
+Parser -> Ts_Parser: _extract_function_name(func_node, spec)
+Parser -> Parser: _find_preceding_doxygen(func_node, spec, comment_start_pattern)
+else
+Parser -> Parser: _collect_functions(child, spec, exclude, comment_start_pattern, functions)
+end alt
+end loop
+
+@enduml
