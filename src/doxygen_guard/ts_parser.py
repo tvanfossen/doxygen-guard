@@ -108,14 +108,14 @@ def _index_recursive(
 
 
 ## @brief Resolve a child node to a function_definition, handling wrappers.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-PARSE-004
 #  @return The function_definition node, or None
 def _resolve_function_node(child: Node, spec: LanguageSpec) -> Node | None:
     unwrapped = _unwrap_decorated(child)
     if unwrapped.type in spec.function_node_types:
         return unwrapped
-    if child.type == "template_declaration":
+    if child.type in ("template_declaration", "linkage_specification"):
         for sub in child.children:
             if sub.type in spec.function_node_types:
                 return sub
@@ -234,7 +234,7 @@ def _collect_c_comment(
 
 
 ## @brief Find the doxygen comment block preceding a function node.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-PARSE-004
 def _find_preceding_doxygen(
     func_node: Node,
@@ -245,6 +245,7 @@ def _find_preceding_doxygen(
     if func_node.parent and func_node.parent.type in (
         "decorated_definition",
         "template_declaration",
+        "linkage_specification",
     ):
         target = func_node.parent
 
