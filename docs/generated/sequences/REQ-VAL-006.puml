@@ -3,6 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
 entity "Checks" as Checks
 
 box "System" #LightBlue
@@ -18,6 +19,9 @@ header
 end header
 
 
+External --> Validate: check_file_presence()
+activate Validate
+== check_file_presence() ==
 Validate -> Config: get_validate(config)
 Validate -> Validate: _find_file_doxygen_start(lines)
 alt block_line is None
@@ -30,5 +34,6 @@ Validate -> Parser: parse_doxygen_tags(block_text)
 activate Parser
 Validate <-- Parser: return Dict mapping tag names to lists of their values
 deactivate Parser
+deactivate Validate
 
 @enduml

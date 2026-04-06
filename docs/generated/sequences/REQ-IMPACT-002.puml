@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
+
 box "System" #LightBlue
   participant "Impact" as Impact
   participant "Config" as Config
@@ -15,9 +17,14 @@ header
 end header
 
 
+External --> Impact: load_requirements()
+activate Impact
+External --> Impact: filter_requirements_by_version()
+== load_requirements() ==
 Impact -> Impact: _get_requirements_config(config)
 == filter_requirements_by_version() ==
 Impact -> Config: parse_version(current_str)
 Impact -> Config: compare_versions(parse_version(row.get(version_field, "v0.0.0")), current)
+deactivate Impact
 
 @enduml

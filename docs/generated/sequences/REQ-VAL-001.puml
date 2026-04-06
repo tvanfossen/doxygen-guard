@@ -3,6 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
 entity "Checks" as Checks
 entity "Main" as Main
 
@@ -23,6 +24,11 @@ end header
 
 note over Validate: run_precommit() supports REQ-TRACE-001, REQ-IMPACT-003
 
+External --> Validate: validate_file()
+activate Validate
+External --> Validate: run_validate()
+External --> Validate: run_precommit()
+== check_presence() ==
 Validate -> Config: get_validate(config)
 == check_unknown_tags() ==
 Validate -> Config: get_validate(config)
@@ -96,5 +102,6 @@ activate Impact
 Validate <-- Impact: return list[ImpactEntry]
 deactivate Impact
 end alt
+deactivate Validate
 
 @enduml

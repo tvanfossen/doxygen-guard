@@ -65,31 +65,34 @@ def _group_entry_edges(entries: list[Edge]) -> list:
     return result
 
 
-## @brief Infer entry edges from unresolved or cross-REQ events within a REQ scope.
-#  @version 1.3
+## @brief Infer entry edges from unresolved events and uncalled functions in a REQ scope.
+#  @version 1.4
 #  @req REQ-TRACE-001
-#  @return List of entry edges for events not produced by in-scope emitters
+#  @return List of entry edges for external triggers and uncalled entry points
 def _infer_entry_edges(
     req_funcs: list[TaggedFunction],
     all_tagged: list[TaggedFunction],
     participants: list[Participant],
     fallback_name: str = "External",
+    file_cache: dict | None = None,
 ) -> list[Edge]:
     req_names = {tf.name for tf in req_funcs}
     emitter_map = _build_emitter_participant_map(all_tagged)
 
     externals = [p for p in participants if p.receives_prefix]
     entries: list[Edge] = []
-    seen: set[str] = set()
+    seen_events: set[str] = set()
+    seen_funcs: set[str] = set()
 
     for tf in req_funcs:
         for event in tf.handles:
-            if event in seen:
+            if event in seen_events:
                 continue
             emitter_participant = emitter_map.get(event)
             if emitter_participant and emitter_participant[1] in req_names:
                 continue
-            seen.add(event)
+            seen_events.add(event)
+            seen_funcs.add(tf.name)
             source = (
                 resolve_by_prefix(event, externals)
                 or (emitter_participant[0] if emitter_participant else None)
@@ -99,7 +102,81 @@ def _infer_entry_edges(
             label = f"{tf.name}()"
             entries.append(Edge(source, to_name, label, event=event, style="-->"))
 
+    uncalled = _find_uncalled_entry_points(req_funcs, file_cache)
+    for tf in uncalled:
+        if tf.name not in seen_funcs:
+            to_name = tf.display_name
+            entries.append(Edge(fallback_name, to_name, f"{tf.name}()", style="-->"))
+
     return entries
+
+
+## @brief Find functions in a REQ scope not called by any other function in scope.
+#  @details Only includes functions whose body calls at least one other project
+#  function — this filters out pure formatters/utilities that have no outgoing
+#  interactions but happen to be tagged with the same REQ.
+#  @version 1.0
+#  @req REQ-TRACE-001
+#  @return List of entry-point TaggedFunctions
+def _find_uncalled_entry_points(
+    req_funcs: list[TaggedFunction],
+    file_cache: dict | None,
+) -> list[TaggedFunction]:
+    if len(req_funcs) <= 1:
+        return req_funcs
+    req_names = {tf.name for tf in req_funcs}
+    called_by_peer: set[str] = set()
+    has_outgoing: set[str] = set()
+    all_project_names = _all_project_func_names(file_cache)
+    for tf in req_funcs:
+        callees = _get_body_callees(tf, file_cache)
+        called_by_peer.update(callees & req_names)
+        if callees & all_project_names:
+            has_outgoing.add(tf.name)
+    return [tf for tf in req_funcs if tf.name not in called_by_peer and tf.name in has_outgoing]
+
+
+## @brief Collect all function names from file cache.
+#  @version 1.0
+#  @internal
+#  @return Set of all project-defined function names
+def _all_project_func_names(file_cache: dict | None) -> set[str]:
+    if file_cache is None:
+        return set()
+    names: set[str] = set()
+    for parsed in file_cache.values():
+        names.update(parsed.func_nodes.keys())
+    return names
+
+
+## @brief Extract callee function names from a function's AST body.
+#  @version 1.0
+#  @internal
+#  @return Set of callee names, empty if AST unavailable
+def _get_body_callees(tf: TaggedFunction, file_cache: dict | None) -> set[str]:
+    if file_cache is None:
+        return set()
+    parsed = file_cache.get(tf.file_path)
+    func_node = parsed.func_nodes.get(tf.name) if parsed else None
+    body = func_node.child_by_field_name("body") if func_node else None
+    if body is None:
+        return set()
+    call_type = "call" if tf.file_path.endswith(".py") else "call_expression"
+    result: set[str] = set()
+    _collect_callee_names(body, call_type, result)
+    return result
+
+
+## @brief Recursively collect callee names from AST call nodes.
+#  @version 1.0
+#  @internal
+def _collect_callee_names(node: Any, call_type: str, result: set[str]) -> None:
+    if node.type == call_type:
+        func_node = node.child_by_field_name("function")
+        if func_node and func_node.type == "identifier":
+            result.add(func_node.text.decode("utf-8"))
+    for child in node.named_children:
+        _collect_callee_names(child, call_type, result)
 
 
 ## @brief Map events to their emitter's (participant_name, func_name).
@@ -199,7 +276,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.10
+#  @version 1.11
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -243,7 +320,7 @@ def build_sequence_edges_ast(
     ast_edges: list[ASTEdge] = []
     visited: set[str] = set()
 
-    entry_edges = _infer_entry_edges(emitters, all_tagged, participants, fallback_name)
+    entry_edges = _infer_entry_edges(emitters, all_tagged, participants, fallback_name, file_cache)
     ast_edges.extend(_group_entry_edges(entry_edges))
 
     sorted_emitters = _toposort_emitters(emitters)

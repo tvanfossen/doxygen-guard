@@ -26,6 +26,7 @@ activate Provisioning_Manager
 External --> Provisioning_Manager: EVENT_PROV_SCAN_COMPLETE\nProvision_OnScanComplete()
 WiFi_Scanner --> Provisioning_Manager: EVENT_PROV_JOIN_RESULT\nProvision_OnJoinResult()
 Cert_Manager --> Provisioning_Manager: EVENT_PROV_CERT_INSTALLED\nProvision_OnCertInstalled()
+External --> Provisioning_Manager: Provision_Init()
 == Provision_Start() ==
 note right of Provisioning_Manager: Prov State Init
 Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_SCAN_START\nProvision_Start() -> WiFiScan_Start()

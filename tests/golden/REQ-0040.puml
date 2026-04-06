@@ -5,6 +5,7 @@ skinparam responseMessageBelowArrow true
 
 entity "Cloud" as Cloud
 entity "Hardware" as Hardware
+entity "External" as External
 
 box "System" #LightBlue
   participant "OTA Manager" as OTA_Manager
@@ -24,6 +25,7 @@ Cloud --> OTA_Manager: EVENT_CLOUD_OTA_AVAILABLE\nOTA_OnUpdateAvailable()
 activate OTA_Manager
 Comm_Manager --> OTA_Manager: EVENT_COMM_CHUNK_RECEIVED\nOTA_OnChunkReceived()
 Comm_Manager --> OTA_Manager: EVENT_COMM_DOWNLOAD_COMPLETE\nOTA_OnDownloadComplete()
+External --> OTA_Manager: OTA_Init()
 == OTA_OnUpdateAvailable() ==
 note right of OTA_Manager: Ota State Change
 OTA_Manager --> Comm_Manager: EVENT_COMM_DOWNLOAD_START\nOTA_OnUpdateAvailable() -> Comm_DownloadFirmware()

@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
+
 box "System" #LightBlue
   participant "Trace" as Trace
   participant "Config" as Config
@@ -15,6 +17,10 @@ header
 end header
 
 
+External --> Trace: _build_req_participant_map()
+activate Trace
+== _build_req_participant_map() ==
 Trace -> Config: get_trace(config)
+deactivate Trace
 
 @enduml

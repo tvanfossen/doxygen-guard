@@ -19,10 +19,13 @@ end header
 
 External --> Comm_Manager: EVENT_COMM_RX_RECEIVED\nComm_OnRemoteCommand()
 activate Comm_Manager
+External --> Controller: Controller_ReportStatus()
+activate Controller
 == Comm_OnRemoteCommand() ==
 Comm_Manager --> Controller: EVENT_CONTROL_ACTION\nComm_OnRemoteCommand() -> Controller_ReportStatus()
 Controller -> Comm_Manager: Comm_SendStatus(&status)
 Controller <-- Comm_Manager: return
 deactivate Comm_Manager
+deactivate Controller
 
 @enduml

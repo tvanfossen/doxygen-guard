@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
+
 box "System" #LightBlue
   participant "Sensor Driver" as Sensor_Driver
   participant "Controller" as Controller
@@ -15,10 +17,13 @@ header
 end header
 
 
+External --> Sensor_Driver: Sensor_Calibrate()
+activate Sensor_Driver
 == Sensor_Calibrate() ==
 Sensor_Driver -> Controller: Controller_GetCalibration()
 activate Controller
 Sensor_Driver <-- Controller: return Current calibration offset data
 deactivate Controller
+deactivate Sensor_Driver
 
 @enduml

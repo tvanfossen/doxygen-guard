@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
+
 box "System" #LightBlue
   participant "Validate" as Validate
   participant "Config" as Config
@@ -15,6 +17,9 @@ header
 end header
 
 
+External --> Validate: check_tags()
+activate Validate
+== check_tags() ==
 Validate -> Config: get_validate(config)
 loop func in functions
 loop tag_name, rules in tag_rules.items()
@@ -22,5 +27,6 @@ loop value in tag_values
 end loop
 end loop
 end loop
+deactivate Validate
 
 @enduml

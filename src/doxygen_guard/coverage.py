@@ -136,9 +136,8 @@ def format_coverage_markdown(report: dict[str, Any]) -> str:
 
 
 ## @brief Run coverage analysis and return exit code.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-COVERAGE-001
-#  @handles CMD_COVERAGE
 #  @return Exit code: 0 if no gaps, 1 if gaps exist
 def run_coverage(
     source_dirs: list[str],

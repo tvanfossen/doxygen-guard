@@ -1,43 +1,38 @@
 [
   {
-    "req_id": "REQ-TRACE-001",
-    "req_name": "Sequence diagram generation",
+    "req_id": "REQ-COVERAGE-001",
+    "req_name": "Requirement coverage analysis",
     "functions": [
       {
-        "name": "_handle_call",
-        "file": "src/doxygen_guard/ast_walker.py",
-        "version": "1.8"
+        "name": "_collect_supports_only",
+        "file": "src/doxygen_guard/coverage.py",
+        "version": "1.2"
       },
       {
-        "name": "_place_boundary_call",
-        "file": "src/doxygen_guard/ast_walker.py",
-        "version": "1.0"
-      },
-      {
-        "name": "_place_ext_edge",
-        "file": "src/doxygen_guard/ast_walker.py",
-        "version": "1.7"
-      },
-      {
-        "name": "build_sequence_edges_ast",
-        "file": "src/doxygen_guard/tracer/edges_ast.py",
-        "version": "1.10"
+        "name": "run_coverage",
+        "file": "src/doxygen_guard/coverage.py",
+        "version": "1.4"
       }
     ]
   },
   {
-    "req_id": "REQ-TRACE-003",
-    "req_name": "External participant prefix routing",
+    "req_id": "REQ-TRACE-001",
+    "req_name": "Sequence diagram generation",
     "functions": [
       {
-        "name": "_build_boundary_map",
+        "name": "_infer_entry_edges",
+        "file": "src/doxygen_guard/tracer/edges_ast.py",
+        "version": "1.4"
+      },
+      {
+        "name": "_find_uncalled_entry_points",
         "file": "src/doxygen_guard/tracer/edges_ast.py",
         "version": "1.0"
       },
       {
-        "name": "_load_external_participants",
-        "file": "src/doxygen_guard/tracer/collector.py",
-        "version": "1.3"
+        "name": "build_sequence_edges_ast",
+        "file": "src/doxygen_guard/tracer/edges_ast.py",
+        "version": "1.11"
       }
     ]
   }

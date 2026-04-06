@@ -1,0 +1,23 @@
+@startuml REQ-VAL-004_Req_coverage_enforcement
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+entity "External" as External
+
+box "System" #LightBlue
+  participant "Validate" as Validate
+end box
+
+header
+  **REQ-VAL-004: Req coverage enforcement**
+  //Description:// Functions must have requirement or exemption tags when\nrequirements are configured
+  //Acceptance Criteria:// Functions without req or utility/internal/callback tags\nproduce coverage violations
+end header
+
+
+External --> Validate: check_req_coverage()
+activate Validate
+deactivate Validate
+
+@enduml

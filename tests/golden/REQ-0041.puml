@@ -5,6 +5,7 @@ skinparam responseMessageBelowArrow true
 
 entity "Hardware" as Hardware
 entity "Cloud" as Cloud
+entity "External" as External
 
 box "System" #LightBlue
   participant "OTA Manager" as OTA_Manager
@@ -21,6 +22,7 @@ end header
 
 OTA_Manager --> Comm_Manager: EVENT_COMM_DOWNLOAD_START\nComm_DownloadFirmware()
 activate Comm_Manager
+External --> Comm_Manager: Comm_Init()
 == Comm_DownloadFirmware() ==
 loop http_has_data(&stream)
 Comm_Manager --> OTA_Manager: EVENT_COMM_CHUNK_RECEIVED\nComm_DownloadFirmware() -> OTA_OnChunkReceived()

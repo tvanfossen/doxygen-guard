@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
+
 box "System" #LightBlue
   participant "Impact" as Impact
   participant "Parser" as Parser
@@ -15,6 +17,9 @@ header
 end header
 
 
+External --> Impact: collect_changed_functions()
+activate Impact
+== _extract_changed_functions() ==
 Impact -> Parser: parse_source_file(file_path, config)
 activate Parser
 Impact <-- Parser: return list | None
@@ -25,5 +30,6 @@ Impact -> Impact: _collect_changed_lines(file_path, staged, diff_range, run_comm
 alt changed_lines
 end alt
 end loop
+deactivate Impact
 
 @enduml

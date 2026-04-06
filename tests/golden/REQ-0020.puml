@@ -4,6 +4,7 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 entity "WiFi Stack" as WiFi_Stack
+entity "External" as External
 
 box "System" #LightBlue
   participant "Comm Manager" as Comm_Manager
@@ -28,6 +29,8 @@ WiFi_Stack --> Comm_Manager: EVENT_MQTT_CONNACK\nShadow_OnConnectivityEvent()
 else [EVENT_MQTT_CLOSE]
 WiFi_Stack --> Comm_Manager: EVENT_MQTT_CLOSE\nShadow_OnConnectivityEvent()
 end alt
+External --> Comm_Manager: Comm_Init()
+External --> Comm_Manager: Shadow_Initialize()
 == Comm_Init() ==
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_RX_RECEIVED, Comm_OnRemoteCommand)
 activate Event_Bus

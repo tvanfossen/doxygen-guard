@@ -3,6 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
 entity "Ast Walker" as Ast_Walker
 entity "Tracer Models" as Tracer_Models
 entity "  Init  " as __Init__
@@ -24,6 +25,20 @@ header
 end header
 
 
+External --> Trace: _handle_call()
+activate Trace
+External --> Trace: _handle_control_flow()
+External --> Trace: _handle_alt_block()
+External --> Trace: _handle_try_block()
+External --> Trace: _handle_switch()
+External --> Trace: _run_trace_command()
+External --> Trace: collect_all_tagged_functions()
+External --> Trace: detect_phantom_emits()
+External --> Trace: write_infrastructure_table()
+External --> Trace: _write_diagrams_for_reqs()
+External --> Trace: get_parser_for_language()
+External --> Trace: language_for_file()
+== walk_function_body() ==
 Trace -> Ast_Walker: _walk_statements(body, state)
 alt remaining
 Trace -> Trace: _flush_remaining_emits(remaining, from_name, tf.name, ctx, depth, edges)
@@ -183,6 +198,12 @@ loop tf in inbound
 end loop
 == _infer_entry_edges() ==
 Trace -> Trace: _build_emitter_participant_map(all_tagged)
+Trace -> Trace: _find_uncalled_entry_points(req_funcs, file_cache)
+== _find_uncalled_entry_points() ==
+Trace -> Edges_Ast: _all_project_func_names(file_cache)
+loop tf in req_funcs
+Trace -> Edges_Ast: _get_body_callees(tf, file_cache)
+end loop
 == build_sequence_edges_ast() ==
 Trace -> Edges: _build_handler_map(all_tagged)
 Trace -> Config: get_trace(config)
@@ -192,7 +213,7 @@ Trace -> Trace: get_language_spec("c")
 Trace -> Edges_Ast: _collect_extra_qualifiers(config)
 Trace -> Edges_Ast: _build_return_type_map(file_cache, spec, extra_qualifiers)
 Trace -> Trace: _build_project_functions_map(file_cache, all_tagged)
-Trace -> Trace: _infer_entry_edges(emitters, all_tagged, participants, fallback_name)
+Trace -> Trace: _infer_entry_edges(emitters, all_tagged, participants, fallback_name, file_cache)
 Trace -> Edges_Ast: _toposort_emitters(emitters)
 loop tf in sorted_emitters
 Trace -> Edges_Ast: _lookup_func_node(tf, file_cache)
@@ -273,5 +294,6 @@ end loop
 Trace -> Ts_Languages: _load_language(spec.grammar_module)
 == language_for_file() ==
 Trace -> Trace: language_for_extension(ext)
+deactivate Trace
 
 @enduml

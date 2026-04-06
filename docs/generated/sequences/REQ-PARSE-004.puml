@@ -3,6 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
 entity "Ts Parser" as Ts_Parser
 
 box "System" #LightBlue
@@ -17,6 +18,11 @@ header
 end header
 
 
+External --> Parser: get_parsed_file()
+activate Parser
+External --> Parser: _find_doxygen_comment()
+External --> Parser: parse_functions_ts()
+== get_parsed_file() ==
 Parser -> Parser: _parse_and_index(file_path, lang_name)
 == _parse_and_index() ==
 Parser -> Trace: get_parser_for_language(lang_name)
@@ -60,5 +66,6 @@ else
 Parser -> Parser: _collect_functions(child, spec, exclude, comment_start_pattern, functions)
 end alt
 end loop
+deactivate Parser
 
 @enduml

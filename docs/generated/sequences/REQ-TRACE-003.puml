@@ -1,0 +1,23 @@
+@startuml REQ-TRACE-003_External_participant_prefix_routing
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+entity "External" as External
+
+box "System" #LightBlue
+  participant "Trace" as Trace
+end box
+
+header
+  **REQ-TRACE-003: External participant prefix routing**
+  //Description:// Route unhandled events to external participants by event\nprefix
+  //Acceptance Criteria:// Events matching receives_prefix of an external participant\nproduce edges to that participant
+end header
+
+
+External --> Trace: _load_external_participants()
+activate Trace
+deactivate Trace
+
+@enduml

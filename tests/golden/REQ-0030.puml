@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
+
 box "System" #LightBlue
   participant "Sensor Driver" as Sensor_Driver
   participant "Controller" as Controller
@@ -20,6 +22,9 @@ end header
 Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY\nController_OnSensorData()
 activate Controller
 Comm_Manager --> Controller: EVENT_CONTROL_ACTION\nController_ReportStatus()
+External --> Controller: Controller_Init()
+External --> Controller: MsgBus_Init()
+External --> Controller: MsgBus_ProcessQueue()
 == Controller_OnSensorData() ==
 note right of Controller: Threshold Check
 alt sensor_value > threshold
