@@ -28,7 +28,7 @@ Validate -> Validate: _check_file_block_tags(file_path, lines, block_line)
 Validate -> Checks: _extract_file_block_text(lines, block_start)
 Validate -> Parser: parse_doxygen_tags(block_text)
 activate Parser
-Parser <-- Validate: return Dict mapping tag names to lists of their values
+Validate <-- Parser: return Dict mapping tag names to lists of their values
 deactivate Parser
 
 @enduml

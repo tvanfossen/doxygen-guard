@@ -104,7 +104,7 @@ def _walk_statements(
 
 
 ## @brief Handle a call expression node, producing the appropriate edge type.
-#  @version 1.7
+#  @version 1.8
 #  @req REQ-TRACE-001
 def _handle_call(
     call_node: Node,
@@ -123,8 +123,25 @@ def _handle_call(
         )
     elif _is_tagged_call_target(callee, state.ctx):
         _place_tagged_call(call_node, callee, state)
+    elif state.ctx.boundary_functions and callee in state.ctx.boundary_functions:
+        _place_boundary_call(call_node, callee, state)
     else:
         _place_project_call(call_node, callee, state)
+
+
+## @brief Place an ext edge for a call to a configured boundary function.
+#  @version 1.0
+#  @req REQ-TRACE-001
+def _place_boundary_call(call_node: Node, callee: str, state: _WalkState) -> None:
+    to_name = state.ctx.boundary_functions[callee]
+    args_text = _extract_call_args_label(call_node)
+    label = f"{callee}({args_text})" if args_text else f"{callee}()"
+    state.edges.append(ASTEdge(kind="ext", edge=Edge(state.from_name, to_name, label, style="->")))
+    if state.ctx.show_returns:
+        ret_label = _resolve_return_label(callee, state.ctx)
+        state.edges.append(
+            ASTEdge(kind="ext", edge=Edge(state.from_name, to_name, ret_label, style="<--"))
+        )
 
 
 ## @brief Place a call edge for a tagged function target.
@@ -348,7 +365,7 @@ def _resolve_return_label(func_name: str, ctx: WalkContext) -> str:
 
 
 ## @brief Place an ext edge for a resolved external call.
-#  @version 1.6
+#  @version 1.7
 #  @req REQ-TRACE-001
 def _place_ext_edge(
     callee: str,
@@ -374,7 +391,7 @@ def _place_ext_edge(
     edges.append(ASTEdge(kind="ext", edge=Edge(from_name, to_name, label, style=style)))
     if ctx.show_returns:
         ret_label = _resolve_return_label(func_name, ctx)
-        edges.append(ASTEdge(kind="ext", edge=Edge(to_name, from_name, ret_label, style="<--")))
+        edges.append(ASTEdge(kind="ext", edge=Edge(from_name, to_name, ret_label, style="<--")))
 
 
 ## @brief Follow a handler's body to produce continuation edges.
@@ -700,7 +717,7 @@ def _extract_with_label(node: Node) -> str:
 
 
 ## @brief Check if an AST subtree contains any tagged call expressions.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _has_tagged_content(
     node: Node,
@@ -713,6 +730,7 @@ def _has_tagged_content(
             callee in ctx.emit_functions
             or _is_tagged_call_target(callee, ctx)
             or (ext_names and callee in ext_names)
+            or (ctx.boundary_functions and callee in ctx.boundary_functions)
             or _is_project_call(node, callee, ctx)
         ):
             return True

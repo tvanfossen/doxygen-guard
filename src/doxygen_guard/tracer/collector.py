@@ -64,7 +64,7 @@ def _resolve_participant_from_reqs(
 
 
 ## @brief Load external participants from trace config.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-003
 #  @return List of Participant objects declared as external in config
 def _load_external_participants(config: dict[str, Any]) -> list[Participant]:
@@ -78,6 +78,7 @@ def _load_external_participants(config: dict[str, Any]) -> list[Participant]:
                     Participant(
                         name=pname,
                         receives_prefix=cfg.get("receives_prefix", []),
+                        boundary_functions=cfg.get("boundary_functions", []),
                     )
                 )
         elif isinstance(entry, str):

@@ -17,7 +17,7 @@ end header
 
 Impact -> Parser: parse_source_file(file_path, config)
 activate Parser
-Parser <-- Impact: return list | None
+Impact <-- Parser: return list | None
 deactivate Parser
 == collect_changed_functions() ==
 loop file_path in file_paths

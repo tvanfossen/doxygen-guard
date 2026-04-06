@@ -18,12 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 ## @brief A named actor in a sequence diagram, optionally receiving unhandled events by prefix.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 @dataclass
 class Participant:
     name: str
     receives_prefix: list[str] = field(default_factory=list)
+    boundary_functions: list[str] = field(default_factory=list)
 
 
 ## @brief Function metadata needed for diagram generation.
@@ -127,6 +128,7 @@ class WalkContext:
     max_condition_length: int = 80
     project_functions: dict[str, str] | None = None
     tagged_names: set[str] | None = None
+    boundary_functions: dict[str, str] | None = None
 
 
 ## @brief A directed edge in a sequence diagram.

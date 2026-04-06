@@ -6,8 +6,8 @@ skinparam responseMessageBelowArrow true
 box "System" #LightBlue
   participant "Provisioning Manager" as Provisioning_Manager
   participant "Cert Manager" as Cert_Manager
-  participant "Event Bus" as Event_Bus
   participant "Comm Manager" as Comm_Manager
+  participant "Event Bus" as Event_Bus
 end box
 
 header
@@ -19,19 +19,19 @@ end header
 
 Provisioning_Manager --> Cert_Manager: EVENT_PROV_CERT_REQUEST\nCert_Provision()
 activate Cert_Manager
-== Cert_Init() ==
-Cert_Manager -> Event_Bus: Event_register(EVENT_PROV_CERT_REQUEST, Cert_Provision)
-activate Event_Bus
-Event_Bus <-- Cert_Manager: return
-deactivate Event_Bus
 == Cert_Provision() ==
 Cert_Manager --> Provisioning_Manager: EVENT_PROV_CERT_INSTALLED\nCert_Provision() -> Provision_OnCertInstalled()
 note right of Provisioning_Manager: Prov State Ready
 Provisioning_Manager -> Comm_Manager: Comm_SendStatus(&prov_status)
 activate Comm_Manager
-Comm_Manager <-- Provisioning_Manager: return
+Provisioning_Manager <-- Comm_Manager: return
 deactivate Comm_Manager
 Provisioning_Manager --> Provisioning_Manager: EVENT_PROV_COMPLETE
+== Cert_Init() ==
+Cert_Manager -> Event_Bus: Event_register(EVENT_PROV_CERT_REQUEST, Cert_Provision)
+activate Event_Bus
+Cert_Manager <-- Event_Bus: return
+deactivate Event_Bus
 deactivate Cert_Manager
 
 @enduml

@@ -35,6 +35,11 @@ Trace -> Trace: _place_matched_emit(call_node, state)
 else
 Trace -> Trace: _place_ext_edge(callee, state.ext_refs[callee], state.from_name, state.ctx, state.edges, call_node)
 end alt
+== _place_boundary_call() ==
+Trace -> Ast_Walker: _extract_call_args_label(call_node)
+alt state.ctx.show_returns
+Trace -> Ast_Walker: _resolve_return_label(callee, state.ctx)
+end alt
 == _place_tagged_call() ==
 Trace -> Ast_Walker: _find_tagged_function(callee, state.ctx)
 Trace -> Ast_Walker: _extract_call_args_label(call_node)

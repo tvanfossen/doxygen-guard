@@ -37,7 +37,7 @@ Validate -> Config: get_validate(config)
 Validate -> Config: get_validate(config)
 Validate -> Parser: parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)
 activate Parser
-Parser <-- Validate: return list | None
+Validate <-- Parser: return list | None
 deactivate Parser
 group try
 end group
@@ -50,7 +50,7 @@ alt not no_git
 group try
 Validate -> Git: get_changed_lines_for_file(file_path)
 activate Git
-Git <-- Validate: return set[int]
+Validate <-- Git: return set[int]
 deactivate Git
 end group
 group catch
@@ -71,29 +71,29 @@ Validate -> Config: get_trace(config)
 alt trace_enabled
 Validate -> Trace: run_trace(source_dirs=source_dirs, config=config, trace_all=True,)
 activate Trace
-Trace <-- Validate: return Tuple of (written file paths, warning messages)
+Validate <-- Trace: return Tuple of (written file paths, warning messages)
 deactivate Trace
 end alt
 Validate -> Config: get_impact(config)
 alt impact_config.get("requirements")
 Validate -> Git: get_branch_diff_range()
 activate Git
-Git <-- Validate: return str | None
+Validate <-- Git: return str | None
 deactivate Git
 alt diff_range
 Validate -> Impact: collect_changed_functions(file_paths, config, diff_range=diff_range)
 activate Impact
-Impact <-- Validate: return list[ChangedFunction]
+Validate <-- Impact: return list[ChangedFunction]
 deactivate Impact
 else
 Validate -> Impact: collect_changed_functions(file_paths, config, staged=True)
 activate Impact
-Impact <-- Validate: return list[ChangedFunction]
+Validate <-- Impact: return list[ChangedFunction]
 deactivate Impact
 end alt
 Validate -> Impact: build_impact_report(changed, config)
 activate Impact
-Impact <-- Validate: return list[ImpactEntry]
+Validate <-- Impact: return list[ImpactEntry]
 deactivate Impact
 end alt
 

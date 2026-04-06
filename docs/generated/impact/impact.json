@@ -4,14 +4,40 @@
     "req_name": "Sequence diagram generation",
     "functions": [
       {
-        "name": "generate_plantuml",
-        "file": "src/doxygen_guard/tracer/renderer.py",
-        "version": "1.13"
+        "name": "_handle_call",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.8"
       },
       {
-        "name": "generate_plantuml_ast",
-        "file": "src/doxygen_guard/tracer/renderer.py",
-        "version": "1.6"
+        "name": "_place_boundary_call",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.0"
+      },
+      {
+        "name": "_place_ext_edge",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.7"
+      },
+      {
+        "name": "build_sequence_edges_ast",
+        "file": "src/doxygen_guard/tracer/edges_ast.py",
+        "version": "1.10"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-TRACE-003",
+    "req_name": "External participant prefix routing",
+    "functions": [
+      {
+        "name": "_build_boundary_map",
+        "file": "src/doxygen_guard/tracer/edges_ast.py",
+        "version": "1.0"
+      },
+      {
+        "name": "_load_external_participants",
+        "file": "src/doxygen_guard/tracer/collector.py",
+        "version": "1.3"
       }
     ]
   }

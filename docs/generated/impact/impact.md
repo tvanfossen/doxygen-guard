@@ -2,6 +2,7 @@
 
 | REQ | Name | Functions Changed |
 |-----|------|-------------------|
-| REQ-TRACE-001 | Sequence diagram generation | generate_plantuml, generate_plantuml_ast |
+| REQ-TRACE-001 | Sequence diagram generation | _handle_call, _place_boundary_call, _place_ext_edge, build_sequence_edges_ast |
+| REQ-TRACE-003 | External participant prefix routing | _build_boundary_map, _load_external_participants |
 
-**Total: 1 requirement(s) affected, 2 function(s) changed**
+**Total: 2 requirement(s) affected, 6 function(s) changed**

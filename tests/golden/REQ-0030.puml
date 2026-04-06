@@ -20,28 +20,28 @@ end header
 Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY\nController_OnSensorData()
 activate Controller
 Comm_Manager --> Controller: EVENT_CONTROL_ACTION\nController_ReportStatus()
-== Controller_Init() ==
-Controller -> Event_Bus: Event_register(EVENT_SENSOR_DATA_READY, Controller_OnSensorData)
-activate Event_Bus
-Event_Bus <-- Controller: return
-deactivate Event_Bus
-Controller -> Event_Bus: Event_register(EVENT_CONTROL_ACTION, Controller_ReportStatus)
-activate Event_Bus
-Event_Bus <-- Controller: return
-deactivate Event_Bus
 == Controller_OnSensorData() ==
 note right of Controller: Threshold Check
 alt sensor_value > threshold
 Controller --> Controller: EVENT_CONTROL_ACTION\nController_OnSensorData() -> Controller_ReportStatus()
 Controller -> Comm_Manager: Comm_SendStatus(&status)
 activate Comm_Manager
-Comm_Manager <-- Controller: return
+Controller <-- Comm_Manager: return
 deactivate Comm_Manager
 end alt
+== Controller_Init() ==
+Controller -> Event_Bus: Event_register(EVENT_SENSOR_DATA_READY, Controller_OnSensorData)
+activate Event_Bus
+Controller <-- Event_Bus: return
+deactivate Event_Bus
+Controller -> Event_Bus: Event_register(EVENT_CONTROL_ACTION, Controller_ReportStatus)
+activate Event_Bus
+Controller <-- Event_Bus: return
+deactivate Event_Bus
 == MsgBus_Init() ==
 Controller -> Event_Bus: Event_register(EVENT_MSG_QUEUED, MsgBus_ProcessQueue)
 activate Event_Bus
-Event_Bus <-- Controller: return
+Controller <-- Event_Bus: return
 deactivate Event_Bus
 == MsgBus_QueueInbound() ==
 Controller --> Controller: EVENT_MSG_QUEUED\nMsgBus_QueueInbound() -> MsgBus_ProcessQueue()
@@ -50,7 +50,7 @@ loop queue_receive(&inbound_queue, &msg)
 alt msg.event_id == MSG_EVENT_STATUS_REQUEST
 Controller -> Comm_Manager: Comm_SendStatus(&status)
 activate Comm_Manager
-Comm_Manager <-- Controller: return
+Controller <-- Comm_Manager: return
 deactivate Comm_Manager
 end alt
 end loop

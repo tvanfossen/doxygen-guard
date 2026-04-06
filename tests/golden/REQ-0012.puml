@@ -18,7 +18,7 @@ end header
 == Sensor_Calibrate() ==
 Sensor_Driver -> Controller: Controller_GetCalibration()
 activate Controller
-Controller <-- Sensor_Driver: return Current calibration offset data
+Sensor_Driver <-- Controller: return Current calibration offset data
 deactivate Controller
 
 @enduml

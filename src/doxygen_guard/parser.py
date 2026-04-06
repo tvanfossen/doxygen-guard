@@ -58,7 +58,6 @@ def _finalize_tag(
 
 
 _TAG_RE = re.compile(r"@(\w+)(?:\s+(.*))?$")
-_INLINE_SPLIT_RE = re.compile(r"(?=\s@\w+(?:\s|$))")
 
 
 ## @brief Parse all doxygen tag entries from comment text.
@@ -90,6 +89,9 @@ def parse_doxygen_tags(block_text: str) -> dict[str, list[str]]:
 
     _finalize_tag(tags, current_tag, current_value)
     return tags
+
+
+_INLINE_SPLIT_RE = re.compile(r"(?=\s@\w+(?:\s|$))")
 
 
 ## @brief Split a line into segments at inline tag boundaries.

@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+entity "External" as External
+
 box "System" #LightBlue
   participant "Coverage" as Coverage
   participant "Trace" as Trace
@@ -14,16 +16,19 @@ header
   //Acceptance Criteria:// Requirements categorized as covered uncovered supports-only\nor orphan; unmapped functions identified; reports in text\nJSON and markdown formats; exit code 1 when gaps exist
 end header
 
-note over Coverage: _collect_supports_only() supports (no @req)., tags
 
+External --> Coverage: CMD_COVERAGE\nrun_coverage()
+activate Coverage
+== run_coverage() ==
+Coverage -> Coverage: analyze_coverage(source_dirs, config)
+== analyze_coverage() ==
 Coverage -> Trace: collect_all_tagged_functions(source_dirs, config, full_reqs)
 activate Trace
-Trace <-- Coverage: return tuple[list[TaggedFunction], list[Participant], dict]
+Coverage <-- Trace: return tuple[list[TaggedFunction], list[Participant], dict]
 deactivate Trace
 Coverage -> Coverage: _collect_req_ids(all_tagged)
 Coverage -> Coverage: _collect_supports_only(all_tagged)
 Coverage -> Coverage: _collect_unmapped_functions(all_tagged)
-== run_coverage() ==
-Coverage -> Coverage: analyze_coverage(source_dirs, config)
+deactivate Coverage
 
 @enduml

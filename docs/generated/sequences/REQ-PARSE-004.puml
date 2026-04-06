@@ -21,11 +21,11 @@ Parser -> Parser: _parse_and_index(file_path, lang_name)
 == _parse_and_index() ==
 Parser -> Trace: get_parser_for_language(lang_name)
 activate Trace
-Trace <-- Parser: return Configured Parser instance, or None if language is unsupported
+Parser <-- Trace: return Configured Parser instance, or None if language is unsupported
 deactivate Trace
 Parser -> Trace: get_language_spec(lang_name)
 activate Trace
-Trace <-- Parser: return LanguageSpec for the language, or None if not defined
+Parser <-- Trace: return LanguageSpec for the language, or None if not defined
 deactivate Trace
 group try
 end group
@@ -43,11 +43,11 @@ Parser -> Ts_Parser: _collect_c_comment(prev, spec)
 == parse_functions_ts() ==
 Parser -> Trace: get_parser_for_language(lang_name)
 activate Trace
-Trace <-- Parser: return Configured Parser instance, or None if language is unsupported
+Parser <-- Trace: return Configured Parser instance, or None if language is unsupported
 deactivate Trace
 Parser -> Trace: get_language_spec(lang_name)
 activate Trace
-Trace <-- Parser: return LanguageSpec for the language, or None if not defined
+Parser <-- Trace: return LanguageSpec for the language, or None if not defined
 deactivate Trace
 Parser -> Parser: _collect_functions(tree.root_node, spec, exclude, comment_start_pattern, functions)
 == _collect_functions() ==

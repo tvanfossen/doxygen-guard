@@ -327,13 +327,13 @@ def _render_edge(edge: Edge, label_mode: str = "full") -> str:
 
 
 ## @brief Emit activate/deactivate for a legacy edge.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _render_edge_activation(edge: Edge) -> list[str]:
     f = _safe_id(edge.from_name)
     t = _safe_id(edge.to_name)
     if edge.label == "return":
-        return [f"deactivate {f}"]
+        return [f"deactivate {t}"]
     activate = f != t and edge.style != "note"
     return [f"activate {t}"] if activate else []
 
@@ -490,12 +490,12 @@ def _render_activation(ae, active: set[str] | None = None) -> list[str]:
 
 
 ## @brief Determine the activate/deactivate line for an edge.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _compute_activation(kind: str, label: str, f: str, t: str, active: set[str]) -> str | None:
-    if label.startswith("return") and f in active:
-        active.discard(f)
-        return f"deactivate {f}"
+    if label.startswith("return") and t in active:
+        active.discard(t)
+        return f"deactivate {t}"
     if f != t and kind in ("entry", "ext") and t not in active:
         active.add(t)
         return f"activate {t}"

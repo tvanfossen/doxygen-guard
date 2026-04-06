@@ -56,10 +56,10 @@ def _collect_req_ids(all_tagged: list[TaggedFunction]) -> set[str]:
     return result
 
 
-## @brief Find requirements only referenced via @supports (no @req).
-#  @version 1.1
+## @brief Find requirements referenced only via supports tags, not direct req tags.
+#  @version 1.2
 #  @req REQ-COVERAGE-001
-#  @return Set of requirement IDs only found in @supports tags
+#  @return Set of requirement IDs with supports-only coverage
 def _collect_supports_only(all_tagged: list[TaggedFunction]) -> set[str]:
     req_refs: set[str] = set()
     supports_refs: set[str] = set()
@@ -136,8 +136,9 @@ def format_coverage_markdown(report: dict[str, Any]) -> str:
 
 
 ## @brief Run coverage analysis and return exit code.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-COVERAGE-001
+#  @handles CMD_COVERAGE
 #  @return Exit code: 0 if no gaps, 1 if gaps exist
 def run_coverage(
     source_dirs: list[str],

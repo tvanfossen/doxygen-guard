@@ -145,7 +145,7 @@ def _build_causal_graph(
 #  @details If emitter A emits EVENT:X and emitter B handles EVENT:X, A precedes B.
 #  Entry functions (handling events not emitted by any emitter in the set) come first.
 #  Cycles broken by appending remaining emitters in original order.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _toposort_emitters(emitters: list[TaggedFunction]) -> list[TaggedFunction]:
     if len(emitters) <= 1:
@@ -154,7 +154,9 @@ def _toposort_emitters(emitters: list[TaggedFunction]) -> list[TaggedFunction]:
     name_to_tf: dict[str, TaggedFunction] = {tf.name: tf for tf in emitters}
     adj, in_degree = _build_causal_graph(emitters)
 
-    queue = deque(name for name, deg in in_degree.items() if deg == 0)
+    zeros = [name for name, deg in in_degree.items() if deg == 0]
+    zeros.sort(key=lambda n: not bool(name_to_tf[n].handles))
+    queue = deque(zeros)
     result: list[TaggedFunction] = []
 
     while queue:
@@ -197,7 +199,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.9
+#  @version 1.10
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -211,7 +213,8 @@ def build_sequence_edges_ast(
     from doxygen_guard.ts_languages import get_language_spec
 
     handler_map = _build_handler_map(all_tagged)
-    externals = [p for p in participants if p.receives_prefix]
+    externals = [p for p in participants if p.receives_prefix or p.boundary_functions]
+    boundary_map = _build_boundary_map(participants)
 
     trace_config = get_trace(config)
     trace_options = get_trace_options(config)
@@ -277,11 +280,25 @@ def build_sequence_edges_ast(
             max_condition_length=max_condition_length,
             project_functions=project_functions,
             tagged_names=tagged_names,
+            boundary_functions=boundary_map,
         )
         visited.add(tf.name)
         ast_edges.extend(walk_function_body(func_node, tf, ctx))
 
     return ast_edges
+
+
+## @brief Build map from boundary function names to external participant names.
+#  @version 1.0
+#  @req REQ-TRACE-003
+#  @return Dict mapping function name to participant name
+def _build_boundary_map(participants: list[Participant]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for p in participants:
+        for fn in p.boundary_functions:
+            if fn not in result:
+                result[fn] = p.name
+    return result
 
 
 ## @brief Map every project-defined function to its participant name.

@@ -20,15 +20,15 @@ Parser -> Parser: parse_source_file_with_content(file_path, config, skip_forward
 == parse_source_file_with_content() ==
 Parser -> Config: get_language_config(config, file_path)
 activate Config
-Config <-- Parser: return Language config dict, or None if no language matches the file extension
+Parser <-- Config: return Language config dict, or None if no language matches the file extension
 deactivate Config
 Parser -> Config: resolve_parse_settings(config, lang_config)
 activate Config
-Config <-- Parser: return ParseSettings with comment style and body detection mode
+Parser <-- Config: return ParseSettings with comment style and body detection mode
 deactivate Config
 Parser -> Trace: language_for_file(file_path, config)
 activate Trace
-Trace <-- Parser: return Language name string, or None if no language matches the file
+Parser <-- Trace: return Language name string, or None if no language matches the file
 deactivate Trace
 Parser -> Parser: parse_functions(content=content, function_pattern=lang_config["function_pattern"], exclude_names=lang_config.get("exclude_names", []), settings=settings, skip_forward_declarations=skip_forward_declarations, lang_name=lang_name,)
 == parse_functions() ==
