@@ -24,6 +24,18 @@ External --> Parser: _find_doxygen_comment()
 External --> Parser: parse_functions_ts()
 == get_parsed_file() ==
 Parser -> Parser: _parse_and_index(file_path, lang_name)
+== _find_doxygen_comment() ==
+Parser -> Parser: _resolve_comment_node(prev, spec)
+== parse_functions_ts() ==
+Parser -> Trace: get_parser_for_language(lang_name)
+activate Trace
+Parser <-- Trace: return Configured Parser instance, or None if language is unsupported
+deactivate Trace
+Parser -> Trace: get_language_spec(lang_name)
+activate Trace
+Parser <-- Trace: return LanguageSpec for the language, or None if not defined
+deactivate Trace
+Parser -> Parser: _collect_functions(tree.root_node, spec, exclude, comment_start_pattern, functions)
 == _parse_and_index() ==
 Parser -> Trace: get_parser_for_language(lang_name)
 activate Trace
@@ -41,21 +53,9 @@ end group
 Parser -> Ts_Parser: _index_function_nodes(tree.root_node, spec)
 == _resolve_function_node() ==
 Parser -> Ts_Parser: _unwrap_decorated(child)
-== _find_doxygen_comment() ==
-Parser -> Parser: _resolve_comment_node(prev, spec)
 == _find_preceding_doxygen() ==
 Parser -> Ts_Parser: _collect_python_comments(prev, spec)
 Parser -> Ts_Parser: _collect_c_comment(prev, spec)
-== parse_functions_ts() ==
-Parser -> Trace: get_parser_for_language(lang_name)
-activate Trace
-Parser <-- Trace: return Configured Parser instance, or None if language is unsupported
-deactivate Trace
-Parser -> Trace: get_language_spec(lang_name)
-activate Trace
-Parser <-- Trace: return LanguageSpec for the language, or None if not defined
-deactivate Trace
-Parser -> Parser: _collect_functions(tree.root_node, spec, exclude, comment_start_pattern, functions)
 == _collect_functions() ==
 loop child in node.children
 Parser -> Parser: _resolve_function_node(child, spec)

@@ -220,19 +220,23 @@ def _build_causal_graph(
 
 ## @brief Sort emitters by causal dependency so product diagrams show correct order.
 #  @details If emitter A emits EVENT:X and emitter B handles EVENT:X, A precedes B.
-#  Entry functions (handling events not emitted by any emitter in the set) come first.
+#  Entry functions (with handles tags or inferred entry edges) come first.
 #  Cycles broken by appending remaining emitters in original order.
-#  @version 1.2
+#  @version 1.3
 #  @internal
-def _toposort_emitters(emitters: list[TaggedFunction]) -> list[TaggedFunction]:
+def _toposort_emitters(
+    emitters: list[TaggedFunction],
+    entry_names: set[str] | None = None,
+) -> list[TaggedFunction]:
     if len(emitters) <= 1:
         return emitters
 
     name_to_tf: dict[str, TaggedFunction] = {tf.name: tf for tf in emitters}
     adj, in_degree = _build_causal_graph(emitters)
 
+    entries = entry_names or set()
     zeros = [name for name, deg in in_degree.items() if deg == 0]
-    zeros.sort(key=lambda n: not bool(name_to_tf[n].handles))
+    zeros.sort(key=lambda n: (n not in entries, not bool(name_to_tf[n].handles)))
     queue = deque(zeros)
     result: list[TaggedFunction] = []
 
@@ -276,7 +280,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.11
+#  @version 1.12
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -323,7 +327,8 @@ def build_sequence_edges_ast(
     entry_edges = _infer_entry_edges(emitters, all_tagged, participants, fallback_name, file_cache)
     ast_edges.extend(_group_entry_edges(entry_edges))
 
-    sorted_emitters = _toposort_emitters(emitters)
+    entry_names = {e.label.split("(")[0] for e in entry_edges}
+    sorted_emitters = _toposort_emitters(emitters, entry_names)
     emitter_count = 0
 
     for tf in sorted_emitters:

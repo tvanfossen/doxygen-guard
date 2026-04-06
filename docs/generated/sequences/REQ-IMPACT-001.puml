@@ -19,17 +19,17 @@ end header
 
 External --> Impact: collect_changed_functions()
 activate Impact
-== _extract_changed_functions() ==
-Impact -> Parser: parse_source_file(file_path, config)
-activate Parser
-Impact <-- Parser: return list | None
-deactivate Parser
 == collect_changed_functions() ==
 loop file_path in file_paths
 Impact -> Impact: _collect_changed_lines(file_path, staged, diff_range, run_command)
 alt changed_lines
 end alt
 end loop
+== _extract_changed_functions() ==
+Impact -> Parser: parse_source_file(file_path, config)
+activate Parser
+Impact <-- Parser: return list | None
+deactivate Parser
 deactivate Impact
 
 @enduml

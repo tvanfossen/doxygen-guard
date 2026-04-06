@@ -1,21 +1,5 @@
 [
   {
-    "req_id": "REQ-COVERAGE-001",
-    "req_name": "Requirement coverage analysis",
-    "functions": [
-      {
-        "name": "_collect_supports_only",
-        "file": "src/doxygen_guard/coverage.py",
-        "version": "1.2"
-      },
-      {
-        "name": "run_coverage",
-        "file": "src/doxygen_guard/coverage.py",
-        "version": "1.4"
-      }
-    ]
-  },
-  {
     "req_id": "REQ-TRACE-001",
     "req_name": "Sequence diagram generation",
     "functions": [
@@ -32,7 +16,18 @@
       {
         "name": "build_sequence_edges_ast",
         "file": "src/doxygen_guard/tracer/edges_ast.py",
-        "version": "1.11"
+        "version": "1.12"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-TRACE-003",
+    "req_name": "External participant prefix routing",
+    "functions": [
+      {
+        "name": "_build_boundary_map",
+        "file": "src/doxygen_guard/tracer/edges_ast.py",
+        "version": "1.0"
       }
     ]
   }

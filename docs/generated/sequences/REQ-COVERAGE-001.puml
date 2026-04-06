@@ -19,6 +19,8 @@ end header
 
 External --> Coverage: run_coverage()
 activate Coverage
+== run_coverage() ==
+Coverage -> Coverage: analyze_coverage(source_dirs, config)
 == analyze_coverage() ==
 Coverage -> Trace: collect_all_tagged_functions(source_dirs, config, full_reqs)
 activate Trace
@@ -27,8 +29,6 @@ deactivate Trace
 Coverage -> Coverage: _collect_req_ids(all_tagged)
 Coverage -> Coverage: _collect_supports_only(all_tagged)
 Coverage -> Coverage: _collect_unmapped_functions(all_tagged)
-== run_coverage() ==
-Coverage -> Coverage: analyze_coverage(source_dirs, config)
 deactivate Coverage
 
 @enduml

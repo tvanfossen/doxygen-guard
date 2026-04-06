@@ -40,13 +40,13 @@ Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_START, Comm_Downlo
 activate Event_Bus
 Comm_Manager <-- Event_Bus: return
 deactivate Event_Bus
-== Comm_SendStatus() ==
-Comm_Manager --> Comm_Manager: EVENT_COMM_TX_COMPLETE
 == Shadow_Initialize() ==
 Comm_Manager -> Event_Bus: Event_register(EVENT_WIFI_DISCONNECTED | EVENT_WIFI_CONNECTED | EVENT_MQTT_CONNACK | EVENT_MQTT_CLOSE, Shadow_OnConnectivityEvent)
 activate Event_Bus
 Comm_Manager <-- Event_Bus: return
 deactivate Event_Bus
+== Comm_SendStatus() ==
+Comm_Manager --> Comm_Manager: EVENT_COMM_TX_COMPLETE
 deactivate Comm_Manager
 
 @enduml

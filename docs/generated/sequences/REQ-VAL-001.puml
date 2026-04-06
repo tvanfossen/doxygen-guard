@@ -4,8 +4,8 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 entity "External" as External
-entity "Checks" as Checks
 entity "Main" as Main
+entity "Checks" as Checks
 
 box "System" #LightBlue
   participant "Validate" as Validate
@@ -28,17 +28,6 @@ External --> Validate: validate_file()
 activate Validate
 External --> Validate: run_validate()
 External --> Validate: run_precommit()
-== check_presence() ==
-Validate -> Config: get_validate(config)
-== check_unknown_tags() ==
-Validate -> Config: get_validate(config)
-loop tag_name in func.doxygen.tags
-alt tag_name not in known
-Validate -> Checks: _suggest_tag(tag_name, known)
-end alt
-end loop
-== check_req_exists() ==
-Validate -> Config: get_validate(config)
 == validate_file() ==
 Validate -> Config: get_validate(config)
 Validate -> Parser: parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)
@@ -102,6 +91,17 @@ activate Impact
 Validate <-- Impact: return list[ImpactEntry]
 deactivate Impact
 end alt
+== check_presence() ==
+Validate -> Config: get_validate(config)
+== check_unknown_tags() ==
+Validate -> Config: get_validate(config)
+loop tag_name in func.doxygen.tags
+alt tag_name not in known
+Validate -> Checks: _suggest_tag(tag_name, known)
+end alt
+end loop
+== check_req_exists() ==
+Validate -> Config: get_validate(config)
 deactivate Validate
 
 @enduml
