@@ -1,4 +1,4 @@
-@startuml REQ-PARSE-002 Doxygen block extraction
+@startuml REQ-PARSE-002_Doxygen_block_extraction
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

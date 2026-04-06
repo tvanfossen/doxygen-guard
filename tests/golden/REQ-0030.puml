@@ -1,4 +1,4 @@
-@startuml REQ-0030 Control Loop Processing
+@startuml REQ-0030_Control_Loop_Processing
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

@@ -1,4 +1,4 @@
-@startuml REQ-TRACE-001 Sequence diagram generation
+@startuml REQ-TRACE-001_Sequence_diagram_generation
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
@@ -213,6 +213,7 @@ end alt
 == generate_plantuml() ==
 Trace -> Config: get_trace_options(config)
 Trace -> Renderer: _get_name_col(config)
+Trace -> Renderer: _safe_filename(f"{req_id} {req_name}")
 Trace -> Renderer: _collect_all_active_names(edges, functions)
 loop edge in edges
 end loop
@@ -240,6 +241,7 @@ Trace -> Renderer: _compute_activation(ae.kind, edge.label, f, t, active)
 == generate_plantuml_ast() ==
 Trace -> Config: get_trace_options(config)
 Trace -> Renderer: _get_name_col(config)
+Trace -> Renderer: _safe_filename(f"{req_id} {req_name}")
 Trace -> Renderer: _collect_all_active_names(flat_edges, functions)
 alt options.get("legend", False)
 end alt

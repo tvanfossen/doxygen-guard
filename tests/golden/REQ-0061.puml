@@ -1,4 +1,4 @@
-@startuml REQ-0061 WiFi Network Discovery
+@startuml REQ-0061_WiFi_Network_Discovery
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

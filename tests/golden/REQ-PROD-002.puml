@@ -1,4 +1,4 @@
-@startuml REQ-PROD-002 Remote Device Control
+@startuml REQ-PROD-002_Remote_Device_Control
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

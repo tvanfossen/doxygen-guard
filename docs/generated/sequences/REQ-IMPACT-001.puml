@@ -1,4 +1,4 @@
-@startuml REQ-IMPACT-001 Changed function detection from git diff
+@startuml REQ-IMPACT-001_Changed_function_detection_from_git_diff
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

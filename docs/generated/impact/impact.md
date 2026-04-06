@@ -2,6 +2,6 @@
 
 | REQ | Name | Functions Changed |
 |-----|------|-------------------|
-| REQ-PARSE-004 | Tree-sitter function indexing | _resolve_function_node, _find_preceding_doxygen |
+| REQ-TRACE-001 | Sequence diagram generation | generate_plantuml, generate_plantuml_ast |
 
 **Total: 1 requirement(s) affected, 2 function(s) changed**

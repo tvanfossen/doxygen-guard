@@ -1,4 +1,4 @@
-@startuml REQ-0041 OTA Download Coordination
+@startuml REQ-0041_OTA_Download_Coordination
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

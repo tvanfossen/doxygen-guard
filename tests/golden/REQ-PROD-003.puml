@@ -1,4 +1,4 @@
-@startuml REQ-PROD-003 Over-the-Air Firmware Update
+@startuml REQ-PROD-003_Over-the-Air_Firmware_Update
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

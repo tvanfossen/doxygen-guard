@@ -1,4 +1,4 @@
-@startuml REQ-PROD-001 Device Environmental Monitoring
+@startuml REQ-PROD-001_Device_Environmental_Monitoring
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

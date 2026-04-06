@@ -1,4 +1,4 @@
-@startuml REQ-PARSE-003 Python indent-based body detection
+@startuml REQ-PARSE-003_Python_indent-based_body_detection
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

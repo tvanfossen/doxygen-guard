@@ -1,4 +1,4 @@
-@startuml REQ-0012 Sensor Calibration
+@startuml REQ-0012_Sensor_Calibration
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

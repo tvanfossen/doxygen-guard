@@ -444,7 +444,7 @@ class TestGeneratePlantuml:
     def test_with_req_name(self):
         ctx = DiagramContext(req_row={"Name": "BLE Pairing"})
         result = generate_plantuml("REQ-0252", [], [], [], TRACE_CONFIG, context=ctx)
-        assert "@startuml REQ-0252 BLE Pairing" in result
+        assert "@startuml REQ-0252_BLE_Pairing" in result
 
     def test_note_rendering(self):
         participants = [Participant(name="Pairing")]

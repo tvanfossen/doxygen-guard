@@ -212,7 +212,7 @@ def _render_req_header(
 
 
 ## @brief Render edges and function listings as a PlantUML block.
-#  @version 1.12
+#  @version 1.13
 #  @req REQ-TRACE-001
 def generate_plantuml(
     req_id: str,
@@ -227,7 +227,7 @@ def generate_plantuml(
     req_row = context.req_row if context else None
     preconditions = context.preconditions if context else None
     req_name = req_row.get(name_col) if req_row else None
-    title = f"{req_id} {req_name}" if req_name else req_id
+    title = _safe_filename(f"{req_id} {req_name}") if req_name else req_id
 
     lines = [f"@startuml {title}"]
     if options.get("autonumber", True):
@@ -375,11 +375,11 @@ def _render_png(puml_file: Path) -> None:
         logger.warning("PNG render failed for %s: %s", puml_file, e)
 
 
-## @brief Sanitize a requirement ID for safe use as a filename.
-#  @version 1.0
+## @brief Sanitize a string for safe use as a filename or PlantUML title.
+#  @version 1.1
 #  @internal
-def _safe_filename(req_id: str) -> str:
-    return re.sub(r"[^\w\-.]", "_", req_id)
+def _safe_filename(name: str) -> str:
+    return re.sub(r"[^\w\-.]", "_", name).strip("_")
 
 
 ## @brief Save .puml content to the configured output directory.
@@ -547,7 +547,7 @@ def _render_legend() -> list[str]:
 
 
 ## @brief Generate PlantUML from AST-ordered edges.
-#  @version 1.5
+#  @version 1.6
 #  @req REQ-TRACE-001
 def generate_plantuml_ast(
     req_id: str,
@@ -563,7 +563,7 @@ def generate_plantuml_ast(
     preconditions = context.preconditions if context else None
     init_only_names = context.init_only_names if context else None
     req_name = req_row.get(name_col) if req_row else None
-    title = f"{req_id} {req_name}" if req_name else req_id
+    title = _safe_filename(f"{req_id} {req_name}") if req_name else req_id
 
     label_mode = options.get("label_mode", "full")
 

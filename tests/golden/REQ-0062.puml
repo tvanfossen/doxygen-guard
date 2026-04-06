@@ -1,4 +1,4 @@
-@startuml REQ-0062 Certificate Provisioning
+@startuml REQ-0062_Certificate_Provisioning
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

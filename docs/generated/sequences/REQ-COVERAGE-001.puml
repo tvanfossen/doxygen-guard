@@ -1,4 +1,4 @@
-@startuml REQ-COVERAGE-001 Requirement coverage analysis
+@startuml REQ-COVERAGE-001_Requirement_coverage_analysis
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

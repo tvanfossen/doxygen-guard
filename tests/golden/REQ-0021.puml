@@ -1,4 +1,4 @@
-@startuml REQ-0021 Remote Command Handling
+@startuml REQ-0021_Remote_Command_Handling
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

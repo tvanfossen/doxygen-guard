@@ -1,4 +1,4 @@
-@startuml REQ-CONFIG-001 YAML config loading and merging
+@startuml REQ-CONFIG-001_YAML_config_loading_and_merging
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

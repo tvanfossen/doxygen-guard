@@ -1,4 +1,4 @@
-@startuml REQ-0010 Temperature Sensing
+@startuml REQ-0010_Temperature_Sensing
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

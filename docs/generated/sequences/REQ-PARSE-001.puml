@@ -1,4 +1,4 @@
-@startuml REQ-PARSE-001 Function detection
+@startuml REQ-PARSE-001_Function_detection
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

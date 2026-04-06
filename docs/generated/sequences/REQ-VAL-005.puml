@@ -1,4 +1,4 @@
-@startuml REQ-VAL-005 Return tag enforcement
+@startuml REQ-VAL-005_Return_tag_enforcement
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

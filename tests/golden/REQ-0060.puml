@@ -1,4 +1,4 @@
-@startuml REQ-0060 Device Provisioning
+@startuml REQ-0060_Device_Provisioning
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

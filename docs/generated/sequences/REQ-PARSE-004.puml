@@ -1,4 +1,4 @@
-@startuml REQ-PARSE-004 Tree-sitter function indexing
+@startuml REQ-PARSE-004_Tree-sitter_function_indexing
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

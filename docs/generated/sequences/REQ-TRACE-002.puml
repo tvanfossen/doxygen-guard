@@ -1,4 +1,4 @@
-@startuml REQ-TRACE-002 Participant resolution from requirements
+@startuml REQ-TRACE-002_Participant_resolution_from_requirements
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

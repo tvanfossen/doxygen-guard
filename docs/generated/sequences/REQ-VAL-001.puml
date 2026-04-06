@@ -1,4 +1,4 @@
-@startuml REQ-VAL-001 Doxygen presence check
+@startuml REQ-VAL-001_Doxygen_presence_check
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

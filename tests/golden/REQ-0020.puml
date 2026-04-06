@@ -1,4 +1,4 @@
-@startuml REQ-0020 Remote Status Reporting
+@startuml REQ-0020_Remote_Status_Reporting
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

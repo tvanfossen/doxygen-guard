@@ -1,4 +1,4 @@
-@startuml REQ-0011 Humidity Sensing
+@startuml REQ-0011_Humidity_Sensing
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

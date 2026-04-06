@@ -1,4 +1,4 @@
-@startuml REQ-VAL-003 Tag syntax validation
+@startuml REQ-VAL-003_Tag_syntax_validation
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

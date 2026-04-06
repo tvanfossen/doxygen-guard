@@ -1,4 +1,4 @@
-@startuml REQ-VAL-002 Version staleness detection
+@startuml REQ-VAL-002_Version_staleness_detection
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

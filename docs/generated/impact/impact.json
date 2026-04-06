@@ -1,17 +1,17 @@
 [
   {
-    "req_id": "REQ-PARSE-004",
-    "req_name": "Tree-sitter function indexing",
+    "req_id": "REQ-TRACE-001",
+    "req_name": "Sequence diagram generation",
     "functions": [
       {
-        "name": "_resolve_function_node",
-        "file": "src/doxygen_guard/ts_parser.py",
-        "version": "1.2"
+        "name": "generate_plantuml",
+        "file": "src/doxygen_guard/tracer/renderer.py",
+        "version": "1.13"
       },
       {
-        "name": "_find_preceding_doxygen",
-        "file": "src/doxygen_guard/ts_parser.py",
-        "version": "1.4"
+        "name": "generate_plantuml_ast",
+        "file": "src/doxygen_guard/tracer/renderer.py",
+        "version": "1.6"
       }
     ]
   }

@@ -1,4 +1,4 @@
-@startuml REQ-IMPACT-002 Requirements file loading
+@startuml REQ-IMPACT-002_Requirements_file_loading
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

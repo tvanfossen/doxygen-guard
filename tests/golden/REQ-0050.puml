@@ -1,4 +1,4 @@
-@startuml REQ-0050 Event Bus Infrastructure
+@startuml REQ-0050_Event_Bus_Infrastructure
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

@@ -1,4 +1,4 @@
-@startuml REQ-VAL-006 File-level doxygen validation
+@startuml REQ-VAL-006_File-level_doxygen_validation
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

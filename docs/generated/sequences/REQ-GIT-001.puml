@@ -1,4 +1,4 @@
-@startuml REQ-GIT-001 Git diff parsing
+@startuml REQ-GIT-001_Git_diff_parsing
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

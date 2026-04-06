@@ -1,4 +1,4 @@
-@startuml REQ-IMPACT-003 Impact report generation
+@startuml REQ-IMPACT-003_Impact_report_generation
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true

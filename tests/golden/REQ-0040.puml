@@ -1,4 +1,4 @@
-@startuml REQ-0040 OTA Firmware Update
+@startuml REQ-0040_OTA_Firmware_Update
 autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
