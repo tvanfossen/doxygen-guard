@@ -24,6 +24,8 @@ Sensor_Driver -> Controller: Controller_GetCalibration()
 activate Controller
 Sensor_Driver <-- Controller: return Current calibration offset data
 deactivate Controller
+== Controller_GetCalibration() ==
+External <-- Sensor_Driver: return
 deactivate Sensor_Driver
 
 @enduml

@@ -35,6 +35,10 @@ Cert_Manager -> Event_Bus: Event_register(EVENT_PROV_CERT_REQUEST, Cert_Provisio
 activate Event_Bus
 Cert_Manager <-- Event_Bus: return
 deactivate Event_Bus
+Provisioning_Manager <-- Cert_Manager: return
+deactivate Cert_Manager
+External <-- Cert_Manager: return
+activate Cert_Manager
 deactivate Cert_Manager
 
 @enduml

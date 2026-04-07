@@ -88,7 +88,9 @@ def walk_function_body(
 
 
 ## @brief Recursively walk AST statements, emitting edges in source order.
-#  @version 1.1
+#  @details Detects return_statement nodes and breaks the sibling loop — code after
+#  a return is unreachable. Calls in the return expression are still captured.
+#  @version 1.2
 #  @internal
 def _walk_statements(
     node: Node,
@@ -99,6 +101,9 @@ def _walk_statements(
             _handle_control_flow(child, state)
         elif child.type == state.ctx.spec.call_node_type:
             _handle_call(child, state)
+        elif child.type == "return_statement":
+            _walk_statements(child, state)
+            break
         else:
             _walk_statements(child, state)
 

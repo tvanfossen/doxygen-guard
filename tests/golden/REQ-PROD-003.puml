@@ -35,6 +35,7 @@ activate Comm_Manager
 OTA_Manager <-- Comm_Manager: return
 deactivate Comm_Manager
 OTA_Manager --> Cloud: EVENT_CLOUD_OTA_RESULT\nOTA_OnDownloadComplete()
+Cloud <-- OTA_Manager: return
 deactivate OTA_Manager
 
 @enduml

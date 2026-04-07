@@ -18,6 +18,8 @@ end header
 
 External --> Trace: _load_external_participants()
 activate Trace
+== resolve_by_prefix() ==
+External <-- Trace: return List of Participant objects declared as external in config
 deactivate Trace
 
 @enduml

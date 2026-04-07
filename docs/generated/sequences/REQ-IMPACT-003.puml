@@ -23,6 +23,7 @@ Impact -> Impact: run_impact(file_paths=file_paths, config=config, staged=args.s
 == run_impact() ==
 Impact -> Impact: build_impact_report(changed, config)
 Impact -> Impact: format_report(entries, config)
+External <-- Impact: return Exit code: 0 on success, 1 if output path is invalid
 deactivate Impact
 
 @enduml

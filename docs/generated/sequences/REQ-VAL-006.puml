@@ -4,7 +4,6 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 entity "External" as External
-entity "Checks" as Checks
 
 box "System" #LightBlue
   participant "Validate" as Validate
@@ -25,15 +24,17 @@ activate Validate
 Validate -> Config: get_validate(config)
 Validate -> Validate: _find_file_doxygen_start(lines)
 alt block_line is None
-Validate -> Checks: _first_code_line(lines)
+Validate -> Validate: _first_code_line(lines)
 end alt
 Validate -> Validate: _check_file_block_tags(file_path, lines, block_line)
 == _check_file_block_tags() ==
-Validate -> Checks: _extract_file_block_text(lines, block_start)
+Validate -> Validate: _extract_file_block_text(lines, block_start)
 Validate -> Parser: parse_doxygen_tags(block_text)
 activate Parser
 Validate <-- Parser: return Dict mapping tag names to lists of their values
 deactivate Parser
+== _find_file_doxygen_start() ==
+External <-- Validate: return List of violations for missing or incomplete file-level doxygen
 deactivate Validate
 
 @enduml

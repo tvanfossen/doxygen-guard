@@ -27,6 +27,7 @@ loop value in tag_values
 end loop
 end loop
 end loop
+External <-- Validate: return list[Violation]
 deactivate Validate
 
 @enduml

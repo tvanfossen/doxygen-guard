@@ -41,6 +41,7 @@ alt lang_name is not None
 Parser -> Parser: _parse_functions_treesitter(content, lang_name, exclude_names, settings)
 end alt
 Parser -> Parser: _parse_functions_regex(content, function_pattern, exclude_names, settings, skip_forward_declarations)
+External <-- Parser: return list | None
 deactivate Parser
 
 @enduml

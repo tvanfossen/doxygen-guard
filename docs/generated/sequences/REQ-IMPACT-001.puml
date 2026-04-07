@@ -30,6 +30,7 @@ Impact -> Parser: parse_source_file(file_path, config)
 activate Parser
 Impact <-- Parser: return list | None
 deactivate Parser
+External <-- Impact: return list[ChangedFunction]
 deactivate Impact
 
 @enduml

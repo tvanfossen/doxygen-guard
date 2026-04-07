@@ -47,6 +47,19 @@ Comm_Manager <-- Event_Bus: return
 deactivate Event_Bus
 == Comm_SendStatus() ==
 Comm_Manager --> Comm_Manager: EVENT_COMM_TX_COMPLETE
+== Shadow_ScheduleConfigPublish() ==
+WiFi_Stack <-- Comm_Manager: return
+deactivate Comm_Manager
+WiFi_Stack <-- Comm_Manager: return
+activate Comm_Manager
+WiFi_Stack <-- Comm_Manager: return
+deactivate Comm_Manager
+WiFi_Stack <-- Comm_Manager: return
+activate Comm_Manager
+External <-- Comm_Manager: return
+deactivate Comm_Manager
+External <-- Comm_Manager: return
+activate Comm_Manager
 deactivate Comm_Manager
 
 @enduml

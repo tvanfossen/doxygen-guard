@@ -280,7 +280,7 @@ def _detect_dominant_spec(
 
 
 ## @brief Build AST-ordered edges for a REQ's functions using the AST walker.
-#  @version 1.12
+#  @version 1.13
 #  @req REQ-TRACE-001
 def build_sequence_edges_ast(
     emitters: list[TaggedFunction],
@@ -367,7 +367,49 @@ def build_sequence_edges_ast(
         visited.add(tf.name)
         ast_edges.extend(walk_function_body(func_node, tf, ctx))
 
+    if show_returns:
+        ast_edges.extend(_build_entry_return_edges(entry_edges, emitters, return_type_map))
+
     return ast_edges
+
+
+## @brief Generate return edges from entry-point participants back to entry source.
+#  @version 1.0
+#  @req REQ-TRACE-001
+#  @return List of return ASTEdges for entry points
+def _build_entry_return_edges(
+    entry_edges: list[Edge],
+    emitters: list[TaggedFunction],
+    return_type_map: dict[str, str],
+) -> list:
+    result: list = []
+    for entry_edge in entry_edges:
+        func_name = entry_edge.label.split("(")[0]
+        ret_label = _resolve_entry_return_label(func_name, emitters, return_type_map)
+        result.append(
+            ASTEdge(
+                kind="ext",
+                edge=Edge(entry_edge.from_name, entry_edge.to_name, ret_label, style="<--"),
+            )
+        )
+    return result
+
+
+## @brief Resolve the return label for an entry-point function.
+#  @version 1.0
+#  @internal
+#  @return Label string for the return arrow
+def _resolve_entry_return_label(
+    func_name: str,
+    emitters: list[TaggedFunction],
+    return_type_map: dict[str, str],
+) -> str:
+    for tf in emitters:
+        if tf.name == func_name and tf.return_desc:
+            return f"return {tf.return_desc}"
+    if func_name in return_type_map:
+        return f"return {return_type_map[func_name]}"
+    return "return"
 
 
 ## @brief Build map from boundary function names to external participant names.
@@ -384,7 +426,10 @@ def _build_boundary_map(participants: list[Participant]) -> dict[str, str]:
 
 
 ## @brief Map every project-defined function to its participant name.
-#  @version 1.1
+#  @details Uses file-level participant inheritance: if a file has tagged functions
+#  with known participants, untagged functions in the same file inherit the majority
+#  participant instead of falling back to the file stem.
+#  @version 1.2
 #  @req REQ-TRACE-001
 #  @return Dict mapping function name to participant name
 def _build_project_functions_map(
@@ -394,13 +439,34 @@ def _build_project_functions_map(
     if file_cache is None:
         return {}
     tagged_participant = {tf.name: tf.participant_name for tf in all_tagged if tf.participant_name}
+    file_participant = _build_file_participant_map(all_tagged, file_cache)
     result: dict[str, str] = {}
     for file_path, parsed in file_cache.items():
-        participant = parsed.module_name or Path(file_path).stem.replace("_", " ").title()
+        participant = (
+            parsed.module_name
+            or file_participant.get(file_path)
+            or Path(file_path).stem.replace("_", " ").title()
+        )
         for func_name in parsed.func_nodes:
             if func_name not in result:
                 result[func_name] = tagged_participant.get(func_name, participant)
     return result
+
+
+## @brief Build file → participant map from tagged function majority vote.
+#  @version 1.0
+#  @internal
+#  @return Dict mapping file path to majority participant name
+def _build_file_participant_map(
+    all_tagged: list[TaggedFunction],
+    file_cache: dict,
+) -> dict[str, str]:
+    file_counts: dict[str, dict[str, int]] = {}
+    for tf in all_tagged:
+        if tf.participant_name and tf.file_path in file_cache:
+            counts = file_counts.setdefault(tf.file_path, {})
+            counts[tf.participant_name] = counts.get(tf.participant_name, 0) + 1
+    return {fp: max(counts, key=lambda p: (counts[p], p)) for fp, counts in file_counts.items()}
 
 
 ## @brief Collect extra qualifier macros from all language configs.

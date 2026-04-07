@@ -4,6 +4,21 @@
     "req_name": "Sequence diagram generation",
     "functions": [
       {
+        "name": "_handle_call",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.8"
+      },
+      {
+        "name": "_place_boundary_call",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.0"
+      },
+      {
+        "name": "_place_ext_edge",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.7"
+      },
+      {
         "name": "_infer_entry_edges",
         "file": "src/doxygen_guard/tracer/edges_ast.py",
         "version": "1.4"
@@ -16,18 +31,17 @@
       {
         "name": "build_sequence_edges_ast",
         "file": "src/doxygen_guard/tracer/edges_ast.py",
-        "version": "1.12"
-      }
-    ]
-  },
-  {
-    "req_id": "REQ-TRACE-003",
-    "req_name": "External participant prefix routing",
-    "functions": [
+        "version": "1.13"
+      },
       {
-        "name": "_build_boundary_map",
+        "name": "_build_entry_return_edges",
         "file": "src/doxygen_guard/tracer/edges_ast.py",
         "version": "1.0"
+      },
+      {
+        "name": "_build_project_functions_map",
+        "file": "src/doxygen_guard/tracer/edges_ast.py",
+        "version": "1.2"
       }
     ]
   }

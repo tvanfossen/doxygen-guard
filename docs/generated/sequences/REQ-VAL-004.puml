@@ -18,6 +18,8 @@ end header
 
 External --> Validate: check_req_coverage()
 activate Validate
+== check_req_coverage() ==
+External <-- Validate: return list[Violation]
 deactivate Validate
 
 @enduml

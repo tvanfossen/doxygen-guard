@@ -31,6 +31,10 @@ end group
 group catch
 note right: logger
 end group
+External <-- Git: return str | None
+deactivate Git
+External <-- Git: return set[int]
+activate Git
 deactivate Git
 
 @enduml

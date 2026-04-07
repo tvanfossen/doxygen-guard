@@ -26,6 +26,10 @@ Comm_Manager --> Controller: EVENT_CONTROL_ACTION\nComm_OnRemoteCommand() -> Con
 Controller -> Comm_Manager: Comm_SendStatus(&status)
 Controller <-- Comm_Manager: return
 deactivate Comm_Manager
+External <-- Comm_Manager: return
+activate Comm_Manager
+External <-- Controller: return
 deactivate Controller
+deactivate Comm_Manager
 
 @enduml

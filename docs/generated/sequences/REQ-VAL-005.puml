@@ -23,6 +23,8 @@ activate Validate
 Validate -> Config: get_validate(config)
 loop func in functions
 end loop
+== _is_void_function() ==
+External <-- Validate: return or
 deactivate Validate
 
 @enduml

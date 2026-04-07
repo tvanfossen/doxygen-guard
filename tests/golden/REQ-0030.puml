@@ -59,6 +59,15 @@ Controller <-- Comm_Manager: return
 deactivate Comm_Manager
 end alt
 end loop
+Sensor_Driver <-- Controller: return
+deactivate Controller
+Comm_Manager <-- Controller: return
+activate Controller
+External <-- Controller: return
+deactivate Controller
+External <-- Controller: return
+activate Controller
+External <-- Controller: return
 deactivate Controller
 
 @enduml

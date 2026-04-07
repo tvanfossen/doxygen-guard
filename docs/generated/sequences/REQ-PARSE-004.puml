@@ -4,7 +4,6 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 entity "External" as External
-entity "Ts Parser" as Ts_Parser
 
 box "System" #LightBlue
   participant "Parser" as Parser
@@ -50,22 +49,27 @@ end group
 group catch
 note right: logger
 end group
-Parser -> Ts_Parser: _index_function_nodes(tree.root_node, spec)
+Parser -> Parser: _index_function_nodes(tree.root_node, spec)
 == _resolve_function_node() ==
-Parser -> Ts_Parser: _unwrap_decorated(child)
+Parser -> Parser: _unwrap_decorated(child)
 == _find_preceding_doxygen() ==
-Parser -> Ts_Parser: _collect_python_comments(prev, spec)
-Parser -> Ts_Parser: _collect_c_comment(prev, spec)
+Parser -> Parser: _collect_python_comments(prev, spec)
+Parser -> Parser: _collect_c_comment(prev, spec)
 == _collect_functions() ==
 loop child in node.children
 Parser -> Parser: _resolve_function_node(child, spec)
 alt func_node
-Parser -> Ts_Parser: _extract_function_name(func_node, spec)
+Parser -> Parser: _extract_function_name(func_node, spec)
 Parser -> Parser: _find_preceding_doxygen(func_node, spec, comment_start_pattern)
 else
 Parser -> Parser: _collect_functions(child, spec, exclude, comment_start_pattern, functions)
 end alt
 end loop
+External <-- Parser: return ParsedFile instance, or None if parsing fails
+deactivate Parser
+External <-- Parser: return Raw comment text, or None if no doxygen comment found
+activate Parser
+External <-- Parser: return List of Function objects detected in the source content
 deactivate Parser
 
 @enduml

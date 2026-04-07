@@ -4,8 +4,6 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 entity "External" as External
-entity "Main" as Main
-entity "Checks" as Checks
 
 box "System" #LightBlue
   participant "Validate" as Validate
@@ -53,10 +51,10 @@ note right: logger
 end group
 end alt
 == run_validate() ==
-Validate -> Main: _report_violations(_validate_files(files, config, no_git=args.no_git))
+Validate -> Validate: _report_violations(_validate_files(files, config, no_git=args.no_git))
 == run_precommit() ==
-Validate -> Main: _detect_current_version(config)
-Validate -> Main: _report_violations(_validate_files(file_paths, config))
+Validate -> Validate: _detect_current_version(config)
+Validate -> Validate: _report_violations(_validate_files(file_paths, config))
 group try
 end group
 group catch
@@ -97,11 +95,16 @@ Validate -> Config: get_validate(config)
 Validate -> Config: get_validate(config)
 loop tag_name in func.doxygen.tags
 alt tag_name not in known
-Validate -> Checks: _suggest_tag(tag_name, known)
+Validate -> Validate: _suggest_tag(tag_name, known)
 end alt
 end loop
 == check_req_exists() ==
 Validate -> Config: get_validate(config)
+External <-- Validate: return list[Violation]
+deactivate Validate
+External <-- Validate: return Exit code: 0 if no violations, 1 if violations found
+activate Validate
+External <-- Validate: return int
 deactivate Validate
 
 @enduml

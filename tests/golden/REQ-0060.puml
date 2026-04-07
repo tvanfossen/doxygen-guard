@@ -69,6 +69,15 @@ Provisioning_Manager -> Event_Bus: Event_register(EVENT_PROV_CERT_INSTALLED, Pro
 activate Event_Bus
 Provisioning_Manager <-- Event_Bus: return
 deactivate Event_Bus
+User_Action <-- Provisioning_Manager: return
+deactivate Provisioning_Manager
+External <-- Provisioning_Manager: return
+activate Provisioning_Manager
+WiFi_Scanner <-- Provisioning_Manager: return
+deactivate Provisioning_Manager
+Cert_Manager <-- Provisioning_Manager: return
+activate Provisioning_Manager
+External <-- Provisioning_Manager: return
 deactivate Provisioning_Manager
 
 @enduml

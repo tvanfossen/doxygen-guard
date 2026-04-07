@@ -21,6 +21,7 @@ External --> Validate: check_version_staleness()
 activate Validate
 == check_version_staleness() ==
 Validate -> Config: get_validate(config)
+External <-- Validate: return list[Violation]
 deactivate Validate
 
 @enduml

@@ -53,6 +53,14 @@ OTA_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_COMPLETE, OTA_OnDow
 activate Event_Bus
 OTA_Manager <-- Event_Bus: return
 deactivate Event_Bus
+Cloud <-- OTA_Manager: return
+deactivate OTA_Manager
+Comm_Manager <-- OTA_Manager: return
+activate OTA_Manager
+Comm_Manager <-- OTA_Manager: return
+deactivate OTA_Manager
+External <-- OTA_Manager: return
+activate OTA_Manager
 deactivate OTA_Manager
 
 @enduml

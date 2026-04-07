@@ -42,6 +42,11 @@ WiFi_Scanner -> Event_Bus: Event_register(EVENT_PROV_JOIN_REQUEST, WiFiScan_Join
 activate Event_Bus
 WiFi_Scanner <-- Event_Bus: return
 deactivate Event_Bus
+Provisioning_Manager <-- WiFi_Scanner: return
+deactivate WiFi_Scanner
+Provisioning_Manager <-- WiFi_Scanner: return
+activate WiFi_Scanner
+External <-- WiFi_Scanner: return
 deactivate WiFi_Scanner
 
 @enduml

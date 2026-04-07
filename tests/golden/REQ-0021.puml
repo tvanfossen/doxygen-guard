@@ -35,5 +35,9 @@ Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_START, Comm_Downlo
 activate Event_Bus
 Comm_Manager <-- Event_Bus: return
 deactivate Event_Bus
+External <-- Comm_Manager: return
+activate Comm_Manager
+External <-- Comm_Manager: return
+deactivate Comm_Manager
 
 @enduml

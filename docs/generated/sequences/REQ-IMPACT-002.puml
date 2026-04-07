@@ -25,6 +25,10 @@ Impact -> Impact: _get_requirements_config(config)
 == filter_requirements_by_version() ==
 Impact -> Config: parse_version(current_str)
 Impact -> Config: compare_versions(parse_version(row.get(version_field, "v0.0.0")), current)
+External <-- Impact: return Dict mapping requirement IDs to their display names, empty if unconfigured
+deactivate Impact
+External <-- Impact: return dict[str, dict[str, str]]
+activate Impact
 deactivate Impact
 
 @enduml
