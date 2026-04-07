@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Parser" as Parser
@@ -16,9 +16,9 @@ header
 end header
 
 
-External --> Parser: parse_doxygen_tags()
+User --> Parser: parse_doxygen_tags()
 activate Parser
-External --> Parser: find_doxygen_block_before()
+User --> Parser: find_doxygen_block_before()
 == parse_doxygen_tags() ==
 loop raw_line in block_text.splitlines()
 loop segment in _split_inline_tags(line)
@@ -38,9 +38,9 @@ note right: logger
 end group
 Parser -> Parser: _skip_blanks_and_attrs(lines, func_line)
 Parser -> Parser: _scan_for_comment_start(lines, scan_line, start_re)
-External <-- Parser: return Dict mapping tag names to lists of their values
+User <-- Parser: return Dict mapping tag names to lists of their values
 deactivate Parser
-External <-- Parser: return DoxygenBlock | None
+User <-- Parser: return DoxygenBlock | None
 activate Parser
 deactivate Parser
 

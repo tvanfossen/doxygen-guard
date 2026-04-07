@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Parser" as Parser
@@ -18,7 +18,7 @@ header
 end header
 
 
-External --> Parser: parse_source_file()
+User --> Parser: parse_source_file()
 activate Parser
 == parse_source_file() ==
 Parser -> Parser: parse_source_file_with_content(file_path, config, skip_forward_declarations)
@@ -41,7 +41,7 @@ alt lang_name is not None
 Parser -> Parser: _parse_functions_treesitter(content, lang_name, exclude_names, settings)
 end alt
 Parser -> Parser: _parse_functions_regex(content, function_pattern, exclude_names, settings, skip_forward_declarations)
-External <-- Parser: return list | None
+User <-- Parser: return list | None
 deactivate Parser
 
 @enduml

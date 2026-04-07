@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Validate" as Validate
@@ -17,11 +17,11 @@ header
 end header
 
 
-External --> Validate: check_version_staleness()
+User --> Validate: check_version_staleness()
 activate Validate
 == check_version_staleness() ==
 Validate -> Config: get_validate(config)
-External <-- Validate: return list[Violation]
+User <-- Validate: return list[Violation]
 deactivate Validate
 
 @enduml

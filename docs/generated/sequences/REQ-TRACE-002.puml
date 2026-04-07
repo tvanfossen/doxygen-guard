@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Trace" as Trace
@@ -17,12 +17,12 @@ header
 end header
 
 
-External --> Trace: _build_req_participant_map()
+User --> Trace: _build_req_participant_map()
 activate Trace
 == _build_req_participant_map() ==
 Trace -> Config: get_trace(config)
 == _resolve_participant_from_reqs() ==
-External <-- Trace: return dict[str, str]
+User <-- Trace: return dict[str, str]
 deactivate Trace
 
 @enduml

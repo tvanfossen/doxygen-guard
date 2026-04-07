@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Trace" as Trace
@@ -17,19 +17,19 @@ header
 end header
 
 
-External --> Trace: _handle_call()
+User --> Trace: _handle_call()
 activate Trace
-External --> Trace: _handle_control_flow()
-External --> Trace: _handle_alt_block()
-External --> Trace: _handle_try_block()
-External --> Trace: _handle_switch()
-External --> Trace: _run_trace_command()
-External --> Trace: collect_all_tagged_functions()
-External --> Trace: detect_phantom_emits()
-External --> Trace: write_infrastructure_table()
-External --> Trace: _write_diagrams_for_reqs()
-External --> Trace: get_parser_for_language()
-External --> Trace: language_for_file()
+User --> Trace: _handle_control_flow()
+User --> Trace: _handle_alt_block()
+User --> Trace: _handle_try_block()
+User --> Trace: _handle_switch()
+User --> Trace: _run_trace_command()
+User --> Trace: collect_all_tagged_functions()
+User --> Trace: detect_phantom_emits()
+User --> Trace: write_infrastructure_table()
+User --> Trace: _write_diagrams_for_reqs()
+User --> Trace: get_parser_for_language()
+User --> Trace: language_for_file()
 == _handle_call() ==
 Trace -> Trace: _extract_callee_name(call_node, state.ctx.spec)
 alt callee in state.ctx.emit_functions and unplaced
@@ -234,13 +234,10 @@ end loop
 == _build_project_functions_map() ==
 Trace -> Trace: _build_file_participant_map(all_tagged, file_cache)
 == _render_participants() ==
+Trace -> Trace: _render_static_participants(static_participants)
 Trace -> Trace: _partition_participants(active_names, participants)
 Trace -> Trace: _find_undeclared_participants(active_names, participant_set)
-loop pname in external
-alt pname in participant_set
-end alt
-end loop
-loop pname in undeclared
+loop pname in ext_names + und_names
 end loop
 alt internal
 loop pname in internal
@@ -295,29 +292,29 @@ Trace -> Trace: build_sequence_edges(funcs, at, pp, req_id=r)
 Trace -> Trace: generate_plantuml(r, edges, funcs, pp, cfg, context=diagram_ctx)
 end alt
 == language_for_extension() ==
-External <-- Trace: return
+User <-- Trace: return
 deactivate Trace
-External <-- Trace: return
+User <-- Trace: return
 activate Trace
-External <-- Trace: return
+User <-- Trace: return
 deactivate Trace
-External <-- Trace: return
+User <-- Trace: return
 activate Trace
-External <-- Trace: return
+User <-- Trace: return
 deactivate Trace
-External <-- Trace: return Exit code: 0 if diagrams generated, 1 on error or no output
+User <-- Trace: return Exit code: 0 if diagrams generated, 1 on error or no output
 activate Trace
-External <-- Trace: return tuple[list[TaggedFunction], list[Participant], dict]
+User <-- Trace: return tuple[list[TaggedFunction], list[Participant], dict]
 deactivate Trace
-External <-- Trace: return List of event names declared but not called in function body
+User <-- Trace: return List of event names declared but not called in function body
 activate Trace
-External <-- Trace: return Path | None
+User <-- Trace: return Path | None
 deactivate Trace
-External <-- Trace: return Tuple of (written file paths, warning list)
+User <-- Trace: return Tuple of (written file paths, warning list)
 activate Trace
-External <-- Trace: return Configured Parser instance, or None if language is unsupported
+User <-- Trace: return Configured Parser instance, or None if language is unsupported
 deactivate Trace
-External <-- Trace: return Language name string, or None if no language matches the file
+User <-- Trace: return Language name string, or None if no language matches the file
 activate Trace
 deactivate Trace
 

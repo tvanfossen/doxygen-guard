@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Parser" as Parser
@@ -17,10 +17,10 @@ header
 end header
 
 
-External --> Parser: get_parsed_file()
+User --> Parser: get_parsed_file()
 activate Parser
-External --> Parser: _find_doxygen_comment()
-External --> Parser: parse_functions_ts()
+User --> Parser: _find_doxygen_comment()
+User --> Parser: parse_functions_ts()
 == get_parsed_file() ==
 Parser -> Parser: _parse_and_index(file_path, lang_name)
 == _find_doxygen_comment() ==
@@ -65,11 +65,11 @@ else
 Parser -> Parser: _collect_functions(child, spec, exclude, comment_start_pattern, functions)
 end alt
 end loop
-External <-- Parser: return ParsedFile instance, or None if parsing fails
+User <-- Parser: return ParsedFile instance, or None if parsing fails
 deactivate Parser
-External <-- Parser: return Raw comment text, or None if no doxygen comment found
+User <-- Parser: return Raw comment text, or None if no doxygen comment found
 activate Parser
-External <-- Parser: return List of Function objects detected in the source content
+User <-- Parser: return List of Function objects detected in the source content
 deactivate Parser
 
 @enduml

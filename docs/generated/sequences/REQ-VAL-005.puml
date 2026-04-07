@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Validate" as Validate
@@ -17,14 +17,14 @@ header
 end header
 
 
-External --> Validate: check_return_presence()
+User --> Validate: check_return_presence()
 activate Validate
 == check_return_presence() ==
 Validate -> Config: get_validate(config)
 loop func in functions
 end loop
 == _is_void_function() ==
-External <-- Validate: return or
+User <-- Validate: return or
 deactivate Validate
 
 @enduml

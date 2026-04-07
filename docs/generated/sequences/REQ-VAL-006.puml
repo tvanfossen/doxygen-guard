@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Validate" as Validate
@@ -18,7 +18,7 @@ header
 end header
 
 
-External --> Validate: check_file_presence()
+User --> Validate: check_file_presence()
 activate Validate
 == check_file_presence() ==
 Validate -> Config: get_validate(config)
@@ -34,7 +34,7 @@ activate Parser
 Validate <-- Parser: return Dict mapping tag names to lists of their values
 deactivate Parser
 == _find_file_doxygen_start() ==
-External <-- Validate: return List of violations for missing or incomplete file-level doxygen
+User <-- Validate: return List of violations for missing or incomplete file-level doxygen
 deactivate Validate
 
 @enduml

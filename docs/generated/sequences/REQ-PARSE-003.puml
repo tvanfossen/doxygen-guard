@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Parser" as Parser
@@ -16,11 +16,11 @@ header
 end header
 
 
-External --> Parser: find_body_end_indent()
+User --> Parser: find_body_end_indent()
 activate Parser
 == find_body_end_indent() ==
 Parser -> Parser: _find_body_start(lines, start_line)
-External <-- Parser: return 0-indexed line number of the last body line
+User <-- Parser: return 0-indexed line number of the last body line
 deactivate Parser
 
 @enduml

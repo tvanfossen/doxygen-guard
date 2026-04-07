@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Validate" as Validate
@@ -22,10 +22,10 @@ end header
 
 note over Validate: run_precommit() supports REQ-TRACE-001, REQ-IMPACT-003
 
-External --> Validate: validate_file()
+User --> Validate: validate_file()
 activate Validate
-External --> Validate: run_validate()
-External --> Validate: run_precommit()
+User --> Validate: run_validate()
+User --> Validate: run_precommit()
 == validate_file() ==
 Validate -> Config: get_validate(config)
 Validate -> Parser: parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)
@@ -100,11 +100,11 @@ end alt
 end loop
 == check_req_exists() ==
 Validate -> Config: get_validate(config)
-External <-- Validate: return list[Violation]
+User <-- Validate: return list[Violation]
 deactivate Validate
-External <-- Validate: return Exit code: 0 if no violations, 1 if violations found
+User <-- Validate: return Exit code: 0 if no violations, 1 if violations found
 activate Validate
-External <-- Validate: return int
+User <-- Validate: return int
 deactivate Validate
 
 @enduml

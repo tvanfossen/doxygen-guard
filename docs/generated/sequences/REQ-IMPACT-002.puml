@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Impact" as Impact
@@ -17,17 +17,17 @@ header
 end header
 
 
-External --> Impact: load_requirements()
+User --> Impact: load_requirements()
 activate Impact
-External --> Impact: filter_requirements_by_version()
+User --> Impact: filter_requirements_by_version()
 == load_requirements() ==
 Impact -> Impact: _get_requirements_config(config)
 == filter_requirements_by_version() ==
 Impact -> Config: parse_version(current_str)
 Impact -> Config: compare_versions(parse_version(row.get(version_field, "v0.0.0")), current)
-External <-- Impact: return Dict mapping requirement IDs to their display names, empty if unconfigured
+User <-- Impact: return Dict mapping requirement IDs to their display names, empty if unconfigured
 deactivate Impact
-External <-- Impact: return dict[str, dict[str, str]]
+User <-- Impact: return dict[str, dict[str, str]]
 activate Impact
 deactivate Impact
 

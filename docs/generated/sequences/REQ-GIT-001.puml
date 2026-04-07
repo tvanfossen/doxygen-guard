@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Git" as Git
@@ -16,9 +16,9 @@ header
 end header
 
 
-External --> Git: get_branch_diff_range()
+User --> Git: get_branch_diff_range()
 activate Git
-External --> Git: get_changed_lines_for_file()
+User --> Git: get_changed_lines_for_file()
 == get_branch_diff_range() ==
 Git -> Git: get_merge_base(target_branch, run_command)
 Git -> Git: _rev_parse_head(runner)
@@ -31,9 +31,9 @@ end group
 group catch
 note right: logger
 end group
-External <-- Git: return str | None
+User <-- Git: return str | None
 deactivate Git
-External <-- Git: return set[int]
+User <-- Git: return set[int]
 activate Git
 deactivate Git
 

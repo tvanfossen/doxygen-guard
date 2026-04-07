@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from doxygen_guard.config import get_impact, get_trace_options
+from doxygen_guard.config import get_impact, get_trace, get_trace_options
 from doxygen_guard.impact import load_requirements_full
 from doxygen_guard.tracer_models import (
     DiagramBuildParams,
@@ -105,8 +105,28 @@ def _find_undeclared_participants(
     return [name for name in active_names if name not in participant_set]
 
 
+## @brief Render static participant declarations from config.
+#  @version 1.0
+#  @internal
+#  @return Tuple of (PlantUML lines, set of declared names)
+def _render_static_participants(
+    static_participants: list[dict[str, str]] | None,
+) -> tuple[list[str], set[str]]:
+    lines: list[str] = []
+    names: set[str] = set()
+    for sp in static_participants or []:
+        ptype = sp.get("type", "entity")
+        pname = sp.get("name", "")
+        if pname:
+            lines.append(f'{ptype} "{pname}" as {_safe_id(pname)}')
+            names.add(pname)
+    return lines, names
+
+
 ## @brief Render participant declarations with box grouping and entity stereotypes.
-#  @version 1.2
+#  @details Static participants from config appear first in declaration order,
+#  regardless of whether they have edges. Supports actor/entity/participant types.
+#  @version 1.3
 #  @req REQ-TRACE-001
 #  @return List of PlantUML participant declaration lines
 def _render_participants(
@@ -114,19 +134,21 @@ def _render_participants(
     participants: list[Participant],
     participant_set: set[str],
     options: dict[str, Any],
+    static_participants: list[dict[str, str]] | None = None,
 ) -> list[str]:
+    static_lines, declared_static = _render_static_participants(static_participants)
+    lines: list[str] = static_lines
+
     internal, external = _partition_participants(active_names, participants)
     undeclared = _find_undeclared_participants(active_names, participant_set)
-    lines: list[str] = []
+    skip = declared_static
+    ext_names = [p for p in external if p in participant_set and p not in skip]
+    und_names = [p for p in undeclared if p not in skip]
 
-    for pname in external:
-        if pname in participant_set:
-            lines.append(f'entity "{pname}" as {_safe_id(pname)}')
-
-    for pname in undeclared:
+    for pname in ext_names + und_names:
         lines.append(f'entity "{pname}" as {_safe_id(pname)}')
 
-    if (external or undeclared) and internal:
+    if (ext_names or und_names or declared_static) and internal:
         lines.append("")
 
     box_label = options.get("box_label", "System")
@@ -212,7 +234,7 @@ def _render_req_header(
 
 
 ## @brief Render edges and function listings as a PlantUML block.
-#  @version 1.13
+#  @version 1.14
 #  @req REQ-TRACE-001
 def generate_plantuml(
     req_id: str,
@@ -237,7 +259,10 @@ def generate_plantuml(
 
     active_names = _collect_all_active_names(edges, functions)
     participant_set = {p.name for p in participants}
-    lines.extend(_render_participants(active_names, participants, participant_set, options))
+    static_p = get_trace(config).get("static_participants", [])
+    lines.extend(
+        _render_participants(active_names, participants, participant_set, options, static_p)
+    )
 
     lines.append("")
     lines.extend(_render_req_header(req_id, req_row, name_col, preconditions=preconditions))
@@ -547,7 +572,7 @@ def _render_legend() -> list[str]:
 
 
 ## @brief Generate PlantUML from AST-ordered edges.
-#  @version 1.6
+#  @version 1.7
 #  @req REQ-TRACE-001
 def generate_plantuml_ast(
     req_id: str,
@@ -576,7 +601,10 @@ def generate_plantuml_ast(
     flat_edges = [ae.edge for ae in ast_edges if ae.edge is not None]
     active_names = _collect_all_active_names(flat_edges, functions)
     participant_set = {p.name for p in participants}
-    lines.extend(_render_participants(active_names, participants, participant_set, options))
+    static_p = get_trace(config).get("static_participants", [])
+    lines.extend(
+        _render_participants(active_names, participants, participant_set, options, static_p)
+    )
 
     lines.append("")
     lines.extend(_render_req_header(req_id, req_row, name_col, preconditions=preconditions))

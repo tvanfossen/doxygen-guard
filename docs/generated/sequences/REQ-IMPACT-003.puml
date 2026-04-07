@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Impact" as Impact
@@ -16,14 +16,14 @@ header
 end header
 
 
-External --> Impact: _run_impact_command()
+User --> Impact: _run_impact_command()
 activate Impact
 == _run_impact_command() ==
 Impact -> Impact: run_impact(file_paths=file_paths, config=config, staged=args.staged, diff_range=args.diff_range,)
 == run_impact() ==
 Impact -> Impact: build_impact_report(changed, config)
 Impact -> Impact: format_report(entries, config)
-External <-- Impact: return Exit code: 0 on success, 1 if output path is invalid
+User <-- Impact: return Exit code: 0 on success, 1 if output path is invalid
 deactivate Impact
 
 @enduml

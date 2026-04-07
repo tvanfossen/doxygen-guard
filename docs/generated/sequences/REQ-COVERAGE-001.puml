@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Coverage" as Coverage
@@ -17,7 +17,7 @@ header
 end header
 
 
-External --> Coverage: run_coverage()
+User --> Coverage: run_coverage()
 activate Coverage
 == run_coverage() ==
 Coverage -> Coverage: analyze_coverage(source_dirs, config)
@@ -30,7 +30,7 @@ Coverage -> Coverage: _collect_req_ids(all_tagged)
 Coverage -> Coverage: _collect_supports_only(all_tagged)
 Coverage -> Coverage: _collect_unmapped_functions(all_tagged)
 == format_coverage_markdown() ==
-External <-- Coverage: return Exit code: 0 if no gaps, 1 if gaps exist
+User <-- Coverage: return Exit code: 0 if no gaps, 1 if gaps exist
 deactivate Coverage
 
 @enduml

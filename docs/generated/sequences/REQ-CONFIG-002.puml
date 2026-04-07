@@ -3,7 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "External" as External
+entity "User" as User
 
 box "System" #LightBlue
   participant "Config" as Config
@@ -16,13 +16,13 @@ header
 end header
 
 
-External --> Config: get_language_config()
+User --> Config: get_language_config()
 activate Config
-External --> Config: resolve_parse_settings()
+User --> Config: resolve_parse_settings()
 == resolve_parse_settings() ==
-External <-- Config: return Language config dict, or None if no language matches the file extension
+User <-- Config: return Language config dict, or None if no language matches the file extension
 deactivate Config
-External <-- Config: return ParseSettings with comment style and body detection mode
+User <-- Config: return ParseSettings with comment style and body detection mode
 activate Config
 deactivate Config
 
