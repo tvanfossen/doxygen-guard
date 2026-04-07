@@ -171,6 +171,7 @@ CONFIG_SCHEMA: dict[str, Any] = {
         "participant_field": str,
         "external_fallback": str,
         "external": list,
+        "static_participants": list,
         "options": _OPEN_DICT,
     },
     "impact": {

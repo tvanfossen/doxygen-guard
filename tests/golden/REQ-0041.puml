@@ -3,6 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+actor "User" as User
 entity "Hardware" as Hardware
 entity "Cloud" as Cloud
 entity "External" as External

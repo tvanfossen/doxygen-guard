@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+actor "User" as User
+
 box "System" #LightBlue
   participant "Event Bus" as Event_Bus
 end box

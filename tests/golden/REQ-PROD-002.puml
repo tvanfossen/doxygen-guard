@@ -3,6 +3,7 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+actor "User" as User
 entity "External" as External
 
 box "System" #LightBlue

@@ -3,6 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
+actor "User" as User
+
 box "System" #LightBlue
   participant "Sensor Driver" as Sensor_Driver
   participant "Controller" as Controller
