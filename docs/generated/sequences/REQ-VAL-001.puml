@@ -89,6 +89,14 @@ activate Impact
 Validate <-- Impact: return list[ImpactEntry]
 deactivate Impact
 end alt
+Validate -> Impact: format_json()
+activate Impact
+Validate <-- Impact: return JSON-formatted impact report string
+deactivate Impact
+Validate -> Impact: format_markdown()
+activate Impact
+Validate <-- Impact: return Markdown-formatted impact report string
+deactivate Impact
 == check_presence() ==
 Validate -> Config: get_validate(config)
 == check_unknown_tags() ==

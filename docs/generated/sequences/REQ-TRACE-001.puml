@@ -4,6 +4,9 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 entity "User" as User
+entity "refs not matched to any call site during AST walk." as refs_not_matched_to_any_call_site_during_AST_walk_
+entity "always takes precedence. Also detects system boundary calls (callees not defined in scanned source)." as always_takes_precedence__Also_detects_system_boundary_calls__callees_not_defined_in_scanned_source__
+entity "calls. Deactivates on returns. Avoids stacking activations inside loops or handler chains." as calls__Deactivates_on_returns__Avoids_stacking_activations_inside_loops_or_handler_chains_
 
 box "System" #LightBlue
   participant "Trace" as Trace
@@ -116,6 +119,7 @@ Trace -> Trace: _walk_statements(body, state)
 alt remaining
 Trace -> Trace: _flush_remaining_emits(remaining, from_name, tf.name, ctx, depth, edges)
 end alt
+Trace -> Trace: _flush_remaining_ext_refs(state)
 == _place_boundary_call() ==
 Trace -> Trace: _extract_call_args_label(call_node)
 alt state.ctx.show_returns
@@ -146,6 +150,16 @@ alt handler_tf and depth < ctx.max_depth
 Trace -> Trace: _follow_handler_chain(handler_tf, ctx, depth)
 end alt
 end loop
+== _flush_remaining_ext_refs() ==
+loop callee, ext_ref in sorted(state.ext_refs.items())
+alt callee not in state.ext_placed
+Trace -> Trace: _place_ext_edge(callee, ext_ref, state.from_name, state.ctx, state.edges, None)
+end alt
+end loop
+Trace -> refs_not_matched_to_any_call_site_during_AST_walk_: refs not matched to any call site during AST walk.()
+activate refs_not_matched_to_any_call_site_during_AST_walk_
+Trace <-- refs_not_matched_to_any_call_site_during_AST_walk_: return
+deactivate refs_not_matched_to_any_call_site_during_AST_walk_
 == _place_ext_edge() ==
 Trace -> Trace: split_ext_ref(ext_ref)
 Trace -> Trace: resolve_ext_target(func_name, module, ctx.all_tagged, all_participants)
@@ -173,6 +187,10 @@ alt tf.participant_name
 Trace -> Trace: _infer_ext_for_function(tf, all_tagged, file_cache)
 end alt
 end loop
+Trace -> always_takes_precedence__Also_detects_system_boundary_calls__callees_not_defined_in_scanned_source__: always takes precedence. Also detects system boundary calls (callees not defined in scanned source).()
+activate always_takes_precedence__Also_detects_system_boundary_calls__callees_not_defined_in_scanned_source__
+Trace <-- always_takes_precedence__Also_detects_system_boundary_calls__callees_not_defined_in_scanned_source__: return
+deactivate always_takes_precedence__Also_detects_system_boundary_calls__callees_not_defined_in_scanned_source__
 == _infer_ext_for_function() ==
 Trace -> Trace: ext_func_name(ref)
 Trace -> Trace: _resolve_body_callees(tf, file_cache)
@@ -273,6 +291,10 @@ Trace -> Trace: _close_activations(active, lines)
 Trace -> Trace: _safe_id(edge.from_name)
 Trace -> Trace: _safe_id(edge.to_name)
 Trace -> Trace: _compute_activation(ae.kind, edge.label, f, t, active)
+Trace -> calls__Deactivates_on_returns__Avoids_stacking_activations_inside_loops_or_handler_chains_: calls. Deactivates on returns. Avoids stacking activations inside loops or handler chains.()
+activate calls__Deactivates_on_returns__Avoids_stacking_activations_inside_loops_or_handler_chains_
+Trace <-- calls__Deactivates_on_returns__Avoids_stacking_activations_inside_loops_or_handler_chains_: return
+deactivate calls__Deactivates_on_returns__Avoids_stacking_activations_inside_loops_or_handler_chains_
 == generate_plantuml_ast() ==
 Trace -> Config: get_trace_options(config)
 Trace -> Trace: _get_name_col(config)

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 from doxygen_guard.tracer_models import (
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 ## @brief Mutable state threaded through the recursive AST walk.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 @dataclass
 class _WalkState:
@@ -44,10 +44,11 @@ class _WalkState:
     emits_placed: set[str]
     ext_refs: dict[str, str]
     edges: list[ASTEdge]
+    ext_placed: set[str] = field(default_factory=set)
 
 
 ## @brief Walk a function body AST to produce edges in source execution order.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-TRACE-001
 def walk_function_body(
     func_node: Node,
@@ -84,6 +85,8 @@ def walk_function_body(
     if remaining:
         _flush_remaining_emits(remaining, from_name, tf.name, ctx, depth, edges)
 
+    _flush_remaining_ext_refs(state)
+
     return edges
 
 
@@ -109,7 +112,7 @@ def _walk_statements(
 
 
 ## @brief Handle a call expression node, producing the appropriate edge type.
-#  @version 1.8
+#  @version 1.9
 #  @req REQ-TRACE-001
 def _handle_call(
     call_node: Node,
@@ -126,6 +129,7 @@ def _handle_call(
         _place_ext_edge(
             callee, state.ext_refs[callee], state.from_name, state.ctx, state.edges, call_node
         )
+        state.ext_placed.add(callee)
     elif _is_tagged_call_target(callee, state.ctx):
         _place_tagged_call(call_node, callee, state)
     elif state.ctx.boundary_functions and callee in state.ctx.boundary_functions:
@@ -259,6 +263,15 @@ def _flush_remaining_emits(
         if handler_tf and depth < ctx.max_depth:
             chain_edges = _follow_handler_chain(handler_tf, ctx, depth)
             edges.extend(chain_edges)
+
+
+## @brief Flush manual @ext refs not matched to any call site during AST walk.
+#  @version 1.0
+#  @req REQ-TRACE-001
+def _flush_remaining_ext_refs(state: _WalkState) -> None:
+    for callee, ext_ref in sorted(state.ext_refs.items()):
+        if callee not in state.ext_placed:
+            _place_ext_edge(callee, ext_ref, state.from_name, state.ctx, state.edges, None)
 
 
 ## @brief Resolve an emit event to an edge and optionally a handler for chain following.

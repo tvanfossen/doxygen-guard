@@ -1,1 +1,23 @@
-[]
+[
+  {
+    "req_id": "REQ-TRACE-001",
+    "req_name": "Sequence diagram generation",
+    "functions": [
+      {
+        "name": "walk_function_body",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.5"
+      },
+      {
+        "name": "_handle_call",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.9"
+      },
+      {
+        "name": "_flush_remaining_ext_refs",
+        "file": "src/doxygen_guard/ast_walker.py",
+        "version": "1.0"
+      }
+    ]
+  }
+]
