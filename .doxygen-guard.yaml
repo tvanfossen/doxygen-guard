@@ -12,6 +12,10 @@ validate:
 trace:
   format: plantuml
   participant_field: "Subsystem"
+  external:
+    - User:
+        receives_prefix: ["CMD_"]
+  external_fallback: "User"
   options:
     autonumber: true
 
