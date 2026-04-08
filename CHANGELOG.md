@@ -3,6 +3,76 @@
 All notable changes to doxygen-guard are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.0] - 2026-04-07
+
+### BREAKING: Behavioral Trace Engine Redesign
+
+The trace engine has been redesigned to produce behavioral sequence diagrams
+instead of call graphs. This is a breaking change — all annotation tags,
+config keys, and generated output have changed.
+
+### Tag Renames
+
+| Old | New | Purpose |
+|-----|-----|---------|
+| `@emits` | `@sends` | Dashed arrow to handler's participant |
+| `@handles` | `@receives` | Entry arrow from external participant |
+| `@ext` | `@calls` | Solid arrow to external participant |
+| `@triggers` | `@note` | Note on participant (doxygen built-in) |
+| `@assumes` | `@after` | Header precondition |
+| `@module` | `@participant` | File-level participant declaration |
+| `@emit_source` | `@send_source` | Infrastructure root marker |
+| `@handle_source` | `@receive_source` | Infrastructure root marker |
+
+### Config Key Renames
+
+| Old | New |
+|-----|-----|
+| `infer_emits` | `infer_sends` |
+| `infer_ext` | `infer_calls` |
+| `event_emit_functions` | `event_send_functions` |
+| `event_register_functions` | `event_receive_functions` |
+
+### Removed
+- `@supports` tag — use `@utility` for coverage exemption
+- `ast_walker.py` — call-graph AST recursion engine (854 lines)
+- `edges_ast.py` — call-graph edge builder (524 lines)
+- `edges.py` — legacy regex edge builder (251 lines)
+- `infrastructure.py` — infrastructure table (depended on @supports)
+- Config options: `show_project_calls`, `cross_req_depth`, `show_return_values`
+
+### Added
+- `edges_behavioral.py` — annotation-driven behavioral edge builder
+- `@loop "label"` tag — wraps handler section in loop block
+- `@group "label"` tag — wraps handler section in group block
+- `entry_chain` config on external participants — upstream participant chain arrows
+- `label_template` config on external participants — protocol-level labels from boundary args
+- `box_color` config option
+- Boundary-argument extraction from tree-sitter AST
+- Payload extraction from conditional patterns (strcmp, ==)
+
+### Changed
+- Default `show_returns: false` (was `true`)
+- Default `label_mode: "brief"` (was `"full"`)
+- Participant resolution priority: requirements CSV > `@participant` (was `@module` > CSV)
+- No "External" fallback participant — unresolvable entries omitted with warning
+
+### Migration
+
+Rename annotations before upgrading:
+```bash
+# In your annotated source files:
+sed -i 's/@emits/@sends/g; s/@handles/@receives/g; s/@ext /@calls /g' src/**/*.c
+sed -i 's/@triggers/@note/g; s/@assumes/@after/g; s/@module/@participant/g' src/**/*.c
+sed -i 's/@supports/@utility/g' src/**/*.c
+sed -i 's/@emit_source/@send_source/g; s/@handle_source/@receive_source/g' src/**/*.c
+
+# In .doxygen-guard.yaml:
+sed -i 's/infer_emits/infer_sends/; s/infer_ext/infer_calls/' .doxygen-guard.yaml
+sed -i 's/event_emit_functions/event_send_functions/' .doxygen-guard.yaml
+sed -i 's/event_register_functions/event_receive_functions/' .doxygen-guard.yaml
+```
+
 ## [1.1.3] - 2026-04-02
 
 ### Added
