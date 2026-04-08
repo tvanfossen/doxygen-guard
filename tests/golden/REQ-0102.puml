@@ -1,0 +1,30 @@
+@startuml REQ-0102_Dock_Command
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+actor "User" as User
+entity "Mobile" as Mobile
+entity "MCU" as MCU
+entity "Cloud" as Cloud
+
+box "IoT Library" #LightBlue
+  participant "IoT Library" as IoT_Library
+end box
+
+header
+  **REQ-0102: Dock Command**
+  //Description:// Receive cloud dock command via MQTT and send return-to-base\ninstruction to MCU.
+  //Acceptance Criteria:// Dock command dispatched to MCU via DCI callback. Product\nstatus published during return.
+end header
+
+
+IoT_Library -> MCU: DurableEventCb(DURABLE_IN_EVENT_DOCK, NULL)
+activate MCU
+== on_product_status() ==
+IoT_Library -> Cloud: CloudMgr_Publish("shadow/reported", &report, sizeof(report))
+activate Cloud
+deactivate Cloud
+deactivate MCU
+
+@enduml

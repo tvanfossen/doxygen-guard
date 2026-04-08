@@ -4,8 +4,9 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 actor "User" as User
+entity "Mobile" as Mobile
 
-box "System" #LightBlue
+box "IoT Library" #LightBlue
   participant "Sensor Driver" as Sensor_Driver
   participant "Controller" as Controller
 end box
@@ -18,10 +19,10 @@ end header
 
 
 == Sensor_ReadHumidity() ==
-Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY\nSensor_ReadHumidity() -> Controller_OnSensorData()
+Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY
 note right of Controller: Threshold Check
 alt sensor_value > threshold
-Controller --> Controller: EVENT_CONTROL_ACTION\nController_OnSensorData() -> Controller_ReportStatus()
+Controller --> Controller: EVENT_CONTROL_ACTION
 end alt
 
 @enduml

@@ -1,0 +1,42 @@
+@startuml REQ-0100_Start_Clean_Command
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+actor "User" as User
+entity "Mobile" as Mobile
+entity "Cloud" as Cloud
+entity "MCU" as MCU
+
+box "IoT Library" #LightBlue
+  participant "IoT Library" as IoT_Library
+end box
+
+header
+  **REQ-0100: Start Clean Command**
+  //Description:// Receive cloud clean command via MQTT, dispatch to MCU,\nreport status changes back to cloud shadow.
+  //Acceptance Criteria:// Cloud command dispatched to MCU via DCI callback. Product\nstatus published to shadow on each change. Cycle summary\npublished on completion.
+end header
+
+
+alt strcmp(cmd.state, "clean") == 0
+IoT_Library --> IoT_Library: EVENT_CLEAN_CMD
+else
+alt strcmp(cmd.state, "dock") == 0
+IoT_Library --> IoT_Library: EVENT_DOCK_CMD
+end alt
+end alt
+== send_cmd_response() ==
+IoT_Library -> Cloud: CloudMgr_Publish("cmd/resp", &resp, sizeof(resp))
+activate Cloud
+== execute_clean() ==
+IoT_Library -> MCU: DurableEventCb(DURABLE_IN_EVENT_SET_DRIVE, &info)
+activate MCU
+== on_product_status() ==
+IoT_Library -> Cloud: CloudMgr_Publish("shadow/reported", &report, sizeof(report))
+== on_cycle_complete() ==
+IoT_Library -> Cloud: CloudMgr_Publish("mapping/runcomplete", &report, sizeof(report))
+deactivate Cloud
+deactivate MCU
+
+@enduml

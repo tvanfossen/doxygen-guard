@@ -4,9 +4,10 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 actor "User" as User
+entity "Mobile" as Mobile
 entity "External" as External
 
-box "System" #LightBlue
+box "IoT Library" #LightBlue
   participant "Comm Manager" as Comm_Manager
   participant "Controller" as Controller
 end box
@@ -18,19 +19,14 @@ header
 end header
 
 
-External --> Comm_Manager: EVENT_COMM_RX_RECEIVED\nComm_OnRemoteCommand()
+External --> Comm_Manager: EVENT_COMM_RX_RECEIVED
 activate Comm_Manager
 External --> Controller: Controller_ReportStatus()
 activate Controller
 == Comm_OnRemoteCommand() ==
-Comm_Manager --> Controller: EVENT_CONTROL_ACTION\nComm_OnRemoteCommand() -> Controller_ReportStatus()
+Comm_Manager --> Controller: EVENT_CONTROL_ACTION
 Controller -> Comm_Manager: Comm_SendStatus(&status)
-Controller <-- Comm_Manager: return
 deactivate Comm_Manager
-External <-- Comm_Manager: return
-activate Comm_Manager
-External <-- Controller: return
 deactivate Controller
-deactivate Comm_Manager
 
 @enduml

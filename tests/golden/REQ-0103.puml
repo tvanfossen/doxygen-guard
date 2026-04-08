@@ -1,0 +1,30 @@
+@startuml REQ-0103_Error_Reporting
+autonumber
+skinparam maxMessageSize 200
+skinparam responseMessageBelowArrow true
+
+actor "User" as User
+entity "Mobile" as Mobile
+entity "Cloud" as Cloud
+entity "External" as External
+
+box "IoT Library" #LightBlue
+  participant "IoT Library" as IoT_Library
+end box
+
+header
+  **REQ-0103: Error Reporting**
+  //Description:// Forward MCU error notifications to cloud for remote\ndiagnostics and alerting.
+  //Acceptance Criteria:// Error info published to device/error topic.
+end header
+
+
+External --> IoT_Library: on_error_report()
+activate IoT_Library
+== on_error_report() ==
+IoT_Library -> Cloud: CloudMgr_Publish("device/error", error, sizeof(*error))
+activate Cloud
+deactivate Cloud
+deactivate IoT_Library
+
+@enduml
