@@ -1,22 +1,23 @@
 [
   {
-    "req_id": "REQ-TRACE-001",
-    "req_name": "Sequence diagram generation",
+    "req_id": "REQ-VAL-001",
+    "req_name": "Doxygen presence check",
     "functions": [
       {
-        "name": "walk_function_body",
-        "file": "src/doxygen_guard/ast_walker.py",
-        "version": "1.5"
-      },
+        "name": "run_precommit",
+        "file": "src/doxygen_guard/main.py",
+        "version": "2.3"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-VAL-004",
+    "req_name": "Req coverage enforcement",
+    "functions": [
       {
-        "name": "_handle_call",
-        "file": "src/doxygen_guard/ast_walker.py",
-        "version": "1.9"
-      },
-      {
-        "name": "_flush_remaining_ext_refs",
-        "file": "src/doxygen_guard/ast_walker.py",
-        "version": "1.0"
+        "name": "check_req_coverage",
+        "file": "src/doxygen_guard/checks.py",
+        "version": "1.4"
       }
     ]
   }

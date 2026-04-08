@@ -3,11 +3,9 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "User" as User
-
 box "System" #LightBlue
   participant "Impact" as Impact
-  participant "Parser" as Parser
+  participant "Config" as Config
 end box
 
 header
@@ -17,20 +15,9 @@ header
 end header
 
 
-User --> Impact: collect_changed_functions()
-activate Impact
-== collect_changed_functions() ==
-loop file_path in file_paths
-Impact -> Impact: _collect_changed_lines(file_path, staged, diff_range, run_command)
-alt changed_lines
-end alt
-end loop
 == _extract_changed_functions() ==
-Impact -> Parser: parse_source_file(file_path, config)
-activate Parser
-Impact <-- Parser: return list | None
-deactivate Parser
-User <-- Impact: return list[ChangedFunction]
-deactivate Impact
+Impact -> Config: parse_source_file(file_path, config)
+activate Config
+deactivate Config
 
 @enduml

@@ -5,8 +5,8 @@ skinparam responseMessageBelowArrow true
 
 actor "User" as User
 entity "Mobile" as Mobile
+entity "MCU" as MCU
 entity "Cloud" as Cloud
-entity "External" as External
 
 box "IoT Library" #LightBlue
   participant "IoT Library" as IoT_Library
@@ -19,10 +19,10 @@ header
 end header
 
 
-External --> IoT_Library: on_error_report()
+MCU --> IoT_Library: error_report
 activate IoT_Library
 == on_error_report() ==
-IoT_Library -> Cloud: CloudMgr_Publish("device/error", error, sizeof(*error))
+IoT_Library -> Cloud:  device/error
 activate Cloud
 deactivate Cloud
 deactivate IoT_Library

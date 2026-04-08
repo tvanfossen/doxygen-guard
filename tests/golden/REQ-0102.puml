@@ -19,12 +19,19 @@ header
 end header
 
 
+IoT_Library --> IoT_Library: EVENT_DOCK_CMD
+MCU --> IoT_Library: product_status
+activate IoT_Library
+== execute_dock() ==
 IoT_Library -> MCU: DurableEventCb(DURABLE_IN_EVENT_DOCK, NULL)
 activate MCU
+loop "as product status changes"
 == on_product_status() ==
-IoT_Library -> Cloud: CloudMgr_Publish("shadow/reported", &report, sizeof(report))
+IoT_Library -> Cloud:  shadow/reported
 activate Cloud
+end loop
 deactivate Cloud
+deactivate IoT_Library
 deactivate MCU
 
 @enduml

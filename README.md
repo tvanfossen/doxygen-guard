@@ -40,7 +40,7 @@ impact:
 ### 3. Add doxygen to your functions
 
 ```c
-/** @module Sensor Driver */
+/** @participant Sensor Driver */
 
 /**
  * @brief Read temperature from sensor hardware.
@@ -75,16 +75,16 @@ Diagrams are generated from the AST — most behavioral tags are **inferred**, n
 | Tag | Purpose | Manual? |
 |-----|---------|---------|
 | `@req` | Requirement mapping | Yes — per function |
-| `@module` | Participant identity | Yes — once per file |
-| `@triggers` | State annotations | Yes — per function |
+| `@participant` | Participant identity | Yes — once per file |
+| `@note` | State annotations | Yes — per function |
 | `@return` | Return value documentation | Yes — per function |
-| `@emit_source` | Infrastructure root (e.g., on `Event_post`) | Yes — once |
-| `@handle_source` | Registration root (e.g., on `Event_register`) | Yes — once |
-| `@emits` | Events emitted | **Inferred from AST** |
-| `@handles` | Events handled | **Inferred from AST** |
-| `@ext` | Cross-module calls | **Inferred from AST** |
+| `@send_source` | Infrastructure root (e.g., on `Event_post`) | Yes — once |
+| `@receive_source` | Registration root (e.g., on `Event_register`) | Yes — once |
+| `@sends` | Events emitted | **Inferred from AST** |
+| `@receives` | Events handled | **Inferred from AST** |
+| `@calls` | Cross-module calls | **Inferred from AST** |
 
-The tool scans function bodies via tree-sitter to detect `event_post()` calls, `Event_register()` patterns, and cross-participant function calls automatically.
+The tool scans function bodies via tree-sitter to detect `event_post()` calls, `Event_register()` patterns, and cross-participant function calls automatically. Tags `@sends`, `@receives`, and `@calls` are inferred automatically.
 
 **Project-defined function calls** are also shown in diagrams — any standalone call to a function defined in your scanned source files produces an edge, even without trace tags. Method calls (`.get()`, `.strip()`) are excluded via AST node type, not heuristics.
 

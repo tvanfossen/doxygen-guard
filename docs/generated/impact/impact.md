@@ -2,6 +2,7 @@
 
 | REQ | Name | Functions Changed |
 |-----|------|-------------------|
-| REQ-TRACE-001 | Sequence diagram generation | walk_function_body, _handle_call, _flush_remaining_ext_refs |
+| REQ-VAL-001 | Doxygen presence check | run_precommit |
+| REQ-VAL-004 | Req coverage enforcement | check_req_coverage |
 
-**Total: 1 requirement(s) affected, 3 function(s) changed**
+**Total: 2 requirement(s) affected, 2 function(s) changed**

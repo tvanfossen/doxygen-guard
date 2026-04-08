@@ -6,8 +6,6 @@ skinparam responseMessageBelowArrow true
 actor "User" as User
 entity "Mobile" as Mobile
 entity "Cloud" as Cloud
-entity "Hardware" as Hardware
-entity "External" as External
 
 box "IoT Library" #LightBlue
   participant "OTA Manager" as OTA_Manager
@@ -23,30 +21,33 @@ header
 end header
 
 
+User -> Mobile: OTA Firmware Update
+activate Mobile
+Mobile -> Cloud: OTA Firmware Update
+activate Cloud
 Cloud --> OTA_Manager: EVENT_CLOUD_OTA_AVAILABLE
 activate OTA_Manager
 Comm_Manager --> OTA_Manager: EVENT_COMM_CHUNK_RECEIVED
 Comm_Manager --> OTA_Manager: EVENT_COMM_DOWNLOAD_COMPLETE
-External --> OTA_Manager: OTA_Init()
 == OTA_OnUpdateAvailable() ==
 note right of OTA_Manager: Ota State Change
 OTA_Manager --> Comm_Manager: EVENT_COMM_DOWNLOAD_START
-loop http_has_data(&stream)
-Comm_Manager --> OTA_Manager: EVENT_COMM_CHUNK_RECEIVED
-OTA_Manager --> Hardware: EVENT_HW_FLASH_WRITE
-end loop
-Comm_Manager --> OTA_Manager: EVENT_COMM_DOWNLOAD_COMPLETE
+== OTA_OnChunkReceived() ==
+OTA_Manager --> OTA_Manager: EVENT_HW_FLASH_WRITE
+== OTA_OnDownloadComplete() ==
 note right of OTA_Manager: Ota Verify Crc
+OTA_Manager --> OTA_Manager: EVENT_CLOUD_OTA_RESULT
 OTA_Manager -> Comm_Manager: Comm_SendStatus(&status)
 activate Comm_Manager
-OTA_Manager --> Cloud: EVENT_CLOUD_OTA_RESULT
 == OTA_Init() ==
 OTA_Manager -> Event_Bus: Event_register(EVENT_CLOUD_OTA_AVAILABLE, OTA_OnUpdateAvailable)
 activate Event_Bus
 OTA_Manager -> Event_Bus: Event_register(EVENT_COMM_CHUNK_RECEIVED, OTA_OnChunkReceived)
 OTA_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_COMPLETE, OTA_OnDownloadComplete)
+deactivate Cloud
 deactivate Comm_Manager
 deactivate Event_Bus
+deactivate Mobile
 deactivate OTA_Manager
 
 @enduml

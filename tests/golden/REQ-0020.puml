@@ -6,7 +6,6 @@ skinparam responseMessageBelowArrow true
 actor "User" as User
 entity "Mobile" as Mobile
 entity "WiFi Stack" as WiFi_Stack
-entity "External" as External
 
 box "IoT Library" #LightBlue
   participant "Comm Manager" as Comm_Manager
@@ -21,26 +20,20 @@ header
 end header
 
 
-alt EVENT_WIFI_DISCONNECTED
 WiFi_Stack --> Comm_Manager: EVENT_WIFI_DISCONNECTED
 activate Comm_Manager
-else [EVENT_WIFI_CONNECTED]
 WiFi_Stack --> Comm_Manager: EVENT_WIFI_CONNECTED
-else [EVENT_MQTT_CONNACK]
 WiFi_Stack --> Comm_Manager: EVENT_MQTT_CONNACK
-else [EVENT_MQTT_CLOSE]
 WiFi_Stack --> Comm_Manager: EVENT_MQTT_CLOSE
-end alt
-External --> Comm_Manager: Comm_Init()
-External --> Comm_Manager: Shadow_Initialize()
 == Comm_Init() ==
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_RX_RECEIVED, Comm_OnRemoteCommand)
 activate Event_Bus
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_START, Comm_DownloadFirmware)
-== Shadow_Initialize() ==
-Comm_Manager -> Event_Bus: Event_register(EVENT_WIFI_DISCONNECTED | EVENT_WIFI_CONNECTED | EVENT_MQTT_CONNACK | EVENT_MQTT_CLOSE, Shadow_OnConnectivityEvent)
 == Comm_SendStatus() ==
 Comm_Manager --> Comm_Manager: EVENT_COMM_TX_COMPLETE
+== Shadow_Initialize() ==
+Comm_Manager -> Event_Bus: Event_register(EVENT_WIFI_DISCONNECTED | EVENT_WIFI_CONNECTED |
+        EVENT_MQTT_CONNACK | EVENT_MQTT_CLOSE, Shadow_OnConnectivityEvent)
 deactivate Comm_Manager
 deactivate Event_Bus
 

@@ -19,17 +19,24 @@ header
 end header
 
 
-alt strcmp(key, "fanpower") == 0
-IoT_Library --> IoT_Library: EVENT_SETTING_CHANGE
-end alt
-== send_cmd_response() ==
-IoT_Library -> Cloud: CloudMgr_Publish("cmd/resp", &resp, sizeof(resp))
+User -> Mobile: Device Setting Change
+activate Mobile
+Mobile -> Cloud: Device Setting Change
 activate Cloud
+Cloud --> IoT_Library: shadow/desired
+activate IoT_Library
+IoT_Library --> IoT_Library: EVENT_CLEAN_CMD
+== handle_shadow_delta() ==
+IoT_Library --> IoT_Library: EVENT_SETTING_CHANGE
+== send_cmd_response() ==
+IoT_Library -> Cloud:  cmd/resp
 == apply_setting() ==
 IoT_Library -> MCU: DurableEventCb(DURABLE_IN_EVENT_CONFIG, &update)
 activate MCU
-IoT_Library -> Cloud: CloudMgr_Publish("shadow/reported", &update, sizeof(update))
+IoT_Library -> Cloud:  shadow/reported
 deactivate Cloud
+deactivate IoT_Library
 deactivate MCU
+deactivate Mobile
 
 @enduml

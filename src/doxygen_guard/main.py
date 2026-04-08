@@ -260,10 +260,9 @@ def _detect_current_version(config: dict[str, Any]) -> str | None:
 
 
 ## @brief Run all configured checks in pre-commit mode (no subcommand).
-#  @version 2.2
+#  @version 2.3
 #  @req REQ-VAL-001
-#  @supports REQ-TRACE-001
-#  @supports REQ-IMPACT-003
+#  @return Exit code: 0 if no violations, 1 if violations found
 def run_precommit(file_paths: list[str], config: dict[str, Any]) -> int:
     logger.info("Pre-commit mode: %d file(s)", len(file_paths))
     logger.info("Config: output_dir=%s", config.get("output_dir", "docs/generated/"))

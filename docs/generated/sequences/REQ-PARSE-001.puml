@@ -3,12 +3,11 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "User" as User
+entity "Ts Languages" as Ts_Languages
 
 box "System" #LightBlue
   participant "Parser" as Parser
   participant "Config" as Config
-  participant "Trace" as Trace
 end box
 
 header
@@ -18,30 +17,13 @@ header
 end header
 
 
-User --> Parser: parse_source_file()
-activate Parser
-== parse_source_file() ==
-Parser -> Parser: parse_source_file_with_content(file_path, config, skip_forward_declarations)
 == parse_source_file_with_content() ==
 Parser -> Config: get_language_config(config, file_path)
 activate Config
-Parser <-- Config: return Language config dict, or None if no language matches the file extension
-deactivate Config
 Parser -> Config: resolve_parse_settings(config, lang_config)
-activate Config
-Parser <-- Config: return ParseSettings with comment style and body detection mode
+Parser -> Ts_Languages: language_for_file(file_path, config)
+activate Ts_Languages
 deactivate Config
-Parser -> Trace: language_for_file(file_path, config)
-activate Trace
-Parser <-- Trace: return Language name string, or None if no language matches the file
-deactivate Trace
-Parser -> Parser: parse_functions(content=content, function_pattern=lang_config["function_pattern"], exclude_names=lang_config.get("exclude_names", []), settings=settings, skip_forward_declarations=skip_forward_declarations, lang_name=lang_name,)
-== parse_functions() ==
-alt lang_name is not None
-Parser -> Parser: _parse_functions_treesitter(content, lang_name, exclude_names, settings)
-end alt
-Parser -> Parser: _parse_functions_regex(content, function_pattern, exclude_names, settings, skip_forward_declarations)
-User <-- Parser: return list | None
-deactivate Parser
+deactivate Ts_Languages
 
 @enduml

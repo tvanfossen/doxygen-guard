@@ -164,7 +164,7 @@ def _is_void_function(func: Function, lines: list[str]) -> bool:
     return False
 
 
-EXEMPTION_TAGS = {"utility", "internal", "callback", "supports"}
+EXEMPTION_TAGS = {"utility", "internal", "callback"}
 
 
 ## @brief Check if version gate is configured.
@@ -187,7 +187,7 @@ def _has_active_requirements(config: dict[str, Any]) -> bool:
 
 
 ## @brief Verify functions have requirement or exemption tags when requirements are configured.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-VAL-004
 def check_req_coverage(
     functions: list[Function],
@@ -221,7 +221,7 @@ def check_req_coverage(
                     message=(
                         f"Function '{func.name}' has no @req tag "
                         f"(see {req_file}) and no exemption "
-                        f"(@utility, @internal, @callback, @supports)"
+                        f"(@utility, @internal, @callback)"
                     ),
                 )
             )
@@ -404,12 +404,13 @@ _KNOWN_TAGS: frozenset[str] = frozenset(
         "brief",
         "version",
         "req",
-        "emits",
-        "handles",
-        "ext",
-        "triggers",
-        "supports",
-        "assumes",
+        "sends",
+        "receives",
+        "calls",
+        "note",
+        "after",
+        "loop",
+        "group",
         "internal",
         "utility",
         "callback",
@@ -417,15 +418,14 @@ _KNOWN_TAGS: frozenset[str] = frozenset(
         "return",
         "returns",
         "file",
-        "note",
         "details",
         "see",
         "todo",
         "deprecated",
         "warning",
-        "emit_source",
-        "handle_source",
-        "module",
+        "send_source",
+        "receive_source",
+        "participant",
     }
 )
 

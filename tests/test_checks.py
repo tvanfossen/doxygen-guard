@@ -233,16 +233,16 @@ class TestCheckTags:
         config = {
             "validate": {
                 "tags": {
-                    "emits": {"require_prefix": ["EVENT:", "FSM:"]},
+                    "sends": {"require_prefix": ["EVENT:", "FSM:"]},
                 },
             }
         }
         # Valid prefix
-        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "emits": ["EVENT:READY"]})]
+        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "sends": ["EVENT:READY"]})]
         assert check_tags(funcs, "test.c", config) == []
 
         # Invalid prefix
-        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "emits": ["BADPREFIX"]})]
+        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "sends": ["BADPREFIX"]})]
         violations = check_tags(funcs, "test.c", config)
         assert len(violations) == 1
         assert "does not start with" in violations[0].message
@@ -251,16 +251,16 @@ class TestCheckTags:
         config = {
             "validate": {
                 "tags": {
-                    "ext": {"require_contains": "::"},
+                    "calls": {"require_contains": "::"},
                 },
             }
         }
         # Valid
-        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "ext": ["mod::func"]})]
+        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "calls": ["mod::func"]})]
         assert check_tags(funcs, "test.c", config) == []
 
         # Invalid
-        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "ext": ["modfunc"]})]
+        funcs = [_make_func(tags={"brief": ["X."], "version": ["1.0"], "calls": ["modfunc"]})]
         violations = check_tags(funcs, "test.c", config)
         assert len(violations) == 1
         assert "does not contain" in violations[0].message

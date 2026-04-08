@@ -20,9 +20,5 @@ end header
 
 == Sensor_ReadTemperature() ==
 Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY
-note right of Controller: Threshold Check
-alt sensor_value > threshold
-Controller --> Controller: EVENT_CONTROL_ACTION
-end alt
 
 @enduml

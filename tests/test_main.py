@@ -180,7 +180,7 @@ class TestPrecommitPipeline:
                  * @brief Process data.
                  * @version 1.0
                  * @req REQ-001
-                 * @emits EVENT:DATA_READY
+                 * @sends EVENT:DATA_READY
                  */
                 void Process(void) {
                     event_post(EVENT_DATA_READY);
@@ -190,7 +190,7 @@ class TestPrecommitPipeline:
                  * @brief Handle data event.
                  * @version 1.0
                  * @req REQ-001
-                 * @handles EVENT:DATA_READY
+                 * @receives EVENT:DATA_READY
                  */
                 void OnDataReady(void) {
                     consume();

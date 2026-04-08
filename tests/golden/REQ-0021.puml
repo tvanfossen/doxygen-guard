@@ -5,7 +5,6 @@ skinparam responseMessageBelowArrow true
 
 actor "User" as User
 entity "Mobile" as Mobile
-entity "External" as External
 
 box "IoT Library" #LightBlue
   participant "Comm Manager" as Comm_Manager
@@ -20,17 +19,12 @@ header
 end header
 
 
-External --> Comm_Manager: EVENT_COMM_RX_RECEIVED
-activate Comm_Manager
-External --> Comm_Manager: Comm_Init()
 == Comm_OnRemoteCommand() ==
 Comm_Manager --> Controller: EVENT_CONTROL_ACTION
-Controller -> Comm_Manager: Comm_SendStatus(&status)
 == Comm_Init() ==
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_RX_RECEIVED, Comm_OnRemoteCommand)
 activate Event_Bus
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_START, Comm_DownloadFirmware)
-deactivate Comm_Manager
 deactivate Event_Bus
 
 @enduml

@@ -89,9 +89,9 @@ void real(void) { }
  * @brief Start pairing.
  * @version 1.0
  * @req REQ-0252
- * @emits EVENT_PAIRING_STARTED
- * @ext wifi_mgr::WiFi_ConnectAfterDelay
- * @triggers CLOUD_DISABLE
+ * @sends EVENT_PAIRING_STARTED
+ * @calls wifi_mgr::WiFi_ConnectAfterDelay
+ * @note CLOUD_DISABLE
  */
 void Pairing_Start(void) {
     disable_cloud();
@@ -101,9 +101,9 @@ void Pairing_Start(void) {
         assert len(funcs) == 1
         tags = funcs[0].doxygen.tags
         assert tags.get("req") == ["REQ-0252"]
-        assert tags.get("emits") == ["EVENT_PAIRING_STARTED"]
-        assert tags.get("ext") == ["wifi_mgr::WiFi_ConnectAfterDelay"]
-        assert tags.get("triggers") == ["CLOUD_DISABLE"]
+        assert tags.get("sends") == ["EVENT_PAIRING_STARTED"]
+        assert tags.get("calls") == ["wifi_mgr::WiFi_ConnectAfterDelay"]
+        assert tags.get("note") == ["CLOUD_DISABLE"]
 
     def test_body_end_line(self):
         code = """\
@@ -202,7 +202,7 @@ class TestParityWithFixtures:
         pairing = next(f for f in funcs if f.name == "Pairing_Start")
         assert pairing.doxygen is not None
         assert pairing.doxygen.tags.get("req") == ["REQ-0252"]
-        assert pairing.doxygen.tags.get("emits") == ["EVENT_PAIRING_STARTED"]
+        assert pairing.doxygen.tags.get("sends") == ["EVENT_PAIRING_STARTED"]
 
     def test_wifi_fixture(self):
         from tests.conftest import FIXTURES_DIR

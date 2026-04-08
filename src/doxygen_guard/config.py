@@ -115,19 +115,17 @@ TRACE_DEFAULTS: dict[str, Any] = {
     "options": {
         "autonumber": True,
         "box_label": "System",
+        "box_color": "#LightBlue",
         "event_name_pattern": r"^[A-Z][A-Z0-9_]*$",
-        "infer_emits": True,
-        "infer_ext": True,
-        "event_emit_functions": [],
-        "show_returns": True,
+        "infer_sends": True,
+        "infer_calls": True,
+        "event_send_functions": [],
+        "show_returns": False,
         "min_edges": 1,
-        "label_mode": "full",
+        "label_mode": "brief",
         "legend": False,
-        "cross_req_depth": 1,
-        "show_return_values": True,
         "show_recovery_notes": True,
         "max_condition_length": 80,
-        "show_project_calls": True,
     },
 }
 
@@ -310,28 +308,22 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
 
 
 ## @brief Validate types of trace.options values after merge.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _validate_trace_options(config: dict[str, Any]) -> None:
     options = get_trace(config).get("options", {})
     int_keys = {"min_edges": 0, "max_condition_length": 1, "max_chain_depth": 1}
     bool_keys = {
         "show_returns",
-        "show_return_values",
         "show_recovery_notes",
-        "show_project_calls",
         "legend",
         "autonumber",
-        "infer_emits",
-        "infer_ext",
+        "infer_sends",
+        "infer_calls",
     }
     for key, min_val in int_keys.items():
         if key in options and (not isinstance(options[key], int) or options[key] < min_val):
             logger.warning("trace.options.%s must be int >= %d, got %r", key, min_val, options[key])
-    if "cross_req_depth" in options:
-        val = options["cross_req_depth"]
-        if not isinstance(val, int) or val < -1:
-            logger.warning("trace.options.cross_req_depth must be int >= -1, got %r", val)
     for key in bool_keys:
         if key in options and not isinstance(options[key], bool):
             logger.warning("trace.options.%s must be bool, got %r", key, options[key])
@@ -369,9 +361,6 @@ def get_impact(config: dict[str, Any]) -> dict[str, Any]:
 ## @brief Reject output paths containing directory traversal or absolute components.
 #  @version 1.3
 #  @utility
-#  @supports REQ-CONFIG-001
-#  @supports REQ-TRACE-001
-#  @supports REQ-IMPACT-003
 def validate_output_path(path: str) -> Path:
     p = Path(path)
     if p.is_absolute():
