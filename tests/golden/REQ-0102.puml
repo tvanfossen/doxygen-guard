@@ -5,8 +5,8 @@ skinparam responseMessageBelowArrow true
 
 actor "User" as User
 entity "Mobile" as Mobile
-entity "MCU" as MCU
 entity "Cloud" as Cloud
+entity "MCU" as MCU
 
 box "IoT Library" #LightBlue
   participant "IoT Library" as IoT_Library
@@ -19,19 +19,23 @@ header
 end header
 
 
-IoT_Library --> IoT_Library: EVENT_DOCK_CMD
+User -> Mobile: Dock Command
+activate Mobile
+Mobile -> Cloud: Dock Command
+activate Cloud
+Cloud --> IoT_Library: cmd/req
+activate IoT_Library
 == execute_dock() ==
 IoT_Library -> MCU: DurableEventCb(DURABLE_IN_EVENT_DOCK, NULL)
 activate MCU
 loop "as product status changes"
 MCU --> IoT_Library: product_status
-activate IoT_Library
 == on_product_status() ==
 IoT_Library -> Cloud:  shadow/reported
-activate Cloud
 end loop
 deactivate Cloud
 deactivate IoT_Library
 deactivate MCU
+deactivate Mobile
 
 @enduml

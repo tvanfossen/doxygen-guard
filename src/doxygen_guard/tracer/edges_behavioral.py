@@ -236,7 +236,7 @@ class _EdgeContext:
 
 
 ## @brief Infer entry edges from unresolved @receives events.
-#  @version 2.1
+#  @version 2.2
 #  @req REQ-TRACE-001
 #  @return List of entry edges for external triggers
 def _infer_entry_edges(
@@ -258,7 +258,7 @@ def _infer_entry_edges(
         for event in tf.receives:
             if event in seen_events:
                 continue
-            entry = _resolve_entry_edge(event, tf, req_names, emitter_map, externals)
+            entry = _resolve_entry_edge(event, tf, req_names, emitter_map, externals, all_tagged)
             seen_events.add(event)
             if entry:
                 entries.append(entry)
@@ -267,7 +267,11 @@ def _infer_entry_edges(
 
 
 ## @brief Resolve a single entry edge for an unresolved @receives event.
-#  @version 1.0
+#  @details If the event is internal (no prefix match), backtracks one hop through
+#  the global emitter map to find the upstream function's external entry point.
+#  This handles dispatch hub patterns where a hub function fans out internal events
+#  to many REQ-specific handlers.
+#  @version 1.1
 #  @internal
 #  @return Edge if source resolved, None if unresolvable
 def _resolve_entry_edge(
@@ -276,24 +280,70 @@ def _resolve_entry_edge(
     req_names: set[str],
     emitter_map: dict[str, tuple[str, str]],
     externals: list[Participant],
+    all_tagged: list[TaggedFunction] | None = None,
 ) -> Edge | None:
     emitter_participant = emitter_map.get(event)
     if emitter_participant and emitter_participant[1] in req_names:
         return None
 
+    resolved = _resolve_entry_source(event, tf, emitter_participant, externals, all_tagged)
+    if resolved:
+        return Edge(resolved[0], tf.display_name, resolved[1], event=resolved[2], style="-->")
+
+    logger.warning(
+        "No source participant for @receives '%s' in %s() — omitting entry edge",
+        event,
+        tf.name,
+    )
+    return None
+
+
+## @brief Resolve the source participant for an entry edge, with hub backtracking.
+#  @version 1.0
+#  @internal
+#  @return Tuple of (source, label, event) or None
+def _resolve_entry_source(
+    event: str,
+    tf: TaggedFunction,
+    emitter_participant: tuple[str, str] | None,
+    externals: list[Participant],
+    all_tagged: list[TaggedFunction] | None,
+) -> tuple[str, str, str] | None:
     source = resolve_by_prefix(event, externals) or (
         emitter_participant[0] if emitter_participant else None
     )
-    if source is None:
-        logger.warning(
-            "No source participant for @receives '%s' in %s() — omitting entry edge",
-            event,
-            tf.name,
-        )
-        return None
+    is_self = source is not None and source == tf.display_name
 
-    label = _strip_prefix(event)
-    return Edge(source, tf.display_name, label, event=event, style="-->")
+    if source and not is_self:
+        return (source, _strip_prefix(event), event)
+
+    # Backtrack through dispatch hub: trace emitter's @receives to find external entry
+    if emitter_participant and all_tagged:
+        return _backtrack_to_external_entry(emitter_participant[1], all_tagged, externals)
+
+    return None
+
+
+## @brief Backtrack from an internal emitter to its external entry point.
+#  @details Finds the upstream function by name, checks its @receives for
+#  an externally-resolvable event, and returns (source, label, event).
+#  @version 1.0
+#  @internal
+#  @return Tuple of (source_participant, label, event) or None
+def _backtrack_to_external_entry(
+    emitter_name: str,
+    all_tagged: list[TaggedFunction],
+    externals: list[Participant],
+) -> tuple[str, str, str] | None:
+    upstream_tf = next((tf for tf in all_tagged if tf.name == emitter_name), None)
+    if not upstream_tf:
+        return None
+    for upstream_event in upstream_tf.receives:
+        source = resolve_by_prefix(upstream_event, externals)
+        if source:
+            label = _strip_prefix(upstream_event)
+            return (source, label, upstream_event)
+    return None
 
 
 ## @brief Strip bus prefix from event name for label display.

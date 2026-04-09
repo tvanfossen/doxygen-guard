@@ -25,7 +25,9 @@ Mobile -> Cloud: Device Setting Change
 activate Cloud
 Cloud --> IoT_Library: shadow/desired
 activate IoT_Library
-IoT_Library --> IoT_Library: EVENT_CLEAN_CMD
+User -> Mobile: Device Setting Change
+Mobile -> Cloud: Device Setting Change
+Cloud --> IoT_Library: cmd/req
 == send_cmd_response() ==
 IoT_Library -> Cloud:  cmd/resp
 == handle_shadow_delta() ==

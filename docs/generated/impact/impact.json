@@ -6,12 +6,7 @@
       {
         "name": "_infer_entry_edges",
         "file": "src/doxygen_guard/tracer/edges_behavioral.py",
-        "version": "2.1"
-      },
-      {
-        "name": "build_behavioral_edges",
-        "file": "src/doxygen_guard/tracer/edges_behavioral.py",
-        "version": "1.1"
+        "version": "2.2"
       }
     ]
   }
