@@ -4,10 +4,10 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 actor "User" as User
+entity "Mobile" as Mobile
 entity "WiFi Stack" as WiFi_Stack
-entity "External" as External
 
-box "System" #LightBlue
+box "IoT Library" #LightBlue
   participant "Comm Manager" as Comm_Manager
   participant "Event Bus" as Event_Bus
 end box
@@ -20,47 +20,21 @@ header
 end header
 
 
-alt EVENT_WIFI_DISCONNECTED
-WiFi_Stack --> Comm_Manager: EVENT_WIFI_DISCONNECTED\nShadow_OnConnectivityEvent()
+WiFi_Stack --> Comm_Manager: EVENT_WIFI_DISCONNECTED
 activate Comm_Manager
-else [EVENT_WIFI_CONNECTED]
-WiFi_Stack --> Comm_Manager: EVENT_WIFI_CONNECTED\nShadow_OnConnectivityEvent()
-else [EVENT_MQTT_CONNACK]
-WiFi_Stack --> Comm_Manager: EVENT_MQTT_CONNACK\nShadow_OnConnectivityEvent()
-else [EVENT_MQTT_CLOSE]
-WiFi_Stack --> Comm_Manager: EVENT_MQTT_CLOSE\nShadow_OnConnectivityEvent()
-end alt
-External --> Comm_Manager: Comm_Init()
-External --> Comm_Manager: Shadow_Initialize()
+WiFi_Stack --> Comm_Manager: EVENT_WIFI_CONNECTED
+WiFi_Stack --> Comm_Manager: EVENT_MQTT_CONNACK
+WiFi_Stack --> Comm_Manager: EVENT_MQTT_CLOSE
 == Comm_Init() ==
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_RX_RECEIVED, Comm_OnRemoteCommand)
 activate Event_Bus
-Comm_Manager <-- Event_Bus: return
-deactivate Event_Bus
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_START, Comm_DownloadFirmware)
-activate Event_Bus
-Comm_Manager <-- Event_Bus: return
-deactivate Event_Bus
-== Shadow_Initialize() ==
-Comm_Manager -> Event_Bus: Event_register(EVENT_WIFI_DISCONNECTED | EVENT_WIFI_CONNECTED | EVENT_MQTT_CONNACK | EVENT_MQTT_CLOSE, Shadow_OnConnectivityEvent)
-activate Event_Bus
-Comm_Manager <-- Event_Bus: return
-deactivate Event_Bus
 == Comm_SendStatus() ==
 Comm_Manager --> Comm_Manager: EVENT_COMM_TX_COMPLETE
-== Shadow_ScheduleConfigPublish() ==
-WiFi_Stack <-- Comm_Manager: return
+== Shadow_Initialize() ==
+Comm_Manager -> Event_Bus: Event_register(EVENT_WIFI_DISCONNECTED | EVENT_WIFI_CONNECTED |
+        EVENT_MQTT_CONNACK | EVENT_MQTT_CLOSE, Shadow_OnConnectivityEvent)
 deactivate Comm_Manager
-WiFi_Stack <-- Comm_Manager: return
-activate Comm_Manager
-WiFi_Stack <-- Comm_Manager: return
-deactivate Comm_Manager
-WiFi_Stack <-- Comm_Manager: return
-activate Comm_Manager
-External <-- Comm_Manager: return
-deactivate Comm_Manager
-External <-- Comm_Manager: return
-activate Comm_Manager
-deactivate Comm_Manager
+deactivate Event_Bus
 
 @enduml

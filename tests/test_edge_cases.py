@@ -216,8 +216,8 @@ class TestTagValidation:
                         "req": {
                             "pattern": r"^REQ-\w+$",
                         },
-                        "emits": {"require_prefix": ["EVENT_", "FSM_"]},
-                        "ext": {"require_contains": "::"},
+                        "sends": {"require_prefix": ["EVENT_", "FSM_"]},
+                        "calls": {"require_contains": "::"},
                     },
                 },
             },
@@ -237,8 +237,8 @@ class TestTagValidation:
         bad_func_violations = [v for v in violations if "Bad_Tags" in v.message]
 
         # @req INVALID-FORMAT → pattern fail + missing confidence marker
-        # @emits BADPREFIX_EVENT → prefix fail
-        # @ext modfunc → contains fail
+        # @sends BADPREFIX_EVENT → prefix fail
+        # @calls modfunc → contains fail
         assert len(bad_func_violations) >= 3
 
         messages = " ".join(v.message for v in bad_func_violations)

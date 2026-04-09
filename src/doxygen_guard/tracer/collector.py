@@ -21,7 +21,7 @@ from doxygen_guard.impact import load_requirements_full
 from doxygen_guard.tracer_models import (
     Participant,
     TaggedFunction,
-    ext_func_name,
+    calls_func_name,
 )
 
 if TYPE_CHECKING:
@@ -134,20 +134,20 @@ def _process_source_file(
     return tagged
 
 
-## @brief Extract @module tag from file-level doxygen block.
-#  @version 1.0
+## @brief Extract @participant tag from file-level doxygen block.
+#  @version 1.1
 #  @internal
 def _extract_file_module(content: str) -> str | None:
     for line in content.splitlines()[:30]:
         stripped = re.sub(r"^[\s/*#]+|[\s*/]+$", "", line)
-        if stripped.startswith("@module"):
-            value = stripped[len("@module") :].strip()
+        if stripped.startswith("@participant"):
+            value = stripped[len("@participant") :].strip()
             return value if value else None
     return None
 
 
 ## @brief Walk source directories and collect ALL tagged functions.
-#  @version 2.1
+#  @version 2.2
 #  @req REQ-TRACE-001
 def collect_all_tagged_functions(
     source_dirs: list[str],
@@ -172,15 +172,15 @@ def collect_all_tagged_functions(
     trace_options = get_trace_options(config)
     source_roots = _discover_infrastructure_roots(tagged)
     if source_roots.get("emit_fns"):
-        existing = set(trace_options.get("event_emit_functions", []))
-        trace_options["event_emit_functions"] = list(existing | set(source_roots["emit_fns"]))
+        existing = set(trace_options.get("event_send_functions", []))
+        trace_options["event_send_functions"] = list(existing | set(source_roots["emit_fns"]))
     if source_roots.get("handle_fns"):
-        existing = set(trace_options.get("event_register_functions", []))
-        trace_options["event_register_functions"] = list(existing | set(source_roots["handle_fns"]))
-    if trace_options.get("infer_emits", True):
+        existing = set(trace_options.get("event_receive_functions", []))
+        trace_options["event_receive_functions"] = list(existing | set(source_roots["handle_fns"]))
+    if trace_options.get("infer_sends", True):
         for tf in tagged:
             _apply_emit_inference(tf, tf.body, config, file_cache)
-    if trace_options.get("infer_ext", True):
+    if trace_options.get("infer_calls", True):
         _apply_ext_inference(tagged, file_cache)
     _infer_handles_from_registration(tagged, trace_options)
     _warn_unreferenced_functions(tagged, file_cache)
@@ -275,7 +275,7 @@ def _rglob_source_files(source_dir: str, extensions: set[str]) -> list[Path] | N
 
 
 ## @brief Build a TaggedFunction, resolving participant and capturing body text.
-#  @version 2.1
+#  @version 2.2
 #  @internal
 def _extract_tagged_function(
     func: Function,
@@ -289,33 +289,33 @@ def _extract_tagged_function(
 
     tags = func.doxygen.tags
     reqs = tags.get("req", [])
-    supports = tags.get("supports", [])
-    assumes = tags.get("assumes", [])
+    after = tags.get("after", [])
     has_trace_tags = (
-        tags.get("emits") or tags.get("handles") or tags.get("ext") or tags.get("triggers")
+        tags.get("sends") or tags.get("receives") or tags.get("calls") or tags.get("note")
     )
-    has_infra_tags = tags.get("emit_source") or tags.get("handle_source")
-    if not has_trace_tags and not has_infra_tags and not reqs and not supports:
+    has_infra_tags = tags.get("send_source") or tags.get("receive_source")
+    if not has_trace_tags and not has_infra_tags and not reqs:
         return None
 
     body_text = "\n".join(lines[func.def_line : func.body_end + 1])
-    declared_emits = tags.get("emits", [])
+    declared_sends = tags.get("sends", [])
 
-    marker_tags = {t for t in ("emit_source", "handle_source") if t in tags}
+    marker_tags = {t for t in ("send_source", "receive_source") if t in tags}
     return_vals = tags.get("return") or tags.get("returns")
     return_desc = return_vals[0] if return_vals else None
 
     tf = TaggedFunction(
         name=func.name,
         file_path=file_path,
-        participant_name=file_module or _resolve_participant_from_reqs(reqs, req_participant_map),
-        emits=declared_emits,
-        handles=tags.get("handles", []),
-        ext=tags.get("ext", []),
-        triggers=tags.get("triggers", []),
+        participant_name=_resolve_participant_from_reqs(reqs, req_participant_map) or file_module,
+        sends=declared_sends,
+        receives=tags.get("receives", []),
+        calls=tags.get("calls", []),
+        notes=tags.get("note", []),
         reqs=reqs,
-        supports=supports,
-        assumes=assumes,
+        after=after,
+        loop=tags.get("loop", [None])[0] if tags.get("loop") else None,
+        group=tags.get("group", [None])[0] if tags.get("group") else None,
         body=body_text,
         marker_tags=marker_tags,
         return_desc=return_desc,
@@ -325,8 +325,8 @@ def _extract_tagged_function(
     return tf
 
 
-## @brief Infer @emits from emit function calls found in the function body.
-#  @version 1.5
+## @brief Infer @sends from emit function calls found in the function body.
+#  @version 1.6
 #  @req REQ-TRACE-001
 def _apply_emit_inference(
     tf: TaggedFunction,
@@ -335,12 +335,12 @@ def _apply_emit_inference(
     file_cache: dict | None = None,
 ) -> None:
     trace_options = get_trace_options(config)
-    if not trace_options.get("infer_emits", True):
+    if not trace_options.get("infer_sends", True):
         return
 
     emit_fns = trace_options.get("event_emit_functions", [])
     name_pattern = trace_options.get("event_name_pattern", r"^[A-Z][A-Z0-9_]*$")
-    declared = set(tf.emits)
+    declared = set(tf.sends)
 
     body_node = _get_ast_body(tf, file_cache)
     if body_node is not None:
@@ -359,13 +359,13 @@ def _apply_emit_inference(
             )
             continue
         if constant not in declared:
-            tf.emits.append(constant)
+            tf.sends.append(constant)
             declared.add(constant)
-            logger.info("Inferred @emits %s in %s()", constant, tf.name)
+            logger.info("Inferred @sends %s in %s()", constant, tf.name)
 
 
-## @brief Detect phantom @emits — declared but no matching call in body.
-#  @version 1.5
+## @brief Detect phantom @sends — declared but no matching call in body.
+#  @version 1.6
 #  @req REQ-TRACE-001
 #  @return List of event names declared but not called in function body
 def detect_phantom_emits(
@@ -388,11 +388,11 @@ def detect_phantom_emits(
                 called_constants.add(match.group(1))
 
     phantoms: list[str] = []
-    for event in tf.emits:
+    for event in tf.sends:
         if event not in called_constants:
             phantoms.append(event)
             logger.warning(
-                "Possible phantom @emits %s in %s() — no matching call found", event, tf.name
+                "Possible phantom @sends %s in %s() — no matching call found", event, tf.name
             )
     return phantoms
 
@@ -400,7 +400,7 @@ def detect_phantom_emits(
 ## @brief Infer cross-module ext calls from function body scan.
 #  @details For each tagged function, scan body for calls to functions owned by
 #  different participants. If found and not already declared via @ext, add the
-#  inferred ext reference. Manual @ext always takes precedence.
+#  inferred ext reference. Manual @calls always takes precedence.
 #  Also detects system boundary calls (callees not defined in scanned source).
 #  @version 1.3
 #  @req REQ-TRACE-001
@@ -414,15 +414,15 @@ def _apply_ext_inference(
 
 
 ## @brief Scan a single function's body for cross-module calls.
-#  @version 1.3
+#  @version 1.4
 #  @req REQ-TRACE-001
-#  @return None (modifies tf.ext in place)
+#  @return None (modifies tf.calls in place)
 def _infer_ext_for_function(
     tf: TaggedFunction,
     all_tagged: list[TaggedFunction],
     file_cache: dict | None = None,
 ) -> None:
-    declared_ext_funcs = {ext_func_name(ref) for ref in tf.ext}
+    declared_ext_funcs = {calls_func_name(ref) for ref in tf.calls}
     callees = _resolve_body_callees(tf, file_cache)
 
     for target in all_tagged:
@@ -434,8 +434,8 @@ def _infer_ext_for_function(
             continue
         module = Path(target.file_path).stem
         ext_ref = f"{module}::{target.name}"
-        tf.ext.append(ext_ref)
-        logger.info("Inferred @ext %s in %s()", ext_ref, tf.name)
+        tf.calls.append(ext_ref)
+        logger.info("Inferred @calls%s in %s()", ext_ref, tf.name)
 
 
 ## @brief Resolve callee set from AST or return None for regex fallback.
@@ -586,7 +586,7 @@ def _build_register_pattern(handle_fns: list[str]) -> re.Pattern:
 
 
 ## @brief Infer handles from registration function call patterns.
-#  @details Parses calls to @handle_source functions. Extracts event constants
+#  @details Parses calls to @receive_source functions. Extracts event constants
 #  from first argument (bitmask) and handler name from second argument.
 #  @version 1.3
 #  @req REQ-TRACE-001
@@ -609,25 +609,25 @@ def _infer_handles_from_registration(
 
 
 ## @brief Extract event constants from bitmask and add to handler's handles.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _add_inferred_handles(
     bitmask_expr: str,
     handler_tf: TaggedFunction,
 ) -> None:
-    declared = set(handler_tf.handles)
+    declared = set(handler_tf.receives)
     for const_match in _EVENT_CONSTANT_PATTERN.finditer(bitmask_expr):
         constant = const_match.group(1)
         if constant not in declared:
-            handler_tf.handles.append(constant)
+            handler_tf.receives.append(constant)
             declared.add(constant)
-            logger.info("Inferred @handles %s for %s()", constant, handler_tf.name)
+            logger.info("Inferred @receives %s for %s()", constant, handler_tf.name)
 
 
-## @brief Discover infrastructure root functions from @emit_source / @handle_source tags.
-#  @details Scans the parsed doxygen tags dict for emit_source and handle_source
+## @brief Discover infrastructure root functions from @send_source / @receive_source tags.
+#  @details Scans the parsed doxygen tags dict for send_source and receive_source
 #  marker tags. These are set during parse_doxygen_tags as tag names with empty values.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-TRACE-001
 #  @return Dict mapping "emit_fns"/"handle_fns" to lists of function names
 def _discover_infrastructure_roots(
@@ -635,12 +635,12 @@ def _discover_infrastructure_roots(
 ) -> dict[str, list[str]]:
     roots: dict[str, list[str]] = {}
     for tf in all_tagged:
-        if "emit_source" in tf.marker_tags:
+        if "send_source" in tf.marker_tags:
             roots.setdefault("emit_fns", []).append(tf.name)
-            logger.info("Discovered @emit_source: %s()", tf.name)
-        if "handle_source" in tf.marker_tags:
+            logger.info("Discovered @send_source: %s()", tf.name)
+        if "receive_source" in tf.marker_tags:
             roots.setdefault("handle_fns", []).append(tf.name)
-            logger.info("Discovered @handle_source: %s()", tf.name)
+            logger.info("Discovered @receive_source: %s()", tf.name)
     return roots
 
 
@@ -648,7 +648,7 @@ def _discover_infrastructure_roots(
 #  @details Scans all function bodies for call references. Functions that have
 #  doxygen tags but are never referenced as a callee or handler argument are
 #  likely dead code or missing Event_register() calls.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _warn_unreferenced_functions(
     all_tagged: list[TaggedFunction],
@@ -658,7 +658,7 @@ def _warn_unreferenced_functions(
     referenced = _collect_referenced_names(all_tagged, all_names, file_cache)
 
     for tf in all_tagged:
-        if tf.name not in referenced and tf.handles and not tf.marker_tags:
+        if tf.name not in referenced and tf.receives and not tf.marker_tags:
             logger.warning(
                 "%s() has behavioral tags but is never called or registered in scanned source"
                 " — possible dead code or missing Event_register()",

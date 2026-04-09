@@ -2,7 +2,6 @@
 
 from doxygen_guard.coverage import (
     _collect_req_ids,
-    _collect_supports_only,
     _collect_unmapped_functions,
     format_coverage_json,
     format_coverage_markdown,
@@ -23,21 +22,6 @@ class TestCollectReqIds:
         assert _collect_req_ids([]) == set()
 
 
-class TestCollectSupportsOnly:
-    def test_supports_without_req(self):
-        funcs = [
-            TaggedFunction(name="a", file_path="a.c", reqs=["REQ-001"]),
-            TaggedFunction(name="b", file_path="b.c", supports=["REQ-002"]),
-        ]
-        assert _collect_supports_only(funcs) == {"REQ-002"}
-
-    def test_supports_with_req(self):
-        funcs = [
-            TaggedFunction(name="a", file_path="a.c", reqs=["REQ-001"], supports=["REQ-001"]),
-        ]
-        assert _collect_supports_only(funcs) == set()
-
-
 class TestCollectUnmapped:
     def test_no_reqs(self):
         funcs = [
@@ -52,7 +36,6 @@ class TestFormatters:
         "total_requirements": 3,
         "covered": ["REQ-001"],
         "uncovered": ["REQ-002"],
-        "supports_only": [],
         "orphan_refs": ["REQ-999"],
         "unmapped_functions": ["helper"],
     }

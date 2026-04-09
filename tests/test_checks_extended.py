@@ -46,15 +46,15 @@ class TestCheckUnknownTags:
         assert len(violations) == 0
 
     def test_unknown_tag_produces_violation(self):
-        func = _make_func("f", tags={"brief": ["desc"], "emmits": ["EVENT_X"]})
+        func = _make_func("f", tags={"brief": ["desc"], "sendd": ["EVENT_X"]})
         violations = check_unknown_tags(func, "a.c", BASE_CONFIG)
         assert len(violations) == 1
-        assert "emmits" in violations[0].message
+        assert "sendd" in violations[0].message
 
     def test_levenshtein_suggestion(self):
-        func = _make_func("f", tags={"brief": ["desc"], "emmits": ["EVENT_X"]})
+        func = _make_func("f", tags={"brief": ["desc"], "sendd": ["EVENT_X"]})
         violations = check_unknown_tags(func, "a.c", BASE_CONFIG)
-        assert "emits" in violations[0].message
+        assert "sends" in violations[0].message
 
     def test_extra_tags_accepted(self):
         config = deep_merge(BASE_CONFIG, {"validate": {"extra_tags": ["custom"]}})

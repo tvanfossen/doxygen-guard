@@ -3,14 +3,12 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "User" as User
+entity "  Init  " as __Init__
 
 box "System" #LightBlue
   participant "Validate" as Validate
   participant "Config" as Config
-  participant "Parser" as Parser
   participant "Git" as Git
-  participant "Trace" as Trace
   participant "Impact" as Impact
 end box
 
@@ -20,99 +18,26 @@ header
   //Acceptance Criteria:// Undocumented functions produce presence violations;\ndocumented functions pass clean
 end header
 
-note over Validate: run_precommit() supports REQ-TRACE-001, REQ-IMPACT-003
 
-User --> Validate: validate_file()
-activate Validate
-User --> Validate: run_validate()
-User --> Validate: run_precommit()
 == validate_file() ==
-Validate -> Config: get_validate(config)
-Validate -> Parser: parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)
-activate Parser
-Validate <-- Parser: return list | None
-deactivate Parser
-group try
-end group
-group catch (OSError)
-note right: (empty handler)
-end group
-loop func in functions
-end loop
-alt not no_git
-group try
+Validate -> Config: parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)
+activate Config
 Validate -> Git: get_changed_lines_for_file(file_path)
 activate Git
-Validate <-- Git: return set[int]
-deactivate Git
-end group
-group catch
-note right: logger
-end group
-end alt
-== run_validate() ==
-Validate -> Validate: _report_violations(_validate_files(files, config, no_git=args.no_git))
 == run_precommit() ==
-Validate -> Validate: _detect_current_version(config)
-Validate -> Validate: _report_violations(_validate_files(file_paths, config))
-group try
-end group
-group catch
-note right: print
-end group
-Validate -> Config: get_trace(config)
-alt trace_enabled
-Validate -> Trace: run_trace(source_dirs=source_dirs, config=config, trace_all=True,)
-activate Trace
-Validate <-- Trace: return Tuple of (written file paths, warning messages)
-deactivate Trace
-end alt
-Validate -> Config: get_impact(config)
-alt impact_config.get("requirements")
 Validate -> Git: get_branch_diff_range()
-activate Git
-Validate <-- Git: return str | None
-deactivate Git
-alt diff_range
 Validate -> Impact: collect_changed_functions(file_paths, config, diff_range=diff_range)
 activate Impact
-Validate <-- Impact: return list[ChangedFunction]
-deactivate Impact
-else
 Validate -> Impact: collect_changed_functions(file_paths, config, staged=True)
-activate Impact
-Validate <-- Impact: return list[ChangedFunction]
-deactivate Impact
-end alt
 Validate -> Impact: build_impact_report(changed, config)
-activate Impact
-Validate <-- Impact: return list[ImpactEntry]
+Validate -> Impact: format_markdown(entries)
+Validate -> Impact: format_markdown(entries)
+Validate -> Impact: format_json(entries)
+Validate -> __Init__: run_trace(source_dirs=source_dirs, config=config, trace_all=True)
+activate __Init__
+deactivate Config
+deactivate Git
 deactivate Impact
-end alt
-Validate -> Impact: format_json()
-activate Impact
-Validate <-- Impact: return JSON-formatted impact report string
-deactivate Impact
-Validate -> Impact: format_markdown()
-activate Impact
-Validate <-- Impact: return Markdown-formatted impact report string
-deactivate Impact
-== check_presence() ==
-Validate -> Config: get_validate(config)
-== check_unknown_tags() ==
-Validate -> Config: get_validate(config)
-loop tag_name in func.doxygen.tags
-alt tag_name not in known
-Validate -> Validate: _suggest_tag(tag_name, known)
-end alt
-end loop
-== check_req_exists() ==
-Validate -> Config: get_validate(config)
-User <-- Validate: return list[Violation]
-deactivate Validate
-User <-- Validate: return Exit code: 0 if no violations, 1 if violations found
-activate Validate
-User <-- Validate: return int
-deactivate Validate
+deactivate __Init__
 
 @enduml

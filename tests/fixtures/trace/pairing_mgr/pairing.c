@@ -2,9 +2,9 @@
  * @brief Start the pairing process.
  * @version 1.0
  * @req REQ-0252
- * @emits EVENT_PAIRING_STARTED
- * @ext wifi_mgr::WiFi_ConnectAfterDelay
- * @triggers CLOUD_DISABLE
+ * @sends EVENT_PAIRING_STARTED
+ * @calls wifi_mgr::WiFi_ConnectAfterDelay
+ * @note CLOUD_DISABLE
  */
 void Pairing_Start(void) {
     disable_cloud();
@@ -15,8 +15,8 @@ void Pairing_Start(void) {
  * @brief Continue pairing after WiFi connected.
  * @version 1.0
  * @req REQ-0252
- * @handles EVENT_WIFI_IP_ACQUIRED
- * @emits EVENT_MQTT_START_CONNECTION
+ * @receives EVENT_WIFI_IP_ACQUIRED
+ * @sends EVENT_MQTT_START_CONNECTION
  */
 void ContinuePairing(void) {
     request_certs();

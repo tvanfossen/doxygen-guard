@@ -19,10 +19,9 @@ from doxygen_guard.tracer_models import (
     Edge,
     Participant,
     TaggedFunction,
-    ext_func_name,
 )
 
-from .edges_ast import _collect_assumes, build_sequence_edges_ast
+from .edges_behavioral import _collect_after, build_behavioral_edges
 
 logger = logging.getLogger(__name__)
 
@@ -69,17 +68,11 @@ def _render_unlisted_functions(
     return lines
 
 
-## @brief Render supports annotations as diagram notes.
-#  @version 1.1
+## @brief Placeholder for removed supports notes — returns empty list.
+#  @version 2.0
 #  @internal
 def _render_supports_notes(functions: list[TaggedFunction]) -> list[str]:
-    lines: list[str] = []
-    for tf in functions:
-        if tf.supports:
-            pname = _safe_id(tf.display_name)
-            supports_text = ", ".join(tf.supports)
-            lines.append(f"note over {pname}: {tf.name}() supports {supports_text}")
-    return lines
+    return []
 
 
 ## @brief Partition active participant names into internal and external groups.
@@ -497,7 +490,7 @@ def _render_ast_edges(ast_edges: list, label_mode: str = "full") -> list[str]:
 
 
 ## @brief Emit activate/deactivate lines for an edge.
-#  @details Only activates on entry edges and @ext calls. Deactivates on returns.
+#  @details Only activates on entry edges and boundary calls. Deactivates on returns.
 #  Avoids stacking activations inside loops or handler chains.
 #  @version 1.2
 #  @req REQ-TRACE-001
@@ -623,7 +616,7 @@ def generate_plantuml_ast(
     return "\n".join(lines)
 
 
-## @brief Resolve @assumes REQ IDs to display labels with names.
+## @brief Resolve @after REQ IDs to display labels with names.
 #  @version 1.0
 #  @internal
 def _resolve_preconditions(
@@ -639,30 +632,8 @@ def _resolve_preconditions(
     return labels
 
 
-## @brief Collect infrastructure function names from config and marker tags.
-#  @version 1.2
-#  @internal
-def _get_infra_fn_names(config: dict[str, Any], all_tagged: list[TaggedFunction]) -> set[str]:
-    trace_options = get_trace_options(config)
-    names = set(trace_options.get("event_emit_functions", []))
-    names |= set(trace_options.get("event_register_functions", []))
-    names |= {t.name for t in all_tagged if t.marker_tags}
-    return names
-
-
-## @brief Check if a function only calls infrastructure root functions (init-only).
-#  @version 1.3
-#  @internal
-def _is_init_only(tf: TaggedFunction, infra_fn_names: set[str]) -> bool:
-    if tf.emits or tf.handles or tf.triggers:
-        return False
-    if not tf.ext:
-        return False
-    return all(ext_func_name(ref) in infra_fn_names for ref in tf.ext)
-
-
-## @brief Generate PlantUML for a single requirement using AST or legacy path.
-#  @version 1.4
+## @brief Generate PlantUML for a single requirement using behavioral edge builder.
+#  @version 2.0
 #  @req REQ-TRACE-001
 #  @return Tuple of (PlantUML content or None, warning list)
 def _generate_req_diagram(
@@ -671,33 +642,18 @@ def _generate_req_diagram(
     params: DiagramBuildParams,
     diagram_ctx: DiagramContext,
 ) -> tuple[str | None, list[str]]:
-    from .edges import build_sequence_edges
-
     warnings: list[str] = []
     at = params.all_tagged
     pp = params.participants
     cfg = params.config
     min_edges = get_trace_options(cfg).get("min_edges", 0)
 
-    if params.file_cache:
-        infra_fns = _get_infra_fn_names(cfg, at)
-        emitters = [tf for tf in funcs if not _is_init_only(tf, infra_fns)]
-        ast_edges = build_sequence_edges_ast(
-            emitters, at, pp, cfg, req_id=r, file_cache=params.file_cache
-        )
-        behavioral = [ae for ae in ast_edges if ae.edge is not None]
-        if min_edges and len(behavioral) < min_edges:
-            logger.info("Skipping %s: %d edges below min_edges=%d", r, len(behavioral), min_edges)
-            return None, warnings
-        diagram_ctx.init_only_names = {tf.name for tf in funcs if _is_init_only(tf, infra_fns)}
-        puml = generate_plantuml_ast(r, ast_edges, funcs, pp, cfg, context=diagram_ctx)
-    else:
-        edges, edge_warnings = build_sequence_edges(funcs, at, pp, req_id=r)
-        warnings.extend(edge_warnings)
-        if min_edges and len(edges) < min_edges:
-            logger.info("Skipping %s: %d edges below min_edges=%d", r, len(edges), min_edges)
-            return None, warnings
-        puml = generate_plantuml(r, edges, funcs, pp, cfg, context=diagram_ctx)
+    ast_edges = build_behavioral_edges(funcs, at, pp, cfg, req_id=r, file_cache=params.file_cache)
+    behavioral = [ae for ae in ast_edges if ae.edge is not None]
+    if min_edges and len(behavioral) < min_edges:
+        logger.info("Skipping %s: %d edges below min_edges=%d", r, len(behavioral), min_edges)
+        return None, warnings
+    puml = generate_plantuml_ast(r, ast_edges, funcs, pp, cfg, context=diagram_ctx)
     return puml, warnings
 
 
@@ -740,7 +696,7 @@ def _write_diagrams_for_reqs(
 
 
 ## @brief Build DiagramContext for a requirement.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _build_diagram_context(
     funcs: list[TaggedFunction],
@@ -749,6 +705,6 @@ def _build_diagram_context(
     name_col: str,
 ) -> DiagramContext:
     row = req_data.get(req_id)
-    assumes = _collect_assumes(funcs)
-    preconditions = _resolve_preconditions(assumes, req_data, name_col) if assumes else None
+    after_reqs = _collect_after(funcs)
+    preconditions = _resolve_preconditions(after_reqs, req_data, name_col) if after_reqs else None
     return DiagramContext(req_row=row, preconditions=preconditions)

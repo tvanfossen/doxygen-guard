@@ -4,12 +4,11 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 actor "User" as User
-entity "External" as External
+entity "Mobile" as Mobile
 
-box "System" #LightBlue
+box "IoT Library" #LightBlue
   participant "Provisioning Manager" as Provisioning_Manager
   participant "WiFi Scanner" as WiFi_Scanner
-  participant "Cert Manager" as Cert_Manager
   participant "Event Bus" as Event_Bus
 end box
 
@@ -20,34 +19,16 @@ header
 end header
 
 
-Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_SCAN_START\nWiFiScan_Start()
+Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_SCAN_START
 activate WiFi_Scanner
-Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_JOIN_REQUEST\nWiFiScan_Join()
-External --> WiFi_Scanner: WiFiScan_Init()
+Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_JOIN_REQUEST
 == WiFiScan_Join() ==
-WiFi_Scanner --> Provisioning_Manager: EVENT_PROV_JOIN_RESULT\nWiFiScan_Join() -> Provision_OnJoinResult()
-note right of Provisioning_Manager: Prov Retry Check
-alt result->success
-Provisioning_Manager --> Cert_Manager: EVENT_PROV_CERT_REQUEST\nProvision_OnJoinResult() -> Cert_Provision()
-else
-alt retry_count < MAX_RETRIES
-Provisioning_Manager --> WiFi_Scanner: EVENT_PROV_SCAN_START\nProvision_OnJoinResult() -> WiFiScan_Start()
-end alt
-end alt
+WiFi_Scanner --> Provisioning_Manager: EVENT_PROV_JOIN_RESULT
 == WiFiScan_Init() ==
 WiFi_Scanner -> Event_Bus: Event_register(EVENT_PROV_SCAN_START, WiFiScan_Start)
 activate Event_Bus
-WiFi_Scanner <-- Event_Bus: return
-deactivate Event_Bus
 WiFi_Scanner -> Event_Bus: Event_register(EVENT_PROV_JOIN_REQUEST, WiFiScan_Join)
-activate Event_Bus
-WiFi_Scanner <-- Event_Bus: return
 deactivate Event_Bus
-Provisioning_Manager <-- WiFi_Scanner: return
-deactivate WiFi_Scanner
-Provisioning_Manager <-- WiFi_Scanner: return
-activate WiFi_Scanner
-External <-- WiFi_Scanner: return
 deactivate WiFi_Scanner
 
 @enduml

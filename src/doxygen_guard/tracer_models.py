@@ -9,10 +9,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from doxygen_guard.ts_languages import LanguageSpec
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +32,14 @@ class TaggedFunction:
     name: str
     file_path: str
     participant_name: str | None = None
-    emits: list[str] = field(default_factory=list)
-    handles: list[str] = field(default_factory=list)
-    ext: list[str] = field(default_factory=list)
-    triggers: list[str] = field(default_factory=list)
+    sends: list[str] = field(default_factory=list)
+    receives: list[str] = field(default_factory=list)
+    calls: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
     reqs: list[str] = field(default_factory=list)
-    supports: list[str] = field(default_factory=list)
-    assumes: list[str] = field(default_factory=list)
+    after: list[str] = field(default_factory=list)
+    loop: str | None = None
+    group: str | None = None
     body: str = ""
     marker_tags: set[str] = field(default_factory=set)
     return_desc: str | None = None
@@ -56,33 +54,21 @@ class TaggedFunction:
         return self.participant_name or self.name
 
 
-## @brief Check if a function is relevant to a specific requirement.
-#  @version 1.0
-#  @internal
-#  @return True if the function is relevant (not support-only) for the given req_id
-def is_req_relevant(tf: TaggedFunction, req_id: str | None) -> bool:
-    if req_id is None:
-        return True
-    if req_id in tf.supports and req_id not in tf.reqs:
-        return False
-    return req_id in tf.reqs or bool(tf.handles or tf.ext)
-
-
-## @brief Split an ext reference 'module::func_name' into (module, func_name).
-#  @version 1.0
+## @brief Split a calls reference 'module::func_name' into (module, func_name).
+#  @version 1.1
 #  @internal
 #  @return Tuple of (module, func_name); module is empty string if no :: separator
-def split_ext_ref(ref: str) -> tuple[str, str]:
+def split_calls_ref(ref: str) -> tuple[str, str]:
     parts = ref.split("::", 1)
     return (parts[0], parts[1]) if len(parts) == 2 else ("", ref)
 
 
-## @brief Extract just the function name from an ext reference.
-#  @version 1.0
+## @brief Extract just the function name from a calls reference.
+#  @version 1.1
 #  @internal
 #  @return The function name portion after ::, or the full ref if no ::
-def ext_func_name(ref: str) -> str:
-    return split_ext_ref(ref)[1]
+def calls_func_name(ref: str) -> str:
+    return split_calls_ref(ref)[1]
 
 
 ## @brief Context for rendering a diagram header (req metadata + preconditions).
@@ -103,32 +89,6 @@ class ASTEdge:
     kind: str
     edge: Edge | None = None
     label: str = ""
-
-
-## @brief Context passed through the recursive AST walk.
-#  @version 1.3
-#  @internal
-@dataclass
-class WalkContext:
-    handler_map: dict[str, list[TaggedFunction]]
-    all_tagged: list[TaggedFunction]
-    externals: list[Participant]
-    emit_functions: set[str]
-    spec: LanguageSpec
-    req_id: str | None = None
-    max_depth: int = 3
-    visited: set[str] | None = None
-    file_cache: dict[str, Any] | None = None
-    show_returns: bool = True
-    participants: list[Participant] | None = None
-    cross_req_depth: int = 1
-    cross_req_hops: int = 0
-    extra_qualifiers: set[str] | None = None
-    return_type_map: dict[str, str] | None = None
-    max_condition_length: int = 80
-    project_functions: dict[str, str] | None = None
-    tagged_names: set[str] | None = None
-    boundary_functions: dict[str, str] | None = None
 
 
 ## @brief A directed edge in a sequence diagram.
@@ -168,7 +128,7 @@ def resolve_by_prefix(
     return None
 
 
-## @brief Match ext reference against tagged functions by name or file path.
+## @brief Match calls reference against tagged functions by name or file path.
 #  @version 1.0
 #  @internal
 def _resolve_ext_from_tagged(
@@ -185,7 +145,7 @@ def _resolve_ext_from_tagged(
     return None
 
 
-## @brief Resolve an ext reference to a participant via function name, module path, or name match.
+## @brief Resolve a calls reference to a participant via function name, module path, or name match.
 #  @version 1.6
 #  @internal
 def resolve_ext_target(

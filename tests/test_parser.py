@@ -251,10 +251,10 @@ void Func_B(void) {
 
         process_func = functions[1]
         assert process_func.name == "Module_Process"
-        assert "emits" in process_func.doxygen.tags
-        assert "handles" in process_func.doxygen.tags
-        assert process_func.doxygen.tags["emits"] == ["EVENT_DATA_READY"]
-        assert process_func.doxygen.tags["handles"] == ["EVENT_DATA_RECEIVED"]
+        assert "sends" in process_func.doxygen.tags
+        assert "receives" in process_func.doxygen.tags
+        assert process_func.doxygen.tags["sends"] == ["EVENT_DATA_READY"]
+        assert process_func.doxygen.tags["receives"] == ["EVENT_DATA_RECEIVED"]
 
 
 class TestParseFunctionsCpp:

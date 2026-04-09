@@ -174,8 +174,6 @@ def _get_requirements_config(
 ## @brief Load full requirement rows from CSV/JSON/YAML.
 #  @version 1.3
 #  @utility
-#  @supports REQ-IMPACT-002
-#  @supports REQ-TRACE-001
 def load_requirements_full(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     req_info = _get_requirements_config(config)
     if req_info is None:

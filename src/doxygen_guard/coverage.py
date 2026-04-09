@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 ## @brief Analyze requirement coverage across all tagged functions.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-COVERAGE-001
-#  @return Dict with covered, uncovered, supports_only, orphan_refs, unmapped_functions
+#  @return Dict with covered, uncovered, orphan_refs, unmapped_functions
 def analyze_coverage(
     source_dirs: list[str],
     config: dict[str, Any],
@@ -32,14 +32,12 @@ def analyze_coverage(
 
     all_req_ids = set(full_reqs.keys())
     tagged_reqs = _collect_req_ids(all_tagged)
-    supports_only = _collect_supports_only(all_tagged)
     unmapped = _collect_unmapped_functions(all_tagged)
 
     return {
         "total_requirements": len(all_req_ids),
         "covered": sorted(tagged_reqs & all_req_ids),
-        "uncovered": sorted(all_req_ids - tagged_reqs - supports_only),
-        "supports_only": sorted(supports_only & all_req_ids),
+        "uncovered": sorted(all_req_ids - tagged_reqs),
         "orphan_refs": sorted(tagged_reqs - all_req_ids),
         "unmapped_functions": sorted(unmapped),
     }
@@ -54,19 +52,6 @@ def _collect_req_ids(all_tagged: list[TaggedFunction]) -> set[str]:
     for tf in all_tagged:
         result.update(tf.reqs)
     return result
-
-
-## @brief Find requirements referenced only via supports tags, not direct req tags.
-#  @version 1.2
-#  @req REQ-COVERAGE-001
-#  @return Set of requirement IDs with supports-only coverage
-def _collect_supports_only(all_tagged: list[TaggedFunction]) -> set[str]:
-    req_refs: set[str] = set()
-    supports_refs: set[str] = set()
-    for tf in all_tagged:
-        req_refs.update(tf.reqs)
-        supports_refs.update(tf.supports)
-    return supports_refs - req_refs
 
 
 ## @brief Find tagged functions with no requirement mapping.
@@ -86,10 +71,6 @@ def format_coverage_text(report: dict[str, Any]) -> str:
     if report["uncovered"]:
         lines.append(f"\nUncovered ({len(report['uncovered'])}):")
         for r in report["uncovered"]:
-            lines.append(f"  - {r}")
-    if report["supports_only"]:
-        lines.append(f"\nSupports-only ({len(report['supports_only'])}):")
-        for r in report["supports_only"]:
             lines.append(f"  - {r}")
     if report["orphan_refs"]:
         lines.append(f"\nOrphan @req refs ({len(report['orphan_refs'])}):")
@@ -119,10 +100,6 @@ def format_coverage_markdown(report: dict[str, Any]) -> str:
     if report["uncovered"]:
         lines.append(f"\n## Uncovered ({len(report['uncovered'])})")
         for r in report["uncovered"]:
-            lines.append(f"- {r}")
-    if report["supports_only"]:
-        lines.append(f"\n## Supports-only ({len(report['supports_only'])})")
-        for r in report["supports_only"]:
             lines.append(f"- {r}")
     if report["orphan_refs"]:
         lines.append(f"\n## Orphan Refs ({len(report['orphan_refs'])})")

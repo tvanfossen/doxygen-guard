@@ -4,9 +4,9 @@ skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
 actor "User" as User
-entity "External" as External
+entity "Mobile" as Mobile
 
-box "System" #LightBlue
+box "IoT Library" #LightBlue
   participant "Sensor Driver" as Sensor_Driver
   participant "Controller" as Controller
   participant "Comm Manager" as Comm_Manager
@@ -20,55 +20,28 @@ header
 end header
 
 
-Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY\nController_OnSensorData()
+Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY
 activate Controller
-Comm_Manager --> Controller: EVENT_CONTROL_ACTION\nController_ReportStatus()
-External --> Controller: Controller_Init()
-External --> Controller: MsgBus_Init()
-External --> Controller: MsgBus_ProcessQueue()
+Comm_Manager --> Controller: EVENT_CONTROL_ACTION
 == Controller_OnSensorData() ==
 note right of Controller: Threshold Check
-alt sensor_value > threshold
-Controller --> Controller: EVENT_CONTROL_ACTION\nController_OnSensorData() -> Controller_ReportStatus()
-Controller -> Comm_Manager: Comm_SendStatus(&status)
-activate Comm_Manager
-Controller <-- Comm_Manager: return
-deactivate Comm_Manager
-end alt
+Controller --> Controller: EVENT_CONTROL_ACTION
 == Controller_Init() ==
 Controller -> Event_Bus: Event_register(EVENT_SENSOR_DATA_READY, Controller_OnSensorData)
 activate Event_Bus
-Controller <-- Event_Bus: return
-deactivate Event_Bus
 Controller -> Event_Bus: Event_register(EVENT_CONTROL_ACTION, Controller_ReportStatus)
-activate Event_Bus
-Controller <-- Event_Bus: return
-deactivate Event_Bus
 == MsgBus_Init() ==
 Controller -> Event_Bus: Event_register(EVENT_MSG_QUEUED, MsgBus_ProcessQueue)
-activate Event_Bus
-Controller <-- Event_Bus: return
-deactivate Event_Bus
 == MsgBus_QueueInbound() ==
-Controller --> Controller: EVENT_MSG_QUEUED\nMsgBus_QueueInbound() -> MsgBus_ProcessQueue()
-note right of Controller: Msg Dispatch Cycle
-loop queue_receive(&inbound_queue, &msg)
-alt msg.event_id == MSG_EVENT_STATUS_REQUEST
+Controller --> Controller: EVENT_MSG_QUEUED
+== Controller_ReportStatus() ==
 Controller -> Comm_Manager: Comm_SendStatus(&status)
 activate Comm_Manager
-Controller <-- Comm_Manager: return
+== MsgBus_ProcessQueue() ==
+note right of Controller: Msg Dispatch Cycle
+Controller -> Comm_Manager: Comm_SendStatus(&status)
 deactivate Comm_Manager
-end alt
-end loop
-Sensor_Driver <-- Controller: return
 deactivate Controller
-Comm_Manager <-- Controller: return
-activate Controller
-External <-- Controller: return
-deactivate Controller
-External <-- Controller: return
-activate Controller
-External <-- Controller: return
-deactivate Controller
+deactivate Event_Bus
 
 @enduml

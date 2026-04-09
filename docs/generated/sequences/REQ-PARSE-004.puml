@@ -3,11 +3,10 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "User" as User
+entity "Ts Languages" as Ts_Languages
 
 box "System" #LightBlue
   participant "Parser" as Parser
-  participant "Trace" as Trace
 end box
 
 header
@@ -17,59 +16,13 @@ header
 end header
 
 
-User --> Parser: get_parsed_file()
-activate Parser
-User --> Parser: _find_doxygen_comment()
-User --> Parser: parse_functions_ts()
-== get_parsed_file() ==
-Parser -> Parser: _parse_and_index(file_path, lang_name)
-== _find_doxygen_comment() ==
-Parser -> Parser: _resolve_comment_node(prev, spec)
-== parse_functions_ts() ==
-Parser -> Trace: get_parser_for_language(lang_name)
-activate Trace
-Parser <-- Trace: return Configured Parser instance, or None if language is unsupported
-deactivate Trace
-Parser -> Trace: get_language_spec(lang_name)
-activate Trace
-Parser <-- Trace: return LanguageSpec for the language, or None if not defined
-deactivate Trace
-Parser -> Parser: _collect_functions(tree.root_node, spec, exclude, comment_start_pattern, functions)
 == _parse_and_index() ==
-Parser -> Trace: get_parser_for_language(lang_name)
-activate Trace
-Parser <-- Trace: return Configured Parser instance, or None if language is unsupported
-deactivate Trace
-Parser -> Trace: get_language_spec(lang_name)
-activate Trace
-Parser <-- Trace: return LanguageSpec for the language, or None if not defined
-deactivate Trace
-group try
-end group
-group catch
-note right: logger
-end group
-Parser -> Parser: _index_function_nodes(tree.root_node, spec)
-== _resolve_function_node() ==
-Parser -> Parser: _unwrap_decorated(child)
-== _find_preceding_doxygen() ==
-Parser -> Parser: _collect_python_comments(prev, spec)
-Parser -> Parser: _collect_c_comment(prev, spec)
-== _collect_functions() ==
-loop child in node.children
-Parser -> Parser: _resolve_function_node(child, spec)
-alt func_node
-Parser -> Parser: _extract_function_name(func_node, spec)
-Parser -> Parser: _find_preceding_doxygen(func_node, spec, comment_start_pattern)
-else
-Parser -> Parser: _collect_functions(child, spec, exclude, comment_start_pattern, functions)
-end alt
-end loop
-User <-- Parser: return ParsedFile instance, or None if parsing fails
-deactivate Parser
-User <-- Parser: return Raw comment text, or None if no doxygen comment found
-activate Parser
-User <-- Parser: return List of Function objects detected in the source content
-deactivate Parser
+Parser -> Ts_Languages: get_parser_for_language(lang_name)
+activate Ts_Languages
+Parser -> Ts_Languages: get_language_spec(lang_name)
+== parse_functions_ts() ==
+Parser -> Ts_Languages: get_parser_for_language(lang_name)
+Parser -> Ts_Languages: get_language_spec(lang_name)
+deactivate Ts_Languages
 
 @enduml

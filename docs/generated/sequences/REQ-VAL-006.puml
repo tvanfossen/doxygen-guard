@@ -3,11 +3,8 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "User" as User
-
 box "System" #LightBlue
   participant "Validate" as Validate
-  participant "Config" as Config
   participant "Parser" as Parser
 end box
 
@@ -18,23 +15,9 @@ header
 end header
 
 
-User --> Validate: check_file_presence()
-activate Validate
-== check_file_presence() ==
-Validate -> Config: get_validate(config)
-Validate -> Validate: _find_file_doxygen_start(lines)
-alt block_line is None
-Validate -> Validate: _first_code_line(lines)
-end alt
-Validate -> Validate: _check_file_block_tags(file_path, lines, block_line)
 == _check_file_block_tags() ==
-Validate -> Validate: _extract_file_block_text(lines, block_start)
 Validate -> Parser: parse_doxygen_tags(block_text)
 activate Parser
-Validate <-- Parser: return Dict mapping tag names to lists of their values
 deactivate Parser
-== _find_file_doxygen_start() ==
-User <-- Validate: return List of violations for missing or incomplete file-level doxygen
-deactivate Validate
 
 @enduml

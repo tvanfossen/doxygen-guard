@@ -1,0 +1,689 @@
+"""Annotation-driven behavioral edge building for sequence diagrams.
+
+@brief Build edges from @sends/@receives/@calls annotations with
+causal ordering, entry chain support, and boundary-argument extraction.
+@version 1.0
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from collections import deque
+from dataclasses import dataclass
+from typing import Any
+
+from doxygen_guard.config import get_trace, get_trace_options
+from doxygen_guard.tracer_models import (
+    ASTEdge,
+    Edge,
+    Participant,
+    TaggedFunction,
+    resolve_by_prefix,
+    split_calls_ref,
+)
+
+logger = logging.getLogger(__name__)
+
+
+## @brief Build the global handler map from ALL tagged functions.
+#  @version 2.0
+#  @internal
+#  @return Dict mapping event name to list of handler TaggedFunctions
+def _build_handler_map(
+    all_tagged: list[TaggedFunction],
+) -> dict[str, list[TaggedFunction]]:
+    handler_map: dict[str, list[TaggedFunction]] = {}
+    for tf in all_tagged:
+        for event in tf.receives:
+            if event in handler_map:
+                existing = handler_map[event][0]
+                logger.warning(
+                    "Duplicate handler for '%s': %s() and %s()",
+                    event,
+                    existing.name,
+                    tf.name,
+                )
+            handler_map.setdefault(event, []).append(tf)
+    return handler_map
+
+
+## @brief Map events to their emitter's (participant_name, func_name).
+#  @version 2.0
+#  @req REQ-TRACE-001
+#  @return Dict mapping event name to (participant, func_name) of first emitter
+def _build_emitter_participant_map(
+    all_tagged: list[TaggedFunction],
+) -> dict[str, tuple[str, str]]:
+    result: dict[str, tuple[str, str]] = {}
+    for tf in sorted(all_tagged, key=lambda t: t.name):
+        for event in tf.sends:
+            if event not in result and tf.participant_name:
+                result[event] = (tf.participant_name, tf.name)
+    return result
+
+
+## @brief Build a causal dependency graph from sends/receives relationships.
+#  @version 2.0
+#  @internal
+#  @return Tuple of (adjacency dict, in-degree dict)
+def _build_causal_graph(
+    emitters: list[TaggedFunction],
+) -> tuple[dict[str, list[str]], dict[str, int]]:
+    send_map: dict[str, str] = {}
+    for tf in emitters:
+        for event in tf.sends:
+            send_map[event] = tf.name
+
+    adj: dict[str, list[str]] = {tf.name: [] for tf in emitters}
+    in_degree: dict[str, int] = {tf.name: 0 for tf in emitters}
+
+    for tf in emitters:
+        for event in tf.receives:
+            producer = send_map.get(event)
+            if producer and producer != tf.name and producer in adj:
+                adj[producer].append(tf.name)
+                in_degree[tf.name] += 1
+
+    return adj, in_degree
+
+
+## @brief Sort emitters by causal dependency.
+#  @version 2.0
+#  @internal
+#  @return List of TaggedFunctions in causal order
+def _toposort_emitters(
+    emitters: list[TaggedFunction],
+    entry_names: set[str] | None = None,
+) -> list[TaggedFunction]:
+    if len(emitters) <= 1:
+        return emitters
+
+    name_to_tf: dict[str, TaggedFunction] = {tf.name: tf for tf in emitters}
+    adj, in_degree = _build_causal_graph(emitters)
+
+    entries = entry_names or set()
+    zeros = [name for name, deg in in_degree.items() if deg == 0]
+    zeros.sort(key=lambda n: (n not in entries, not bool(name_to_tf[n].receives)))
+    queue = deque(zeros)
+    result: list[TaggedFunction] = []
+
+    while queue:
+        name = queue.popleft()
+        result.append(name_to_tf[name])
+        for neighbor in adj[name]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+
+    seen = {tf.name for tf in result}
+    for tf in emitters:
+        if tf.name not in seen:
+            result.append(tf)
+
+    return result
+
+
+## @brief Group entry edges by handler; wrap multi-event handlers in alt blocks.
+#  @version 2.0
+#  @req REQ-TRACE-001
+#  @return List of ASTEdge objects with entry edges and alt wrappers
+def _group_entry_edges(entries: list[Edge]) -> list[ASTEdge]:
+    groups: dict[str, list[Edge]] = {}
+    for edge in entries:
+        groups.setdefault(edge.label, []).append(edge)
+
+    result: list[ASTEdge] = []
+    for edges in groups.values():
+        if len(edges) == 1:
+            result.append(ASTEdge(kind="entry", edge=edges[0]))
+            continue
+        for i, edge in enumerate(edges):
+            event_label = edge.event or ""
+            kind = "switch_start" if i == 0 else "switch_case"
+            label = event_label if i == 0 else f"[{event_label}]"
+            result.append(ASTEdge(kind=kind, label=label))
+            result.append(ASTEdge(kind="entry", edge=edge))
+        result.append(ASTEdge(kind="switch_end"))
+    return result
+
+
+## @brief Collect unique @after REQ IDs from a list of tagged functions.
+#  @version 2.0
+#  @internal
+#  @return Deduplicated list of precondition REQ IDs
+def _collect_after(funcs: list[TaggedFunction]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for tf in funcs:
+        for req in tf.after:
+            if req not in seen:
+                seen.add(req)
+                result.append(req)
+    return result
+
+
+## @brief Shared context for building edges within a single diagram.
+#  @version 1.0
+#  @internal
+@dataclass
+class _EdgeContext:
+    handler_map: dict[str, list[TaggedFunction]]
+    externals: list[Participant]
+    participant_configs: dict[str, dict]
+    label_mode: str
+    send_fns: set[str]
+    file_cache: dict | None
+    call_type_c: str = "call_expression"
+
+
+## @brief Infer entry edges from unresolved @receives events.
+#  @version 2.0
+#  @req REQ-TRACE-001
+#  @return List of entry edges for external triggers
+def _infer_entry_edges(
+    req_funcs: list[TaggedFunction],
+    all_tagged: list[TaggedFunction],
+    participants: list[Participant],
+    config: dict[str, Any],
+) -> list[Edge]:
+    req_names = {tf.name for tf in req_funcs}
+    emitter_map = _build_emitter_participant_map(all_tagged)
+    externals = [p for p in participants if p.receives_prefix]
+
+    entries: list[Edge] = []
+    seen_events: set[str] = set()
+
+    for tf in req_funcs:
+        for event in tf.receives:
+            if event in seen_events:
+                continue
+            entry = _resolve_entry_edge(event, tf, req_names, emitter_map, externals)
+            seen_events.add(event)
+            if entry:
+                entries.append(entry)
+
+    return entries
+
+
+## @brief Resolve a single entry edge for an unresolved @receives event.
+#  @version 1.0
+#  @internal
+#  @return Edge if source resolved, None if unresolvable
+def _resolve_entry_edge(
+    event: str,
+    tf: TaggedFunction,
+    req_names: set[str],
+    emitter_map: dict[str, tuple[str, str]],
+    externals: list[Participant],
+) -> Edge | None:
+    emitter_participant = emitter_map.get(event)
+    if emitter_participant and emitter_participant[1] in req_names:
+        return None
+
+    source = resolve_by_prefix(event, externals) or (
+        emitter_participant[0] if emitter_participant else None
+    )
+    if source is None:
+        logger.warning(
+            "No source participant for @receives '%s' in %s() — omitting entry edge",
+            event,
+            tf.name,
+        )
+        return None
+
+    label = _strip_prefix(event)
+    return Edge(source, tf.display_name, label, event=event, style="-->")
+
+
+## @brief Strip bus prefix from event name for label display.
+#  @version 1.0
+#  @internal
+#  @return Event name with prefix removed
+def _strip_prefix(event: str) -> str:
+    return event.split(":", 1)[-1] if ":" in event else event
+
+
+## @brief Build entry chain edges from participant config.
+#  @version 1.0
+#  @internal
+#  @return List of ASTEdge chain arrows
+def _build_entry_chain_from_config(
+    pconf: dict,
+    req_name: str,
+) -> list[ASTEdge]:
+    chain = pconf.get("entry_chain", [])
+    result: list[ASTEdge] = []
+    for step in chain:
+        from_name = step.get("from", "")
+        to_name = step.get("to", "")
+        label = step.get("label", "{req_name}").replace("{req_name}", req_name)
+        if from_name and to_name:
+            result.append(ASTEdge(kind="entry", edge=Edge(from_name, to_name, label, style="->")))
+    return result
+
+
+## @brief Extract arguments from boundary function call sites using tree-sitter.
+#  @version 1.0
+#  @internal
+#  @return List of argument lists, one per call site found
+def _extract_boundary_args(func_name: str, body_node: Any, call_type: str) -> list[list[str]]:
+    results: list[list[str]] = []
+    _find_boundary_calls(body_node, func_name, call_type, results)
+    return results
+
+
+## @brief Recursively find calls to a specific function and extract args.
+#  @version 1.0
+#  @internal
+def _find_boundary_calls(node: Any, target: str, call_type: str, results: list[list[str]]) -> None:
+    if node.type == call_type:
+        _try_extract_call_args(node, target, results)
+    for child in node.named_children:
+        _find_boundary_calls(child, target, call_type, results)
+
+
+## @brief Extract arguments from a call node if it matches the target function.
+#  @version 1.0
+#  @internal
+def _try_extract_call_args(node: Any, target: str, results: list[list[str]]) -> None:
+    func_node = node.child_by_field_name("function")
+    if not (func_node and func_node.text and func_node.text.decode("utf-8") == target):
+        return
+    args = node.child_by_field_name("arguments")
+    if not args:
+        return
+    arg_texts = [child.text.decode("utf-8") if child.text else "" for child in args.named_children]
+    results.append(arg_texts)
+
+
+## @brief Apply label_template to extracted arguments.
+#  @version 1.0
+#  @internal
+#  @return Formatted label string
+def _apply_label_template(template: str, args: list[str]) -> str:
+    result = template
+    for i, arg in enumerate(args):
+        cleaned = arg.strip('"').strip("'")
+        result = result.replace(f"{{arg{i}}}", cleaned)
+    return result
+
+
+## @brief Format a boundary call label from function name and arguments.
+#  @version 1.0
+#  @internal
+#  @return Formatted label for the boundary call edge
+def _format_boundary_label(func_name: str, args: list[str], label_template: str | None) -> str:
+    if label_template and args:
+        return _apply_label_template(label_template, args)
+    if args:
+        return f"{func_name}({', '.join(args)})"
+    return f"{func_name}()"
+
+
+## @brief Extract condition text from a control-flow node.
+#  @version 1.0
+#  @internal
+#  @return Condition text, truncated if too long
+def _extract_condition_text(node: Any, max_len: int) -> str:
+    condition = node.child_by_field_name("condition")
+    text = condition.text.decode("utf-8") if condition and condition.text else ""
+    return text[:max_len] + "..." if len(text) > max_len else text
+
+
+## @brief Find the enclosing control-flow block for a call node.
+#  @version 1.0
+#  @internal
+#  @return Tuple of (block_type, condition_text) or None
+def _find_enclosing_control_flow(node: Any, max_condition: int = 80) -> tuple[str, str] | None:
+    current = node.parent
+    while current:
+        if current.type in ("while_statement", "for_statement"):
+            return ("loop", _extract_condition_text(current, max_condition))
+        if current.type == "if_statement":
+            return ("alt", _extract_condition_text(current, max_condition))
+        current = current.parent
+    return None
+
+
+## @brief Recursively scan for string comparison patterns.
+#  @version 1.0
+#  @internal
+def _scan_for_string_comparisons(node: Any, payloads: list[str]) -> None:
+    _check_strcmp_call(node, payloads)
+    _check_equality_comparison(node, payloads)
+    for child in node.named_children:
+        _scan_for_string_comparisons(child, payloads)
+
+
+## @brief Check if node is a strcmp() call and extract string literal args.
+#  @version 1.0
+#  @internal
+def _check_strcmp_call(node: Any, payloads: list[str]) -> None:
+    if node.type != "call_expression":
+        return
+    func = node.child_by_field_name("function")
+    if not (func and func.text and func.text.decode("utf-8") == "strcmp"):
+        return
+    args = node.child_by_field_name("arguments")
+    if not args:
+        return
+    for child in args.named_children:
+        if child.type == "string_literal" and child.text:
+            payloads.append(child.text.decode("utf-8").strip('"'))
+
+
+## @brief Check if node is an == comparison with a string literal.
+#  @version 1.0
+#  @internal
+def _check_equality_comparison(node: Any, payloads: list[str]) -> None:
+    if node.type != "binary_expression":
+        return
+    op = node.child_by_field_name("operator")
+    if not (op and op.text and op.text.decode("utf-8") == "=="):
+        return
+    for child in node.named_children:
+        if child.type == "string_literal" and child.text:
+            payloads.append(child.text.decode("utf-8").strip('"'))
+
+
+## @brief Build annotation-driven behavioral edges for a REQ's functions.
+#  @version 1.0
+#  @req REQ-TRACE-001
+#  @return List of ASTEdge objects representing the behavioral sequence diagram
+def build_behavioral_edges(
+    emitters: list[TaggedFunction],
+    all_tagged: list[TaggedFunction],
+    participants: list[Participant],
+    config: dict[str, Any],
+    req_id: str | None = None,
+    file_cache: dict | None = None,
+) -> list[ASTEdge]:
+    ctx = _build_edge_context(all_tagged, participants, config, file_cache)
+    participant_configs = ctx.participant_configs
+    req_name = _resolve_req_name(req_id, config)
+
+    entry_edges = _infer_entry_edges(emitters, all_tagged, participants, config)
+    ast_edges: list[ASTEdge] = _build_entry_section(entry_edges, participant_configs, req_name)
+
+    entry_names = {e.label.split("(")[0] for e in entry_edges if "(" in e.label}
+    for tf in _toposort_emitters(emitters, entry_names):
+        ast_edges.extend(_build_edges_for_function(tf, ctx))
+
+    return ast_edges
+
+
+## @brief Create the edge context from config and participants.
+#  @version 1.0
+#  @internal
+#  @return Populated _EdgeContext
+def _build_edge_context(
+    all_tagged: list[TaggedFunction],
+    participants: list[Participant],
+    config: dict[str, Any],
+    file_cache: dict | None,
+) -> _EdgeContext:
+    trace_config = get_trace(config)
+    trace_options = get_trace_options(config)
+
+    handler_map = _build_handler_map(all_tagged)
+    externals = [p for p in participants if p.receives_prefix or p.boundary_functions]
+
+    ext_config = trace_config.get("external", [])
+    participant_configs: dict[str, dict] = {}
+    for ext_entry in ext_config:
+        if isinstance(ext_entry, dict):
+            for pname, pconf in ext_entry.items():
+                participant_configs[pname] = pconf if isinstance(pconf, dict) else {}
+
+    return _EdgeContext(
+        handler_map=handler_map,
+        externals=externals,
+        participant_configs=participant_configs,
+        label_mode=trace_options.get("label_mode", "brief"),
+        send_fns=set(trace_options.get("event_send_functions", [])),
+        file_cache=file_cache,
+    )
+
+
+## @brief Resolve requirement name from CSV for entry chain labels.
+#  @version 1.0
+#  @internal
+#  @return Requirement name string, empty if not found
+def _resolve_req_name(req_id: str | None, config: dict[str, Any]) -> str:
+    if not req_id:
+        return ""
+    from doxygen_guard.impact import load_requirements_full
+
+    req_data = load_requirements_full(config)
+    if req_id not in req_data:
+        return req_id
+    name_col = config.get("impact", {}).get("requirements", {}).get("name_column", "name")
+    return req_data[req_id].get(name_col, req_id)
+
+
+## @brief Build entry section: chains + entry edges.
+#  @version 1.0
+#  @internal
+#  @return List of ASTEdge for the entry section
+def _build_entry_section(
+    entry_edges: list[Edge],
+    participant_configs: dict[str, dict],
+    req_name: str,
+) -> list[ASTEdge]:
+    ast_edges: list[ASTEdge] = []
+    for entry in entry_edges:
+        pconf = participant_configs.get(entry.from_name)
+        if pconf:
+            ast_edges.extend(_build_entry_chain_from_config(pconf, req_name))
+        ast_edges.append(ASTEdge(kind="entry", edge=entry))
+    return ast_edges
+
+
+## @brief Build behavioral edges for a single function.
+#  @version 1.0
+#  @internal
+#  @return List of ASTEdge for this function's section
+def _build_edges_for_function(tf: TaggedFunction, ctx: _EdgeContext) -> list[ASTEdge]:
+    result: list[ASTEdge] = []
+    body_node = _get_body_node(tf, ctx.file_cache)
+    call_type = "call" if tf.file_path.endswith(".py") else ctx.call_type_c
+
+    _append_wrappers_open(tf, result)
+    result.append(ASTEdge(kind="section", label=f"{tf.name}()"))
+    _append_notes(tf, result)
+    _append_send_edges(tf, ctx, body_node, call_type, result)
+    _append_calls_edges(tf, ctx, body_node, call_type, result)
+    _append_wrappers_close(tf, result)
+
+    return result
+
+
+## @brief Append @loop/@group open markers.
+#  @version 1.0
+#  @internal
+def _append_wrappers_open(tf: TaggedFunction, result: list[ASTEdge]) -> None:
+    if tf.loop:
+        result.append(ASTEdge(kind="loop_start", label=tf.loop))
+    if tf.group:
+        result.append(ASTEdge(kind="group_start", label=tf.group))
+
+
+## @brief Append @loop/@group close markers.
+#  @version 1.0
+#  @internal
+def _append_wrappers_close(tf: TaggedFunction, result: list[ASTEdge]) -> None:
+    if tf.group:
+        result.append(ASTEdge(kind="group_end"))
+    if tf.loop:
+        result.append(ASTEdge(kind="loop_end"))
+
+
+## @brief Append @note edges for a function.
+#  @version 1.0
+#  @internal
+def _append_notes(tf: TaggedFunction, result: list[ASTEdge]) -> None:
+    for note_text in tf.notes:
+        note_label = _humanize_note(note_text)
+        result.append(
+            ASTEdge(
+                kind="trigger",
+                edge=Edge(tf.display_name, tf.display_name, note_label, style="note"),
+            )
+        )
+
+
+## @brief Append @sends edges with control-flow framing.
+#  @version 1.0
+#  @internal
+def _append_send_edges(
+    tf: TaggedFunction, ctx: _EdgeContext, body_node: Any, call_type: str, result: list[ASTEdge]
+) -> None:
+    placed: set[str] = set()
+    for event in tf.sends:
+        edge = _make_send_edge(event, tf, ctx.handler_map, ctx.label_mode)
+        if body_node and ctx.send_fns:
+            cf = _find_send_in_body(event, body_node, call_type, ctx.send_fns)
+            if cf:
+                result.append(ASTEdge(kind=f"{cf[0]}_start", label=cf[1]))
+                result.append(edge)
+                result.append(ASTEdge(kind=f"{cf[0]}_end"))
+                placed.add(event)
+                continue
+        result.append(edge)
+        placed.add(event)
+
+
+## @brief Append @calls edges with boundary-argument extraction.
+#  @version 1.0
+#  @internal
+def _append_calls_edges(
+    tf: TaggedFunction, ctx: _EdgeContext, body_node: Any, call_type: str, result: list[ASTEdge]
+) -> None:
+    for calls_ref in tf.calls:
+        module, func_name = split_calls_ref(calls_ref)
+        target = _resolve_calls_target(func_name, module, ctx.externals, ctx.participant_configs)
+        template = _get_label_template(func_name, ctx.participant_configs)
+        to_name = target or module or func_name
+
+        call_sites = _extract_boundary_args(func_name, body_node, call_type) if body_node else []
+        if call_sites:
+            for args in call_sites:
+                label = _format_boundary_label(func_name, args, template)
+                result.append(
+                    ASTEdge(kind="ext", edge=Edge(tf.display_name, to_name, label, style="->"))
+                )
+        else:
+            label = _format_boundary_label(func_name, [], template)
+            result.append(
+                ASTEdge(kind="ext", edge=Edge(tf.display_name, to_name, label, style="->"))
+            )
+
+
+## @brief Create a send edge (dashed arrow) from emitter to handler's participant.
+#  @version 1.0
+#  @internal
+#  @return ASTEdge with emit kind
+def _make_send_edge(
+    event: str,
+    tf: TaggedFunction,
+    handler_map: dict[str, list[TaggedFunction]],
+    label_mode: str,
+) -> ASTEdge:
+    handlers = handler_map.get(event, [])
+    to_name = handlers[0].display_name if handlers else tf.display_name
+    label = _strip_prefix(event) if label_mode == "brief" else event
+    return ASTEdge(
+        kind="emit", edge=Edge(tf.display_name, to_name, label, event=event, style="-->")
+    )
+
+
+## @brief Find a send (event_post) call in the body and check for control flow.
+#  @version 1.0
+#  @internal
+#  @return Tuple of (block_type, condition) or None
+def _find_send_in_body(
+    event: str, body_node: Any, call_type: str, send_fns: set[str]
+) -> tuple[str, str] | None:
+    call_node = _find_event_post_call(event, body_node, call_type, send_fns)
+    return _find_enclosing_control_flow(call_node) if call_node else None
+
+
+## @brief Find the call node for event_post(EVENT_X) in the body.
+#  @version 1.0
+#  @internal
+#  @return The matching call AST node, or None
+def _find_event_post_call(event: str, node: Any, call_type: str, send_fns: set[str]) -> Any | None:
+    if node.type == call_type and _is_event_post_of(node, event, send_fns):
+        return node
+    for child in node.named_children:
+        found = _find_event_post_call(event, child, call_type, send_fns)
+        if found is not None:
+            return found
+    return None
+
+
+## @brief Check if a call node is an event_post call with the given event argument.
+#  @version 1.0
+#  @internal
+#  @return True if the call matches
+def _is_event_post_of(node: Any, event: str, send_fns: set[str]) -> bool:
+    func = node.child_by_field_name("function")
+    if not (func and func.text and func.text.decode("utf-8") in send_fns):
+        return False
+    args = node.child_by_field_name("arguments")
+    if not args:
+        return False
+    return any(child.text and child.text.decode("utf-8") == event for child in args.named_children)
+
+
+## @brief Get function body AST node from file cache.
+#  @version 1.0
+#  @internal
+#  @return Body AST node or None
+def _get_body_node(tf: TaggedFunction, file_cache: dict | None) -> Any | None:
+    if not file_cache:
+        return None
+    parsed = file_cache.get(tf.file_path)
+    func_node = parsed.func_nodes.get(tf.name) if parsed else None
+    return func_node.child_by_field_name("body") if func_node else None
+
+
+## @brief Resolve a @calls target to a participant name.
+#  @version 1.0
+#  @internal
+#  @return Participant name or None
+def _resolve_calls_target(
+    func_name: str,
+    module: str,
+    externals: list[Participant],
+    participant_configs: dict[str, dict],
+) -> str | None:
+    for p in externals:
+        if func_name in p.boundary_functions:
+            return p.name
+    for pname, pconf in participant_configs.items():
+        if func_name in pconf.get("boundary_functions", []):
+            return pname
+    return module.replace("_", " ").title() if module else None
+
+
+## @brief Get label_template for a boundary function from participant configs.
+#  @version 1.0
+#  @internal
+#  @return Template string or None
+def _get_label_template(func_name: str, participant_configs: dict[str, dict]) -> str | None:
+    for pconf in participant_configs.values():
+        if func_name in pconf.get("boundary_functions", []):
+            return pconf.get("label_template")
+    return None
+
+
+## @brief Convert UPPER_CASE note names to Title Case.
+#  @version 1.0
+#  @internal
+#  @return Humanized note text
+def _humanize_note(name: str) -> str:
+    if re.match(r"^[A-Z][A-Z0-9_]+$", name):
+        return name.replace("_", " ").title()
+    return name
