@@ -1,23 +1,17 @@
 [
   {
-    "req_id": "REQ-VAL-001",
-    "req_name": "Doxygen presence check",
+    "req_id": "REQ-TRACE-001",
+    "req_name": "Sequence diagram generation",
     "functions": [
       {
-        "name": "run_precommit",
-        "file": "src/doxygen_guard/main.py",
-        "version": "2.3"
-      }
-    ]
-  },
-  {
-    "req_id": "REQ-VAL-004",
-    "req_name": "Req coverage enforcement",
-    "functions": [
+        "name": "_infer_entry_edges",
+        "file": "src/doxygen_guard/tracer/edges_behavioral.py",
+        "version": "2.1"
+      },
       {
-        "name": "check_req_coverage",
-        "file": "src/doxygen_guard/checks.py",
-        "version": "1.4"
+        "name": "build_behavioral_edges",
+        "file": "src/doxygen_guard/tracer/edges_behavioral.py",
+        "version": "1.1"
       }
     ]
   }

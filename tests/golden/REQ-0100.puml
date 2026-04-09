@@ -25,25 +25,24 @@ Mobile -> Cloud: Start Clean Command
 activate Cloud
 Cloud --> IoT_Library: cmd/req
 activate IoT_Library
-MCU --> IoT_Library: product_status
-MCU --> IoT_Library: cycle_complete
 == handle_cmd_request() ==
 note right of IoT_Library: Command Dispatch
 IoT_Library --> IoT_Library: EVENT_CLEAN_CMD
-IoT_Library --> IoT_Library: EVENT_DOCK_CMD
-loop "as product status changes"
-== on_product_status() ==
-IoT_Library -> Cloud:  shadow/reported
-end loop
-group "cycle summary"
-== on_cycle_complete() ==
-IoT_Library -> Cloud:  mapping/runcomplete
-end group
 == send_cmd_response() ==
 IoT_Library -> Cloud:  cmd/resp
 == execute_clean() ==
 IoT_Library -> MCU: DurableEventCb(DURABLE_IN_EVENT_SET_DRIVE, &info)
 activate MCU
+loop "as product status changes"
+MCU --> IoT_Library: product_status
+== on_product_status() ==
+IoT_Library -> Cloud:  shadow/reported
+end loop
+group "cycle summary"
+MCU --> IoT_Library: cycle_complete
+== on_cycle_complete() ==
+IoT_Library -> Cloud:  mapping/runcomplete
+end group
 deactivate Cloud
 deactivate IoT_Library
 deactivate MCU

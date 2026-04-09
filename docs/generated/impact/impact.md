@@ -2,7 +2,6 @@
 
 | REQ | Name | Functions Changed |
 |-----|------|-------------------|
-| REQ-VAL-001 | Doxygen presence check | run_precommit |
-| REQ-VAL-004 | Req coverage enforcement | check_req_coverage |
+| REQ-TRACE-001 | Sequence diagram generation | _infer_entry_edges, build_behavioral_edges |
 
-**Total: 2 requirement(s) affected, 2 function(s) changed**
+**Total: 1 requirement(s) affected, 2 function(s) changed**

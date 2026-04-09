@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from doxygen_guard.config import get_trace, get_trace_options
@@ -63,12 +63,66 @@ def _build_emitter_participant_map(
     return result
 
 
+## @brief Collect participant names targeted by a function's @calls.
+#  @version 1.0
+#  @internal
+#  @return Set of participant names this function calls across boundaries
+def _calls_target_participants(
+    tf: TaggedFunction, externals: list[Participant], participant_configs: dict[str, dict]
+) -> set[str]:
+    targets: set[str] = set()
+    for ref in tf.calls:
+        _, func_name = split_calls_ref(ref)
+        target_p = _resolve_calls_target(func_name, "", externals, participant_configs)
+        if target_p:
+            targets.add(target_p)
+    return targets
+
+
+## @brief Add causal links from @calls targets to @receives handlers on same participant.
+#  @version 1.0
+#  @internal
+def _add_calls_receives_links(
+    emitters: list[TaggedFunction],
+    adj: dict[str, list[str]],
+    in_degree: dict[str, int],
+    externals: list[Participant] | None,
+    participant_configs: dict[str, dict] | None,
+) -> None:
+    if not externals:
+        return
+    for tf in emitters:
+        targets = _calls_target_participants(tf, externals, participant_configs or {})
+        if not targets:
+            continue
+        for other in emitters:
+            if other.name == tf.name or other.name not in adj:
+                continue
+            if _receives_from_any(other, targets, externals) and other.name not in adj[tf.name]:
+                adj[tf.name].append(other.name)
+                in_degree[other.name] = in_degree.get(other.name, 0) + 1
+
+
+## @brief Check if a function receives from any of the given participants.
+#  @version 1.0
+#  @internal
+#  @return True if any @receives event matches a target participant
+def _receives_from_any(tf: TaggedFunction, targets: set[str], externals: list[Participant]) -> bool:
+    for event in tf.receives:
+        source = resolve_by_prefix(event, externals)
+        if source in targets:
+            return True
+    return False
+
+
 ## @brief Build a causal dependency graph from sends/receives relationships.
-#  @version 2.0
+#  @version 2.1
 #  @internal
 #  @return Tuple of (adjacency dict, in-degree dict)
 def _build_causal_graph(
     emitters: list[TaggedFunction],
+    externals: list[Participant] | None = None,
+    participant_configs: dict[str, dict] | None = None,
 ) -> tuple[dict[str, list[str]], dict[str, int]]:
     send_map: dict[str, str] = {}
     for tf in emitters:
@@ -85,22 +139,25 @@ def _build_causal_graph(
                 adj[producer].append(tf.name)
                 in_degree[tf.name] += 1
 
+    _add_calls_receives_links(emitters, adj, in_degree, externals, participant_configs)
     return adj, in_degree
 
 
 ## @brief Sort emitters by causal dependency.
-#  @version 2.0
+#  @version 2.1
 #  @internal
 #  @return List of TaggedFunctions in causal order
 def _toposort_emitters(
     emitters: list[TaggedFunction],
     entry_names: set[str] | None = None,
+    externals: list[Participant] | None = None,
+    participant_configs: dict[str, dict] | None = None,
 ) -> list[TaggedFunction]:
     if len(emitters) <= 1:
         return emitters
 
     name_to_tf: dict[str, TaggedFunction] = {tf.name: tf for tf in emitters}
-    adj, in_degree = _build_causal_graph(emitters)
+    adj, in_degree = _build_causal_graph(emitters, externals, participant_configs)
 
     entries = entry_names or set()
     zeros = [name for name, deg in in_degree.items() if deg == 0]
@@ -174,11 +231,12 @@ class _EdgeContext:
     label_mode: str
     send_fns: set[str]
     file_cache: dict | None
+    req_names: set[str] = field(default_factory=set)
     call_type_c: str = "call_expression"
 
 
 ## @brief Infer entry edges from unresolved @receives events.
-#  @version 2.0
+#  @version 2.1
 #  @req REQ-TRACE-001
 #  @return List of entry edges for external triggers
 def _infer_entry_edges(
@@ -195,6 +253,8 @@ def _infer_entry_edges(
     seen_events: set[str] = set()
 
     for tf in req_funcs:
+        if tf.loop or tf.group:
+            continue
         for event in tf.receives:
             if event in seen_events:
                 continue
@@ -388,7 +448,7 @@ def _check_equality_comparison(node: Any, payloads: list[str]) -> None:
 
 
 ## @brief Build annotation-driven behavioral edges for a REQ's functions.
-#  @version 1.0
+#  @version 1.1
 #  @req REQ-TRACE-001
 #  @return List of ASTEdge objects representing the behavioral sequence diagram
 def build_behavioral_edges(
@@ -400,6 +460,7 @@ def build_behavioral_edges(
     file_cache: dict | None = None,
 ) -> list[ASTEdge]:
     ctx = _build_edge_context(all_tagged, participants, config, file_cache)
+    ctx.req_names = {tf.name for tf in emitters}
     participant_configs = ctx.participant_configs
     req_name = _resolve_req_name(req_id, config)
 
@@ -407,7 +468,7 @@ def build_behavioral_edges(
     ast_edges: list[ASTEdge] = _build_entry_section(entry_edges, participant_configs, req_name)
 
     entry_names = {e.label.split("(")[0] for e in entry_edges if "(" in e.label}
-    for tf in _toposort_emitters(emitters, entry_names):
+    for tf in _toposort_emitters(emitters, entry_names, ctx.externals, ctx.participant_configs):
         ast_edges.extend(_build_edges_for_function(tf, ctx))
 
     return ast_edges
@@ -481,7 +542,7 @@ def _build_entry_section(
 
 
 ## @brief Build behavioral edges for a single function.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 #  @return List of ASTEdge for this function's section
 def _build_edges_for_function(tf: TaggedFunction, ctx: _EdgeContext) -> list[ASTEdge]:
@@ -490,6 +551,7 @@ def _build_edges_for_function(tf: TaggedFunction, ctx: _EdgeContext) -> list[AST
     call_type = "call" if tf.file_path.endswith(".py") else ctx.call_type_c
 
     _append_wrappers_open(tf, result)
+    _append_inline_receives(tf, ctx, result)
     result.append(ASTEdge(kind="section", label=f"{tf.name}()"))
     _append_notes(tf, result)
     _append_send_edges(tf, ctx, body_node, call_type, result)
@@ -519,6 +581,24 @@ def _append_wrappers_close(tf: TaggedFunction, result: list[ASTEdge]) -> None:
         result.append(ASTEdge(kind="loop_end"))
 
 
+## @brief Append inline @receives entry edges for response handlers in loop/group.
+#  @version 1.0
+#  @internal
+def _append_inline_receives(tf: TaggedFunction, ctx: _EdgeContext, result: list[ASTEdge]) -> None:
+    if not (tf.loop or tf.group):
+        return
+    for event in tf.receives:
+        source = resolve_by_prefix(event, ctx.externals)
+        if source:
+            label = _strip_prefix(event)
+            result.append(
+                ASTEdge(
+                    kind="entry",
+                    edge=Edge(source, tf.display_name, label, event=event, style="-->"),
+                )
+            )
+
+
 ## @brief Append @note edges for a function.
 #  @version 1.0
 #  @internal
@@ -534,13 +614,18 @@ def _append_notes(tf: TaggedFunction, result: list[ASTEdge]) -> None:
 
 
 ## @brief Append @sends edges with control-flow framing.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _append_send_edges(
     tf: TaggedFunction, ctx: _EdgeContext, body_node: Any, call_type: str, result: list[ASTEdge]
 ) -> None:
     placed: set[str] = set()
+    is_dispatch = len(tf.sends) > 1
     for event in tf.sends:
+        if is_dispatch and ctx.req_names:
+            handlers = ctx.handler_map.get(event, [])
+            if not any(h.name in ctx.req_names for h in handlers):
+                continue
         edge = _make_send_edge(event, tf, ctx.handler_map, ctx.label_mode)
         if body_node and ctx.send_fns:
             cf = _find_send_in_body(event, body_node, call_type, ctx.send_fns)

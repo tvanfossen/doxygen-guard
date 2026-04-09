@@ -29,9 +29,6 @@ activate OTA_Manager
 == OTA_OnUpdateAvailable() ==
 note right of OTA_Manager: Ota State Change
 OTA_Manager --> Comm_Manager: EVENT_COMM_DOWNLOAD_START
-== Comm_DownloadFirmware() ==
-Comm_Manager --> OTA_Manager: EVENT_COMM_CHUNK_RECEIVED
-Comm_Manager --> OTA_Manager: EVENT_COMM_DOWNLOAD_COMPLETE
 deactivate Cloud
 deactivate Mobile
 deactivate OTA_Manager

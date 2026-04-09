@@ -21,9 +21,6 @@ end header
 
 OTA_Manager --> Comm_Manager: EVENT_COMM_DOWNLOAD_START
 activate Comm_Manager
-== Comm_DownloadFirmware() ==
-Comm_Manager --> OTA_Manager: EVENT_COMM_CHUNK_RECEIVED
-Comm_Manager --> OTA_Manager: EVENT_COMM_DOWNLOAD_COMPLETE
 == Comm_Init() ==
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_RX_RECEIVED, Comm_OnRemoteCommand)
 activate Event_Bus
