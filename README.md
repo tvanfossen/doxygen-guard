@@ -28,6 +28,23 @@ validate:
 trace:
   format: plantuml
   participant_field: "Subsystem"
+  static_participants:
+    - name: User
+      type: actor
+  external:
+    - Cloud:
+        receives_prefix: ["MQTT:"]
+        boundary_functions: ["CloudMgr_Publish"]
+        label_template: "MQTT: {arg0}"
+        entry_chain:
+          - { from: User, to: Mobile, label: "{req_name}" }
+          - { from: Mobile, to: Cloud, label: "{req_name}" }
+    - MCU:
+        receives_prefix: ["DURABLE:"]
+        boundary_functions: ["DurableEventCb"]
+  options:
+    show_returns: false
+    label_mode: brief
 
 impact:
   requirements:
@@ -70,32 +87,34 @@ Every function in staged files is checked for:
 
 ### Sequence Diagrams (auto-generated)
 
-Diagrams are generated from the AST — most behavioral tags are **inferred**, not manually written:
+Behavioral sequence diagrams are generated from annotations. Most tags are **inferred** from AST:
 
 | Tag | Purpose | Manual? |
 |-----|---------|---------|
 | `@req` | Requirement mapping | Yes — per function |
 | `@participant` | Participant identity | Yes — once per file |
-| `@note` | State annotations | Yes — per function |
+| `@note` | Diagram notes (doxygen built-in) | Yes — per function |
+| `@after` | Precondition cross-reference | Yes — per function |
+| `@loop` | Wrap handler in loop block | Yes — per function |
+| `@group` | Wrap handler in group block | Yes — per function |
 | `@return` | Return value documentation | Yes — per function |
 | `@send_source` | Infrastructure root (e.g., on `Event_post`) | Yes — once |
 | `@receive_source` | Registration root (e.g., on `Event_register`) | Yes — once |
 | `@sends` | Events emitted | **Inferred from AST** |
 | `@receives` | Events handled | **Inferred from AST** |
-| `@calls` | Cross-module calls | **Inferred from AST** |
+| `@calls` | Cross-module boundary calls | **Inferred from AST** |
 
-The tool scans function bodies via tree-sitter to detect `event_post()` calls, `Event_register()` patterns, and cross-participant function calls automatically. Tags `@sends`, `@receives`, and `@calls` are inferred automatically.
-
-**Project-defined function calls** are also shown in diagrams — any standalone call to a function defined in your scanned source files produces an edge, even without trace tags. Method calls (`.get()`, `.strip()`) are excluded via AST node type, not heuristics.
+The tool scans function bodies via tree-sitter to detect `event_post()` calls, `Event_register()` patterns, and cross-participant function calls automatically.
 
 ### Diagram Features
 
-- **Return types** on arrows (derived from AST or `@return` tag override)
-- **Control flow** blocks (if/else, loops, try/catch, switch)
-- **Error recovery** notes in catch blocks (callee extraction)
-- **Activation bars** with auto-close at diagram end
-- **Incremental generation** — SHA-256 manifest skips unchanged diagrams (493x speedup)
-- **Cross-REQ handler chain** following with configurable depth
+- **Entry chains** — upstream participant arrows (User→Mobile→Cloud) prepended from config
+- **Label templates** — protocol labels from boundary function args (`MQTT: {arg0}`)
+- **Hub backtracking** — REQs routed through dispatch hubs get entry chains automatically
+- **Control flow** blocks (if/else, loops) from AST
+- **Loop/group wrappers** — `@loop` and `@group` tags for repeated/grouped handlers
+- **Boundary argument extraction** — function args rendered on arrows via tree-sitter
+- **Incremental generation** — SHA-256 manifest skips unchanged diagrams
 
 ### Exemption Tags
 
@@ -132,8 +151,37 @@ Cross-references git diff with parsed functions to show which requirements are a
 |-----|------|---------|-------------|
 | `format` | string | `plantuml` | Diagram output format |
 | `participant_field` | string | — | Requirements file column for participant resolution |
-| `external` | list | `[]` | External participants with `receives_prefix` |
-| `external_fallback` | string | `External` | Default name for unresolved external sources |
+| `static_participants` | list | `[]` | Actors/entities always shown (e.g., `{name: User, type: actor}`) |
+| `external` | list | `[]` | External participants (see below) |
+| `external_fallback` | string | `External` | Fallback name for unresolved sources (warns and omits in behavioral mode) |
+
+### External participants
+
+Route events to named external actors by prefix. Boundary functions produce protocol-labeled arrows via `label_template`. Entry chains prepend upstream participant arrows.
+
+```yaml
+trace:
+  external:
+    - Cloud:
+        receives_prefix: ["MQTT:"]
+        boundary_functions: ["CloudMgr_Publish"]
+        label_template: "MQTT: {arg0}"
+        entry_chain:
+          - { from: User, to: Mobile, label: "{req_name}" }
+          - { from: Mobile, to: Cloud, label: "{req_name}" }
+    - MCU:
+        receives_prefix: ["DURABLE:"]
+        boundary_functions: ["DurableEventCb"]
+    - Hardware:
+        receives_prefix: ["EVENT_HW_"]
+```
+
+| Sub-key | Purpose |
+|---------|---------|
+| `receives_prefix` | Route `@receives` events matching these prefixes to this participant |
+| `boundary_functions` | Function names that cross this system boundary (for `@calls` edges) |
+| `label_template` | Format boundary call labels — `{arg0}`, `{arg1}` substituted from call args |
+| `entry_chain` | Upstream participant arrows prepended before entry edge |
 
 ### `trace.options`
 
@@ -141,19 +189,17 @@ Cross-references git diff with parsed functions to show which requirements are a
 |-----|------|---------|-------------|
 | `autonumber` | bool | `true` | Number sequence arrows |
 | `box_label` | string | `System` | Internal participant box label |
+| `box_color` | string | `#LightBlue` | Internal participant box color |
 | `min_edges` | int | `1` | Minimum behavioral edges to generate a diagram |
-| `show_returns` | bool | `true` | Show return arrows on ext calls |
-| `show_return_values` | bool | `true` | Label return arrows with type info |
-| `show_project_calls` | bool | `true` | Show calls to project-defined functions |
+| `show_returns` | bool | `false` | Show return arrows and activation bars on @calls edges |
 | `show_recovery_notes` | bool | `true` | Show callee names in empty catch blocks |
-| `cross_req_depth` | int | `1` | Handler chain hops across REQ boundaries (-1=unlimited) |
 | `max_condition_length` | int | `80` | Truncation limit for alt/loop conditions |
-| `infer_emits` | bool | `true` | Infer @emits from emit function calls |
-| `infer_ext` | bool | `true` | Infer @ext from cross-module calls |
-| `event_emit_functions` | list | `[]` | Emit function names for generated code (escape hatch) |
-| `event_register_functions` | list | `[]` | Registration function names for generated code (escape hatch) |
+| `infer_sends` | bool | `true` | Infer @sends from event post function calls |
+| `infer_calls` | bool | `true` | Infer @calls from cross-module calls |
+| `event_send_functions` | list | `[]` | Event post function names for generated code (escape hatch) |
+| `event_receive_functions` | list | `[]` | Registration function names for generated code (escape hatch) |
 | `legend` | bool | `false` | Render arrow style legend |
-| `label_mode` | string | `full` | Label style: `full`, `brief`, `label-only` |
+| `label_mode` | string | `brief` | Label style: `full` (event+function), `brief` (event name only) |
 
 ### `impact` section
 
@@ -164,37 +210,20 @@ Cross-references git diff with parsed functions to show which requirements are a
 | `requirements.id_column` | string | `Req ID` | Requirement ID column/field |
 | `requirements.name_column` | string | `Requirement Name` | Requirement name column/field |
 
-### External participants
-
-Route unhandled events to named external actors by event prefix. Entries can be a name with config, or a plain string:
-
-```yaml
-trace:
-  external:
-    - Cloud:
-        receives_prefix: ["EVENT_CLOUD_"]
-    - Hardware:
-        receives_prefix: ["EVENT_HW_"]
-    - "User Action"             # plain string, no prefix matching
-  external_fallback: "External" # default name for unresolved sources
-```
-
-Events matching `receives_prefix` are routed to that participant. Events not matching any prefix use `external_fallback`.
-
 ## File-Level Doxygen
 
-Each source file should have a file-level doxygen block. Use `@module` to set the participant name for all functions in the file:
+Each source file should have a file-level doxygen block. Use `@participant` to set the participant name for all functions in the file:
 
 ```c
 /**
  * @file
  * @brief Sensor hardware abstraction layer.
  * @version 1.0
- * @module Sensor Driver
+ * @participant Sensor Driver
  */
 ```
 
-The `@module` tag overrides the requirements-file `participant_field` for participant resolution. Enable `validate.presence.require_file_doxygen: true` to enforce file-level blocks.
+The requirements-file `participant_field` takes precedence over `@participant` for participant resolution. `@participant` is the fallback when no requirements mapping exists. Enable `validate.presence.require_file_doxygen: true` to enforce file-level blocks.
 
 For Python:
 
@@ -202,7 +231,7 @@ For Python:
 ## @file
 ## @brief Configuration loading and validation.
 ## @version 1.0
-## @module Config
+## @participant Config
 ```
 
 ## Infrastructure Roots
@@ -214,7 +243,7 @@ Mark event bus functions once to enable automatic inference:
  * @brief Post an event to all registered handlers.
  * @version 1.0
  * @req REQ-0050
- * @emit_source
+ * @send_source
  */
 void Event_post(uint64_t event, void *data) { ... }
 
@@ -222,27 +251,27 @@ void Event_post(uint64_t event, void *data) { ... }
  * @brief Register a handler for events matching a bitmask.
  * @version 1.0
  * @req REQ-0050
- * @handle_source
+ * @receive_source
  */
 void Event_register(uint64_t mask, event_handler_fn handler) { ... }
 ```
 
-With these in place, `@emits` and `@handles` are derived from the AST for all other functions — zero manual behavioral tags needed.
+With these in place, `@sends` and `@receives` are derived from the AST for all other functions — zero manual behavioral tags needed.
 
 ## Generated Code
 
-For code generators that rebuild files on every build (UDM, protobuf, HAL generators), annotations on generated files are destroyed. Use `event_emit_functions` and `event_register_functions` as config-level overrides:
+For code generators that rebuild files on every build (UDM, protobuf, HAL generators), annotations on generated files are destroyed. Use `event_send_functions` and `event_receive_functions` as config-level overrides:
 
 ```yaml
 trace:
   options:
-    event_emit_functions: ["dm_event_callback"]
-    event_register_functions: ["register_fsm_handler"]
+    event_send_functions: ["dm_event_callback"]
+    event_receive_functions: ["register_fsm_handler"]
 ```
 
-These tell the tool to treat calls to these functions as emit/registration points, equivalent to `@emit_source` / `@handle_source` but without requiring tags on the generated source. **Use this only for generated code you cannot annotate.** For code you own, use `@emit_source` / `@handle_source` tags instead.
+These tell the tool to treat calls to these functions as send/registration points, equivalent to `@send_source` / `@receive_source` but without requiring tags on the generated source. **Use this only for generated code you cannot annotate.** For code you own, use `@send_source` / `@receive_source` tags instead.
 
-Both default to empty lists — `@emit_source` / `@handle_source` tags are the primary mechanism.
+Both default to empty lists — `@send_source` / `@receive_source` tags are the primary mechanism.
 
 ## Config Validation
 
@@ -271,11 +300,11 @@ validate:
     version_field: "Min Version"
 ```
 
-2. **Add `@module` to each file** — one line per file sets the participant name for diagrams.
+2. **Add `@participant` to each file** — one line per file sets the participant name for diagrams.
 
 3. **Add `@return` to non-void functions** — required by default. Disable with `presence.require_return: false` during migration.
 
-4. **Mark infrastructure roots** — if you have an event bus or message dispatcher, add `@emit_source`/`@handle_source` once to enable automatic inference.
+4. **Mark infrastructure roots** — if you have an event bus or message dispatcher, add `@send_source`/`@receive_source` once to enable automatic inference.
 
 5. **Exclude paths you're not ready to cover**:
 
@@ -285,8 +314,6 @@ validate:
     - "^vendor/"
     - "^legacy/"
 ```
-
-The tool generates useful diagrams from day one — `show_project_calls` shows all project function calls even before any trace tags are added.
 
 ## Supported Languages
 
