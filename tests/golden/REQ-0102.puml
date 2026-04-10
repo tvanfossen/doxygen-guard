@@ -27,7 +27,7 @@ IoT_Library -> MCU: DurableEventCb(DURABLE_IN_EVENT_DOCK, NULL)
 loop "as product status changes"
 MCU --> IoT_Library: product_status
 == on_product_status() ==
-IoT_Library -> Cloud:  shadow/reported
+IoT_Library -> Cloud: MQTT: shadow/reported
 end loop
 
 @enduml

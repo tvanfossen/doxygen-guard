@@ -21,6 +21,6 @@ end header
 
 MCU --> IoT_Library: error_report
 == on_error_report() ==
-IoT_Library -> Cloud:  device/error
+IoT_Library -> Cloud: MQTT: device/error
 
 @enduml

@@ -1,18 +1,1 @@
-[
-  {
-    "req_id": "REQ-TRACE-001",
-    "req_name": "Sequence diagram generation",
-    "functions": [
-      {
-        "name": "_render_ast_edges",
-        "file": "src/doxygen_guard/tracer/renderer.py",
-        "version": "1.8"
-      },
-      {
-        "name": "generate_plantuml_ast",
-        "file": "src/doxygen_guard/tracer/renderer.py",
-        "version": "1.8"
-      }
-    ]
-  }
-]
+[]

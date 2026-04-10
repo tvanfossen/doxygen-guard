@@ -22,15 +22,10 @@ end header
 User -> Mobile: Device Setting Change
 Mobile -> Cloud: Device Setting Change
 Cloud --> IoT_Library: shadow/desired
-User -> Mobile: Device Setting Change
-Mobile -> Cloud: Device Setting Change
-Cloud --> IoT_Library: cmd/req
-== send_cmd_response() ==
-IoT_Library -> Cloud:  cmd/resp
 == handle_shadow_delta() ==
 IoT_Library --> IoT_Library: EVENT_SETTING_CHANGE
 == apply_setting() ==
 IoT_Library -> MCU: DurableEventCb(DURABLE_IN_EVENT_CONFIG, &update)
-IoT_Library -> Cloud:  shadow/reported
+IoT_Library -> Cloud: MQTT: shadow/reported
 
 @enduml

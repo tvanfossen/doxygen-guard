@@ -304,7 +304,7 @@ def _sanitize_label(label: str) -> str:
 
 
 ## @brief Select the raw label text based on label_mode.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _select_label_text(label: str, event: str | None, mode: str) -> str:
     if mode == "full":
@@ -312,9 +312,10 @@ def _select_label_text(label: str, event: str | None, mode: str) -> str:
         if event and san_label:
             return f"{_sanitize_label(event)}\\n{san_label}"
         return _sanitize_label(event) if event else san_label
-    raw = event if event else label
-    if mode == "brief":
-        raw = raw.split(":", 1)[-1] if ":" in raw else raw
+    if event:
+        raw = event.split(":", 1)[-1] if mode == "brief" and ":" in event else event
+    else:
+        raw = label
     return _sanitize_label(raw)
 
 

@@ -26,18 +26,18 @@ Cloud --> IoT_Library: cmd/req
 note right of IoT_Library: Command Dispatch
 IoT_Library --> IoT_Library: EVENT_CLEAN_CMD
 == send_cmd_response() ==
-IoT_Library -> Cloud:  cmd/resp
+IoT_Library -> Cloud: MQTT: cmd/resp
 == execute_clean() ==
 IoT_Library -> MCU: DurableEventCb(DURABLE_IN_EVENT_SET_DRIVE, &info)
 loop "as product status changes"
 MCU --> IoT_Library: product_status
 == on_product_status() ==
-IoT_Library -> Cloud:  shadow/reported
+IoT_Library -> Cloud: MQTT: shadow/reported
 end loop
 group "cycle summary"
 MCU --> IoT_Library: cycle_complete
 == on_cycle_complete() ==
-IoT_Library -> Cloud:  mapping/runcomplete
+IoT_Library -> Cloud: MQTT: mapping/runcomplete
 end group
 
 @enduml
