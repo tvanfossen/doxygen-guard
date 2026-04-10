@@ -17,7 +17,5 @@ end header
 
 == _check_file_block_tags() ==
 Validate -> Parser: parse_doxygen_tags(block_text)
-activate Parser
-deactivate Parser
 
 @enduml

@@ -23,7 +23,6 @@ end header
 
 
 User_Action --> Provisioning_Manager: EVENT_FACTORY_RESET_COMPLETE
-activate Provisioning_Manager
 WiFi_Scanner --> Provisioning_Manager: EVENT_PROV_JOIN_RESULT
 Cert_Manager --> Provisioning_Manager: EVENT_PROV_CERT_INSTALLED
 == Provision_Start() ==
@@ -35,15 +34,10 @@ note right of Provisioning_Manager: Prov Retry Check
 note right of Provisioning_Manager: Prov State Ready
 Provisioning_Manager --> Provisioning_Manager: EVENT_PROV_COMPLETE
 Provisioning_Manager -> Comm_Manager: Comm_SendStatus(&prov_status)
-activate Comm_Manager
 == Provision_Init() ==
 Provisioning_Manager -> Event_Bus: Event_register(EVENT_FACTORY_RESET_COMPLETE, Provision_Start)
-activate Event_Bus
 Provisioning_Manager -> Event_Bus: Event_register(EVENT_PROV_SCAN_COMPLETE, Provision_OnScanComplete)
 Provisioning_Manager -> Event_Bus: Event_register(EVENT_PROV_JOIN_RESULT, Provision_OnJoinResult)
 Provisioning_Manager -> Event_Bus: Event_register(EVENT_PROV_CERT_INSTALLED, Provision_OnCertInstalled)
-deactivate Comm_Manager
-deactivate Event_Bus
-deactivate Provisioning_Manager
 
 @enduml

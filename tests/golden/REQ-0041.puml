@@ -20,12 +20,8 @@ end header
 
 
 OTA_Manager --> Comm_Manager: EVENT_COMM_DOWNLOAD_START
-activate Comm_Manager
 == Comm_Init() ==
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_RX_RECEIVED, Comm_OnRemoteCommand)
-activate Event_Bus
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_START, Comm_DownloadFirmware)
-deactivate Comm_Manager
-deactivate Event_Bus
 
 @enduml

@@ -4,9 +4,14 @@
     "req_name": "Sequence diagram generation",
     "functions": [
       {
-        "name": "_infer_entry_edges",
-        "file": "src/doxygen_guard/tracer/edges_behavioral.py",
-        "version": "2.2"
+        "name": "_render_ast_edges",
+        "file": "src/doxygen_guard/tracer/renderer.py",
+        "version": "1.8"
+      },
+      {
+        "name": "generate_plantuml_ast",
+        "file": "src/doxygen_guard/tracer/renderer.py",
+        "version": "1.8"
       }
     ]
   }

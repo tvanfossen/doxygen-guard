@@ -19,11 +19,7 @@ end header
 
 == parse_source_file_with_content() ==
 Parser -> Config: get_language_config(config, file_path)
-activate Config
 Parser -> Config: resolve_parse_settings(config, lang_config)
 Parser -> Ts_Languages: language_for_file(file_path, config)
-activate Ts_Languages
-deactivate Config
-deactivate Ts_Languages
 
 @enduml

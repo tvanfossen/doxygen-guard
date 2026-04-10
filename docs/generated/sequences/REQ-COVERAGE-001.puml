@@ -18,7 +18,5 @@ end header
 
 == analyze_coverage() ==
 Coverage -> Collector: collect_all_tagged_functions(source_dirs, config, full_reqs)
-activate Collector
-deactivate Collector
 
 @enduml

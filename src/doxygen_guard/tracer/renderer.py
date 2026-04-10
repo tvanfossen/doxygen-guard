@@ -463,30 +463,42 @@ def _close_activations(active: set[str], lines: list[str]) -> None:
 
 
 ## @brief Render ASTEdge list as PlantUML lines with activate/deactivate.
-#  @version 1.7
+#  @version 1.8
 #  @req REQ-TRACE-001
 #  @return List of PlantUML lines
-def _render_ast_edges(ast_edges: list, label_mode: str = "full") -> list[str]:
+def _render_ast_edges(
+    ast_edges: list, label_mode: str = "full", show_returns: bool = False
+) -> list[str]:
     edges = _prune_empty_sections(ast_edges)
     lines: list[str] = []
-    active: set[str] = set()
+    active: set[str] = set() if show_returns else set()
     for ae in edges:
-        if ae.kind == "section":
-            lines.append(f"== {ae.label} ==")
-        elif ae.kind == "recovery_note":
-            lines.append(f"note right: {ae.label}")
-        elif ae.kind in _EDGE_KINDS:
-            if ae.edge:
-                lines.append(_render_edge(ae.edge, label_mode))
-                lines.extend(_render_activation(ae, active))
-        elif ae.kind in _SIMPLE_KINDS:
-            lines.append(_SIMPLE_KINDS[ae.kind])
-        else:
-            line = _render_block_start(ae)
-            if line:
-                lines.append(line)
-    _close_activations(active, lines)
+        _render_single_ast_edge(ae, lines, active, label_mode, show_returns)
+    if show_returns:
+        _close_activations(active, lines)
     return lines
+
+
+## @brief Render a single ASTEdge into PlantUML lines.
+#  @version 1.0
+#  @internal
+def _render_single_ast_edge(
+    ae: Any, lines: list[str], active: set[str], label_mode: str, show_returns: bool
+) -> None:
+    if ae.kind == "section":
+        lines.append(f"== {ae.label} ==")
+    elif ae.kind == "recovery_note":
+        lines.append(f"note right: {ae.label}")
+    elif ae.kind in _EDGE_KINDS and ae.edge:
+        lines.append(_render_edge(ae.edge, label_mode))
+        if show_returns:
+            lines.extend(_render_activation(ae, active))
+    elif ae.kind in _SIMPLE_KINDS:
+        lines.append(_SIMPLE_KINDS[ae.kind])
+    else:
+        line = _render_block_start(ae)
+        if line:
+            lines.append(line)
 
 
 ## @brief Emit activate/deactivate lines for an edge.
@@ -565,7 +577,7 @@ def _render_legend() -> list[str]:
 
 
 ## @brief Generate PlantUML from AST-ordered edges.
-#  @version 1.7
+#  @version 1.8
 #  @req REQ-TRACE-001
 def generate_plantuml_ast(
     req_id: str,
@@ -607,7 +619,8 @@ def generate_plantuml_ast(
 
     if ast_edges:
         lines.append("")
-    lines.extend(_render_ast_edges(ast_edges, label_mode))
+    show_returns = options.get("show_returns", False)
+    lines.extend(_render_ast_edges(ast_edges, label_mode, show_returns))
 
     if options.get("legend", False):
         lines.extend(_render_legend())

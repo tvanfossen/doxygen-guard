@@ -20,11 +20,7 @@ end header
 
 
 MCU --> IoT_Library: error_report
-activate IoT_Library
 == on_error_report() ==
 IoT_Library -> Cloud:  device/error
-activate Cloud
-deactivate Cloud
-deactivate IoT_Library
 
 @enduml

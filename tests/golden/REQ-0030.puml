@@ -21,14 +21,12 @@ end header
 
 
 Sensor_Driver --> Controller: EVENT_SENSOR_DATA_READY
-activate Controller
 Comm_Manager --> Controller: EVENT_CONTROL_ACTION
 == Controller_OnSensorData() ==
 note right of Controller: Threshold Check
 Controller --> Controller: EVENT_CONTROL_ACTION
 == Controller_Init() ==
 Controller -> Event_Bus: Event_register(EVENT_SENSOR_DATA_READY, Controller_OnSensorData)
-activate Event_Bus
 Controller -> Event_Bus: Event_register(EVENT_CONTROL_ACTION, Controller_ReportStatus)
 == MsgBus_Init() ==
 Controller -> Event_Bus: Event_register(EVENT_MSG_QUEUED, MsgBus_ProcessQueue)
@@ -36,12 +34,8 @@ Controller -> Event_Bus: Event_register(EVENT_MSG_QUEUED, MsgBus_ProcessQueue)
 Controller --> Controller: EVENT_MSG_QUEUED
 == Controller_ReportStatus() ==
 Controller -> Comm_Manager: Comm_SendStatus(&status)
-activate Comm_Manager
 == MsgBus_ProcessQueue() ==
 note right of Controller: Msg Dispatch Cycle
 Controller -> Comm_Manager: Comm_SendStatus(&status)
-deactivate Comm_Manager
-deactivate Controller
-deactivate Event_Bus
 
 @enduml

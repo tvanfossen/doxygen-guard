@@ -22,7 +22,5 @@ end header
 Comm_Manager --> Controller: EVENT_CONTROL_ACTION
 == Controller_ReportStatus() ==
 Controller -> Comm_Manager: Comm_SendStatus(&status)
-activate Comm_Manager
-deactivate Comm_Manager
 
 @enduml

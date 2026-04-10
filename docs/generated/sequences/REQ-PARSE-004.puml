@@ -18,11 +18,9 @@ end header
 
 == _parse_and_index() ==
 Parser -> Ts_Languages: get_parser_for_language(lang_name)
-activate Ts_Languages
 Parser -> Ts_Languages: get_language_spec(lang_name)
 == parse_functions_ts() ==
 Parser -> Ts_Languages: get_parser_for_language(lang_name)
 Parser -> Ts_Languages: get_language_spec(lang_name)
-deactivate Ts_Languages
 
 @enduml

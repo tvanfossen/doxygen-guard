@@ -21,16 +21,10 @@ end header
 
 
 User -> Mobile: Over-the-Air Firmware Update
-activate Mobile
 Mobile -> Cloud: Over-the-Air Firmware Update
-activate Cloud
 Cloud --> OTA_Manager: EVENT_CLOUD_OTA_AVAILABLE
-activate OTA_Manager
 == OTA_OnUpdateAvailable() ==
 note right of OTA_Manager: Ota State Change
 OTA_Manager --> Comm_Manager: EVENT_COMM_DOWNLOAD_START
-deactivate Cloud
-deactivate Mobile
-deactivate OTA_Manager
 
 @enduml

@@ -21,20 +21,16 @@ end header
 
 
 WiFi_Stack --> Comm_Manager: EVENT_WIFI_DISCONNECTED
-activate Comm_Manager
 WiFi_Stack --> Comm_Manager: EVENT_WIFI_CONNECTED
 WiFi_Stack --> Comm_Manager: EVENT_MQTT_CONNACK
 WiFi_Stack --> Comm_Manager: EVENT_MQTT_CLOSE
 == Comm_Init() ==
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_RX_RECEIVED, Comm_OnRemoteCommand)
-activate Event_Bus
 Comm_Manager -> Event_Bus: Event_register(EVENT_COMM_DOWNLOAD_START, Comm_DownloadFirmware)
 == Comm_SendStatus() ==
 Comm_Manager --> Comm_Manager: EVENT_COMM_TX_COMPLETE
 == Shadow_Initialize() ==
 Comm_Manager -> Event_Bus: Event_register(EVENT_WIFI_DISCONNECTED | EVENT_WIFI_CONNECTED |
         EVENT_MQTT_CONNACK | EVENT_MQTT_CLOSE, Shadow_OnConnectivityEvent)
-deactivate Comm_Manager
-deactivate Event_Bus
 
 @enduml

@@ -21,23 +21,15 @@ end header
 
 == validate_file() ==
 Validate -> Config: parse_source_file(file_path, config, skip_forward_declarations=skip_fwd)
-activate Config
 Validate -> Git: get_changed_lines_for_file(file_path)
-activate Git
 == run_precommit() ==
 Validate -> Git: get_branch_diff_range()
 Validate -> Impact: collect_changed_functions(file_paths, config, diff_range=diff_range)
-activate Impact
 Validate -> Impact: collect_changed_functions(file_paths, config, staged=True)
 Validate -> Impact: build_impact_report(changed, config)
 Validate -> Impact: format_markdown(entries)
 Validate -> Impact: format_markdown(entries)
 Validate -> Impact: format_json(entries)
 Validate -> __Init__: run_trace(source_dirs=source_dirs, config=config, trace_all=True)
-activate __Init__
-deactivate Config
-deactivate Git
-deactivate Impact
-deactivate __Init__
 
 @enduml

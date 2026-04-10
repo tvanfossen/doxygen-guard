@@ -22,7 +22,5 @@ Trace --> Trace: from emit function calls found in the function body.
 Trace --> Trace: — declared but no matching call in body.
 == _apply_ext_inference() ==
 Trace -> always_takes_precedence__Also_detects_system_boundary_calls__callees_not_defined_in_scanned_source__: always takes precedence. Also detects system boundary calls (callees not defined in scanned source).()
-activate always_takes_precedence__Also_detects_system_boundary_calls__callees_not_defined_in_scanned_source__
-deactivate always_takes_precedence__Also_detects_system_boundary_calls__callees_not_defined_in_scanned_source__
 
 @enduml

@@ -17,7 +17,5 @@ end header
 
 == _extract_changed_functions() ==
 Impact -> Config: parse_source_file(file_path, config)
-activate Config
-deactivate Config
 
 @enduml
