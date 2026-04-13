@@ -96,3 +96,27 @@ class TestExtensionMapping:
 
     def test_language_for_file_unknown(self):
         assert language_for_file("src/main.rs", {}) is None
+
+    def test_h_file_with_namespace_detected_as_cpp(self, tmp_path):
+        """C++ .h file with namespace routes to cpp grammar, not c."""
+        f = tmp_path / "header.h"
+        f.write_text("namespace foo {\nclass Bar {};\n}\n")
+        assert language_for_file(str(f), {}) == "cpp"
+
+    def test_h_file_with_class_detected_as_cpp(self, tmp_path):
+        """C++ .h file with class routes to cpp grammar."""
+        f = tmp_path / "header.h"
+        f.write_text("class Foo {\npublic:\n  void bar();\n};\n")
+        assert language_for_file(str(f), {}) == "cpp"
+
+    def test_h_file_with_template_detected_as_cpp(self, tmp_path):
+        """C++ .h file with template routes to cpp grammar."""
+        f = tmp_path / "header.h"
+        f.write_text("template<typename T>\nvoid foo(T x) {}\n")
+        assert language_for_file(str(f), {}) == "cpp"
+
+    def test_plain_c_h_file_stays_c(self, tmp_path):
+        """Plain C .h file without C++ constructs stays as c."""
+        f = tmp_path / "header.h"
+        f.write_text("#ifndef FOO_H\n#define FOO_H\nvoid bar(void);\n#endif\n")
+        assert language_for_file(str(f), {}) == "c"

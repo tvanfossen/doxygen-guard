@@ -149,7 +149,7 @@ def language_for_extension(ext: str) -> str | None:
 
 
 ## @brief Resolve a file path to a language name using config extensions.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-TRACE-001
 #  @return Language name string, or None if no language matches the file
 def language_for_file(file_path: str, config: dict[str, Any]) -> str | None:
@@ -157,11 +157,41 @@ def language_for_file(file_path: str, config: dict[str, Any]) -> str | None:
 
     ext = Path(file_path).suffix
     lang = language_for_extension(ext)
-    if lang:
-        return lang
+    if lang == "c" and ext == ".h" and _looks_like_cpp_header(file_path):
+        lang = "cpp"
+    if lang is None:
+        lang = _language_from_config(ext, config)
+    return lang
 
+
+## @brief Look up language name from user config extensions.
+#  @version 1.0
+#  @internal
+def _language_from_config(ext: str, config: dict[str, Any]) -> str | None:
     languages = config.get("validate", {}).get("languages", {})
     for lang_name, lang_config in languages.items():
-        if ext in lang_config.get("extensions", []):
-            return lang_name if lang_name in LANGUAGE_SPECS else None
+        if ext in lang_config.get("extensions", []) and lang_name in LANGUAGE_SPECS:
+            return lang_name
     return None
+
+
+## @brief Detect C++ constructs in a .h file to route to cpp grammar.
+#  @details Looks for namespace, class, template<, or access specifiers at file scope.
+#  @version 1.0
+#  @internal
+#  @return True if the header contains C++ constructs
+def _looks_like_cpp_header(file_path: str) -> bool:
+    try:
+        with open(file_path, encoding="utf-8", errors="replace") as f:
+            content = f.read(8192)
+    except OSError:
+        return False
+    import re
+
+    patterns = (
+        r"^\s*namespace\s+\w",
+        r"^\s*template\s*<",
+        r"^\s*class\s+\w",
+        r"^\s*(?:public|private|protected)\s*:",
+    )
+    return any(re.search(p, content, re.MULTILINE) for p in patterns)

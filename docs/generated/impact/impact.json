@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "req_id": "REQ-TRACE-001",
+    "req_name": "Sequence diagram generation",
+    "functions": [
+      {
+        "name": "language_for_file",
+        "file": "src/doxygen_guard/ts_languages.py",
+        "version": "1.2"
+      }
+    ]
+  }
+]
