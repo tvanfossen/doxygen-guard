@@ -25,7 +25,7 @@ class DoxygenBlock:
 
 
 ## @brief Represents a function with its location and optional doxygen block.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 @dataclass
 class Function:
@@ -33,6 +33,25 @@ class Function:
     def_line: int  # 0-indexed
     body_end: int  # 0-indexed
     doxygen: DoxygenBlock | None = None
+    enclosing_class: str | None = None
+
+    ## @brief Check if this function is a constructor of its enclosing class.
+    #  @version 1.0
+    #  @internal
+    #  @return True if name matches enclosing class name
+    def is_constructor(self) -> bool:
+        return self.enclosing_class is not None and self.name == self.enclosing_class
+
+    ## @brief Check if this function is a destructor of its enclosing class.
+    #  @version 1.0
+    #  @internal
+    #  @return True if name starts with ~ and matches enclosing class
+    def is_destructor(self) -> bool:
+        return (
+            self.enclosing_class is not None
+            and self.name.startswith("~")
+            and self.name[1:] == self.enclosing_class
+        )
 
 
 ## @brief Parse settings for comment style and body detection.

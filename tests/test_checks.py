@@ -295,3 +295,93 @@ class TestCheckTags:
 
         v = Violation(file="test.c", line=10, check="presence", message="missing doxygen")
         assert str(v) == "test.c:10: [presence] missing doxygen"
+
+
+class TestConstructorDestructorSkipping:
+    """Constructors and destructors should be exempt from @return and @req checks."""
+
+    def test_constructor_skipped_for_return_check(self):
+        from doxygen_guard.checks import check_return_presence
+
+        ctor = Function(
+            name="Foo",
+            def_line=5,
+            body_end=10,
+            doxygen=DoxygenBlock(
+                start_line=2, end_line=4, tags={"brief": ["Constructor."], "version": ["1.0"]}
+            ),
+            enclosing_class="Foo",
+        )
+        content = "class Foo {\npublic:\nFoo() {}\n};\n"
+        violations = check_return_presence([ctor], "test.cpp", CONFIG_DEFAULTS, content)
+        assert violations == []
+
+    def test_destructor_skipped_for_return_check(self):
+        from doxygen_guard.checks import check_return_presence
+
+        dtor = Function(
+            name="~Foo",
+            def_line=5,
+            body_end=10,
+            doxygen=DoxygenBlock(
+                start_line=2, end_line=4, tags={"brief": ["Destructor."], "version": ["1.0"]}
+            ),
+            enclosing_class="Foo",
+        )
+        content = "class Foo {\npublic:\n~Foo() {}\n};\n"
+        violations = check_return_presence([dtor], "test.cpp", CONFIG_DEFAULTS, content)
+        assert violations == []
+
+    def test_constructor_skipped_for_req_check(self):
+        from doxygen_guard.checks import check_req_coverage
+
+        ctor = Function(
+            name="Foo",
+            def_line=5,
+            body_end=10,
+            doxygen=DoxygenBlock(
+                start_line=2, end_line=4, tags={"brief": ["Constructor."], "version": ["1.0"]}
+            ),
+            enclosing_class="Foo",
+        )
+        config = {
+            "impact": {"requirements": {"file": "reqs.csv"}},
+            "validate": {},
+        }
+        violations = check_req_coverage([ctor], "test.cpp", config)
+        assert violations == []
+
+    def test_regular_function_still_requires_req(self):
+        from doxygen_guard.checks import check_req_coverage
+
+        method = Function(
+            name="bar",
+            def_line=5,
+            body_end=10,
+            doxygen=DoxygenBlock(
+                start_line=2, end_line=4, tags={"brief": ["Method."], "version": ["1.0"]}
+            ),
+            enclosing_class="Foo",
+        )
+        config = {
+            "impact": {"requirements": {"file": "reqs.csv"}},
+            "validate": {},
+        }
+        violations = check_req_coverage([method], "test.cpp", config)
+        assert len(violations) == 1
+
+
+class TestStandardDoxygenTags:
+    """Standard Doxygen tags should be in the known allowlist."""
+
+    def test_par_not_unknown(self):
+        from doxygen_guard.checks import _KNOWN_TAGS
+
+        assert "par" in _KNOWN_TAGS
+
+    def test_throws_not_unknown(self):
+        from doxygen_guard.checks import _KNOWN_TAGS
+
+        assert "throws" in _KNOWN_TAGS
+        assert "throw" in _KNOWN_TAGS
+        assert "exception" in _KNOWN_TAGS

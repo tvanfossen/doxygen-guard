@@ -104,7 +104,7 @@ _PYTHON_NONE_RETURN = re.compile(r"->\s*None\b")
 
 
 ## @brief Verify non-void functions have @return or @returns tag.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-VAL-005
 #  @return List of violations for missing @return tags
 def check_return_presence(
@@ -121,6 +121,8 @@ def check_return_presence(
     violations: list[Violation] = []
     for func in functions:
         if func.doxygen is None:
+            continue
+        if func.is_constructor() or func.is_destructor():
             continue
         tags = func.doxygen.tags
         if EXEMPTION_TAGS & set(tags.keys()):
@@ -187,7 +189,7 @@ def _has_active_requirements(config: dict[str, Any]) -> bool:
 
 
 ## @brief Verify functions have requirement or exemption tags when requirements are configured.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-VAL-004
 def check_req_coverage(
     functions: list[Function],
@@ -206,6 +208,8 @@ def check_req_coverage(
     violations: list[Violation] = []
     for func in functions:
         if func.doxygen is None:
+            continue
+        if func.is_constructor() or func.is_destructor():
             continue
 
         tags = func.doxygen.tags
@@ -426,6 +430,17 @@ _KNOWN_TAGS: frozenset[str] = frozenset(
         "send_source",
         "receive_source",
         "participant",
+        "par",
+        "throw",
+        "throws",
+        "exception",
+        "pre",
+        "post",
+        "invariant",
+        "since",
+        "author",
+        "date",
+        "copyright",
     }
 )
 

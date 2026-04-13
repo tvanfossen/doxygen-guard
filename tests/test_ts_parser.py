@@ -219,3 +219,80 @@ class TestParityWithFixtures:
         funcs = parse_functions_ts(content, "c")
         names = [f.name for f in funcs]
         assert "startMqttConnection" in names
+
+
+class TestConstructorDestructorDetection:
+    """Tree-sitter detection of C++ constructors and destructors."""
+
+    def test_inline_constructor(self):
+        code = """\
+class Foo {
+public:
+    Foo() {}
+};
+"""
+        funcs = parse_functions_ts(code, "cpp")
+        ctor = next((f for f in funcs if f.name == "Foo"), None)
+        assert ctor is not None
+        assert ctor.enclosing_class == "Foo"
+        assert ctor.is_constructor()
+        assert not ctor.is_destructor()
+
+    def test_inline_destructor(self):
+        code = """\
+class Foo {
+public:
+    ~Foo() {}
+};
+"""
+        funcs = parse_functions_ts(code, "cpp")
+        dtor = next((f for f in funcs if f.name == "~Foo"), None)
+        assert dtor is not None
+        assert dtor.enclosing_class == "Foo"
+        assert dtor.is_destructor()
+        assert not dtor.is_constructor()
+
+    def test_out_of_line_constructor(self):
+        code = """\
+class Foo {
+public:
+    Foo();
+};
+
+Foo::Foo() {}
+"""
+        funcs = parse_functions_ts(code, "cpp")
+        out_of_line = [f for f in funcs if f.name == "Foo"]
+        assert len(out_of_line) >= 1
+        assert all(f.is_constructor() for f in out_of_line)
+
+    def test_struct_constructor(self):
+        code = """\
+struct Bar {
+    Bar() {}
+};
+"""
+        funcs = parse_functions_ts(code, "cpp")
+        ctor = next((f for f in funcs if f.name == "Bar"), None)
+        assert ctor is not None
+        assert ctor.is_constructor()
+
+    def test_method_not_constructor(self):
+        code = """\
+class Foo {
+public:
+    void bar() {}
+};
+"""
+        funcs = parse_functions_ts(code, "cpp")
+        method = next((f for f in funcs if f.name == "bar"), None)
+        assert method is not None
+        assert method.enclosing_class == "Foo"
+        assert not method.is_constructor()
+        assert not method.is_destructor()
+
+    def test_standalone_function_no_enclosing(self):
+        code = "void standalone() {}"
+        funcs = parse_functions_ts(code, "cpp")
+        assert funcs[0].enclosing_class is None
+        assert not funcs[0].is_constructor()

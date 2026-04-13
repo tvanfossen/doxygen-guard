@@ -181,23 +181,21 @@ def _extract_function_name(node: Node, spec: LanguageSpec) -> str | None:
 
 
 ## @brief Extract the identifier from a C/C++ function_declarator node.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _name_from_declarator(declarator: Node) -> str | None:
-    if declarator.type == "identifier":
-        return declarator.text.decode("utf-8")
+    leaf_types = ("identifier", "field_identifier", "destructor_name")
+    if declarator.type in leaf_types:
+        return declarator.text.decode("utf-8") if declarator.text else None
     recurse_types = (
         "identifier",
         "function_declarator",
         "qualified_identifier",
         "field_identifier",
+        "destructor_name",
     )
     match = next((c for c in declarator.children if c.type in recurse_types), None)
-    if match is None:
-        return None
-    return (
-        match.text.decode("utf-8") if match.type == "identifier" else _name_from_declarator(match)
-    )
+    return _name_from_declarator(match) if match is not None else None
 
 
 ## @brief Collect Python-style doxygen comment lines preceding a node.
@@ -296,7 +294,7 @@ def parse_functions_ts(
 
 
 ## @brief Recursively collect function definitions from the AST.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-PARSE-004
 def _collect_functions(
     node: Node,
@@ -304,8 +302,10 @@ def _collect_functions(
     exclude: set[str],
     comment_start_pattern: str,
     functions: list[Function],
+    enclosing_class: str | None = None,
 ) -> None:
     for child in node.children:
+        new_enclosing = _enclosing_class_for(child, enclosing_class)
         func_node = _resolve_function_node(child, spec)
         if func_node:
             name = _extract_function_name(func_node, spec)
@@ -315,13 +315,45 @@ def _collect_functions(
             if body_node is None:
                 continue
             doxygen = _find_preceding_doxygen(func_node, spec, comment_start_pattern)
+            resolved_enclosing = new_enclosing or _qualified_enclosing(func_node)
             functions.append(
                 Function(
                     name=name,
                     def_line=func_node.start_point[0],
                     body_end=func_node.end_point[0],
                     doxygen=doxygen,
+                    enclosing_class=resolved_enclosing,
                 )
             )
         else:
-            _collect_functions(child, spec, exclude, comment_start_pattern, functions)
+            _collect_functions(
+                child, spec, exclude, comment_start_pattern, functions, new_enclosing
+            )
+
+
+## @brief Resolve enclosing class name when entering a class/struct node.
+#  @version 1.1
+#  @internal
+#  @return Class/struct name if node is a class definition, else parent value
+def _enclosing_class_for(child: Node, parent: str | None) -> str | None:
+    if child.type in ("class_specifier", "struct_specifier", "class_definition"):
+        name_node = child.child_by_field_name("name")
+        if name_node and name_node.text:
+            return name_node.text.decode("utf-8")
+    return parent
+
+
+## @brief Extract enclosing class from a qualified function declarator (Foo::bar).
+#  @version 1.0
+#  @internal
+#  @return Class name from qualifier prefix, or None if not qualified
+def _qualified_enclosing(func_node: Node) -> str | None:
+    declarator = func_node.child_by_field_name("declarator")
+    while declarator is not None:
+        if declarator.type == "qualified_identifier":
+            ns = declarator.child_by_field_name("scope")
+            if ns and ns.text:
+                return ns.text.decode("utf-8")
+            return None
+        declarator = declarator.child_by_field_name("declarator")
+    return None
