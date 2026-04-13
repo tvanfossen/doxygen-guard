@@ -3,6 +3,38 @@
 All notable changes to doxygen-guard are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.3] - 2026-04-13
+
+### Fixed
+
+Three consumer-reported false positives:
+
+- **@par flagged as unknown** — added to `_KNOWN_TAGS` along with `@throws`,
+  `@throw`, `@exception`, `@pre`, `@post`, `@invariant`, `@since`, `@author`,
+  `@date`, `@copyright` (all standard Doxygen tags).
+- **Constructors required `@return`** — tree-sitter parser now tracks enclosing
+  class via `class_specifier`/`struct_specifier` walk for inline definitions and
+  `qualified_identifier` scope extraction for out-of-line definitions
+  (`Foo::Foo() {}`). `Function.is_constructor()` and `Function.is_destructor()`
+  helpers expose the result. `check_return_presence` skips them.
+- **Constructors required `@req`** — same detection. `check_req_coverage` skips
+  constructors and destructors. They inherit the enclosing class's contract.
+
+### Internal
+
+- New `Function.enclosing_class` field populated by tree-sitter parser
+- Hub backtracking through dispatch hubs for entry edge resolution (REQ-0102 etc.
+  get full entry chain via `handle_cmd_request`'s `@receives MQTT:cmd/req` even
+  though the hub function is tagged with a different REQ)
+- Manual label override on `@calls` (`@calls module::func "MQTT: cmd/resp"`)
+  for behavioral REQ pattern where intent is on REQ-tagged function but actual
+  call happens elsewhere
+- Payload extraction wired into entry labels (`*state:clean` from strcmp guards)
+- `label_mode: full` deduplication (no more `MQTT:cmd/req\ncmd/req`)
+- `.h` files containing C++ constructs (namespace, class, template, access
+  specifiers) now route to cpp grammar via content sniff, fixing namespace
+  false positives on consumer C++ headers
+
 ## [1.2.0] - 2026-04-07
 
 ### BREAKING: Behavioral Trace Engine Redesign
