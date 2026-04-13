@@ -38,6 +38,7 @@ class TaggedFunction:
     notes: list[str] = field(default_factory=list)
     reqs: list[str] = field(default_factory=list)
     after: list[str] = field(default_factory=list)
+    dispatch_keys: list[str] = field(default_factory=list)
     loop: str | None = None
     group: str | None = None
     body: str = ""

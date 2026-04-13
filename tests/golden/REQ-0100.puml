@@ -21,7 +21,7 @@ end header
 
 User -> Mobile: Start Clean Command
 Mobile -> Cloud: Start Clean Command
-Cloud --> IoT_Library: cmd/req
+Cloud --> IoT_Library: cmd/req\n*clean\n*mode:active
 == handle_cmd_request() ==
 note right of IoT_Library: Command Dispatch
 IoT_Library --> IoT_Library: EVENT_CLEAN_CMD

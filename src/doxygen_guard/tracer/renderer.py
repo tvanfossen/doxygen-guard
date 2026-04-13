@@ -304,20 +304,44 @@ def _sanitize_label(label: str) -> str:
 
 
 ## @brief Select the raw label text based on label_mode.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 def _select_label_text(label: str, event: str | None, mode: str) -> str:
     if mode == "full":
-        san_label = _sanitize_label(label)
-        san_event = _sanitize_label(event) if event else ""
-        if event and san_label and not _label_redundant_with_event(san_label, san_event):
-            return f"{san_event}\\n{san_label}"
-        return san_event or san_label
-    if event:
-        raw = event.split(":", 1)[-1] if mode == "brief" and ":" in event else event
-    else:
-        raw = label
+        return _select_label_full(label, event)
+    raw = _select_label_brief(label, event) if event else label
     return _sanitize_label(raw)
+
+
+## @brief Produce full-mode label with deduplication.
+#  @version 1.0
+#  @internal
+#  @return Formatted label text
+def _select_label_full(label: str, event: str | None) -> str:
+    san_label = _sanitize_label(label)
+    san_event = _sanitize_label(event) if event else ""
+    if event and san_label and not _label_redundant_with_event(san_label, san_event):
+        return f"{san_event}\\n{san_label}"
+    return san_event or san_label
+
+
+## @brief Produce brief-mode label preserving payload fragments.
+#  @version 1.0
+#  @internal
+#  @return Label with prefix stripped but payload fragments preserved
+def _select_label_brief(label: str, event: str) -> str:
+    raw = event.split(":", 1)[-1] if ":" in event else event
+    payload = _extract_payload_suffix(label) if label else ""
+    return raw + payload
+
+
+## @brief Extract payload suffix (\n*...) from a label for preservation in brief mode.
+#  @version 1.0
+#  @internal
+#  @return Payload suffix string, or empty string if none
+def _extract_payload_suffix(label: str) -> str:
+    idx = label.find("\\n*")
+    return label[idx:] if idx >= 0 else ""
 
 
 ## @brief Check if label is derivable from event (prefix-stripped form).

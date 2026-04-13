@@ -21,7 +21,7 @@ end header
 
 User -> Mobile: Dock Command
 Mobile -> Cloud: Dock Command
-Cloud --> IoT_Library: cmd/req
+Cloud --> IoT_Library: cmd/req\n*dock
 == execute_dock() ==
 IoT_Library -> MCU: DurableEventCb(DURABLE_IN_EVENT_DOCK, NULL)
 loop "as product status changes"

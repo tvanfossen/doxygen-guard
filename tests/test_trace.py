@@ -461,3 +461,54 @@ class TestPhantomEmits:
         )
         phantoms = detect_phantom_emits(tf, TRACE_CONFIG)
         assert len(phantoms) == 0
+
+
+class TestDispatchKey:
+    """@dispatch_key annotation for multi-hop dispatch payload context."""
+
+    def test_dispatch_key_appended_to_entry_label(self):
+        """@dispatch_key values are appended as \\n*VALUE fragments."""
+        from doxygen_guard.tracer.edges_behavioral import _append_dispatch_keys
+
+        label = _append_dispatch_keys("cmd/req", ["commandENUM_clean"])
+        assert label == "cmd/req\\n*commandENUM_clean"
+
+    def test_multiple_dispatch_keys(self):
+        from doxygen_guard.tracer.edges_behavioral import _append_dispatch_keys
+
+        label = _append_dispatch_keys("cmd/req", ["state:clean", "mode:dry"])
+        assert label == "cmd/req\\n*state:clean\\n*mode:dry"
+
+    def test_empty_dispatch_keys_returns_unchanged(self):
+        from doxygen_guard.tracer.edges_behavioral import _append_dispatch_keys
+
+        assert _append_dispatch_keys("cmd/req", []) == "cmd/req"
+
+    def test_collect_req_dispatch_keys_deduplicates(self):
+        from doxygen_guard.tracer.edges_behavioral import _collect_req_dispatch_keys
+
+        entry_tf = TaggedFunction(
+            name="hub",
+            file_path="a.c",
+            reqs=["REQ-001"],
+            dispatch_keys=["key_a"],
+        )
+        peer = TaggedFunction(
+            name="handler",
+            file_path="a.c",
+            reqs=["REQ-001"],
+            dispatch_keys=["key_a", "key_b"],
+        )
+        other_req = TaggedFunction(
+            name="unrelated",
+            file_path="a.c",
+            reqs=["REQ-999"],
+            dispatch_keys=["key_c"],
+        )
+        keys = _collect_req_dispatch_keys(entry_tf, [entry_tf, peer, other_req])
+        assert keys == ["key_a", "key_b"]
+
+    def test_dispatch_key_in_known_tags(self):
+        from doxygen_guard.checks import _KNOWN_TAGS
+
+        assert "dispatch_key" in _KNOWN_TAGS

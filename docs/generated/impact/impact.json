@@ -1,13 +1,1 @@
-[
-  {
-    "req_id": "REQ-TRACE-001",
-    "req_name": "Sequence diagram generation",
-    "functions": [
-      {
-        "name": "_render_participants",
-        "file": "src/doxygen_guard/tracer/renderer.py",
-        "version": "1.4"
-      }
-    ]
-  }
-]
+[]

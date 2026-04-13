@@ -21,7 +21,7 @@ end header
 
 User -> Mobile: Device Setting Change
 Mobile -> Cloud: Device Setting Change
-Cloud --> IoT_Library: shadow/desired
+Cloud --> IoT_Library: shadow/desired\n*fanpower
 == handle_shadow_delta() ==
 IoT_Library --> IoT_Library: EVENT_SETTING_CHANGE
 == apply_setting() ==

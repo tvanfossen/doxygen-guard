@@ -275,7 +275,7 @@ def _rglob_source_files(source_dir: str, extensions: set[str]) -> list[Path] | N
 
 
 ## @brief Build a TaggedFunction, resolving participant and capturing body text.
-#  @version 2.2
+#  @version 2.3
 #  @internal
 def _extract_tagged_function(
     func: Function,
@@ -314,6 +314,7 @@ def _extract_tagged_function(
         notes=tags.get("note", []),
         reqs=reqs,
         after=after,
+        dispatch_keys=tags.get("dispatch_key", []),
         loop=tags.get("loop", [None])[0] if tags.get("loop") else None,
         group=tags.get("group", [None])[0] if tags.get("group") else None,
         body=body_text,

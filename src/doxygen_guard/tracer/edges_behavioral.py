@@ -286,7 +286,7 @@ class _EntryResolveCtx:
 ## @brief Resolve a single entry edge for an unresolved @receives event.
 #  @details If the event is internal (no prefix match), backtracks one hop through
 #  the global emitter map to find the upstream function's external entry point.
-#  @version 1.2
+#  @version 1.3
 #  @internal
 #  @return Edge if source resolved, None if unresolvable
 def _resolve_entry_edge(event: str, tf: TaggedFunction, ctx: _EntryResolveCtx) -> Edge | None:
@@ -298,7 +298,9 @@ def _resolve_entry_edge(event: str, tf: TaggedFunction, ctx: _EntryResolveCtx) -
         event, tf, emitter_participant, ctx.externals, ctx.all_tagged, ctx.file_cache
     )
     if resolved:
-        return Edge(resolved[0], tf.display_name, resolved[1], event=resolved[2], style="-->")
+        keys = _collect_req_dispatch_keys(tf, ctx.all_tagged)
+        label = _append_dispatch_keys(resolved[1], keys)
+        return Edge(resolved[0], tf.display_name, label, event=resolved[2], style="-->")
 
     logger.warning(
         "No source participant for @receives '%s' in %s() — omitting entry edge",
@@ -366,6 +368,45 @@ def _collect_downstream_events(
         if hub_reqs & set(tf.reqs):
             events.update(tf.receives)
     return events or None
+
+
+## @brief Append @dispatch_key fragments to an entry label.
+#  @details Each dispatch_key value becomes a "\n*VALUE" payload line. Used when
+#  AST extraction can't infer the discriminator (e.g., multi-hop dispatch chains).
+#  @version 1.0
+#  @internal
+#  @return Label with dispatch_key fragments appended
+def _append_dispatch_keys(label: str, dispatch_keys: list[str]) -> str:
+    if not dispatch_keys:
+        return label
+    return label + "".join(f"\\n*{k}" for k in dispatch_keys)
+
+
+## @brief Collect @dispatch_key values from all functions in the same REQ scope.
+#  @details The entry edge for a REQ may be produced by a hub function, but the
+#  @dispatch_key annotations live on the REQ-tagged downstream handlers.
+#  @version 1.0
+#  @internal
+#  @return Deduplicated list of dispatch_key values from REQ-scope functions
+def _collect_req_dispatch_keys(
+    entry_tf: TaggedFunction, all_tagged: list[TaggedFunction] | None
+) -> list[str]:
+    keys: list[str] = list(entry_tf.dispatch_keys)
+    if all_tagged is None:
+        return keys
+    seen = set(keys)
+    entry_reqs = set(entry_tf.reqs)
+    if not entry_reqs:
+        return keys
+    for tf in all_tagged:
+        if tf.name == entry_tf.name:
+            continue
+        if entry_reqs & set(tf.reqs):
+            for k in tf.dispatch_keys:
+                if k not in seen:
+                    seen.add(k)
+                    keys.append(k)
+    return keys
 
 
 ## @brief Enrich an entry label with payload context from conditional comparisons.

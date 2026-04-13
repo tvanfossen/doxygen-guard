@@ -3,6 +3,41 @@
 All notable changes to doxygen-guard are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.6] - 2026-04-13
+
+### Added
+
+- **`@dispatch_key VALUE` annotation** — explicit payload context for entry edge
+  labels. Each value becomes a `\n*VALUE` fragment appended to the entry edge.
+  Designed for multi-hop dispatch chains where the AST extraction can't reach
+  the discriminator (e.g., 4 hops from `@receives` hub down to REQ-tagged
+  handler). Multiple `@dispatch_key` lines produce multiple payload fragments.
+
+  Example:
+  ```c
+  /**
+   * @req REQ-0001
+   * @receives EVENT_CLEAN_CMD
+   * @dispatch_key commandENUM_clean
+   */
+  void handle_clean_cmd(...) { ... }
+  ```
+
+  Entry label: `MQTT: cmd/req\n*commandENUM_clean`
+
+  `@dispatch_key` is **additive** with AST-extracted payloads — both apply.
+  Collection scope: all functions sharing the entry's REQ contribute their
+  dispatch_keys (deduplicated).
+
+### Notes on rejected approaches
+
+- **Multi-hop AST walking** considered but rejected. Walking unannotated
+  intermediate functions requires a call graph for arbitrary functions which
+  the engine doesn't maintain. Use `@dispatch_key` for chains beyond 1 hop.
+- **Auto-stripping enum prefixes** (`commandENUM_clean → clean`) rejected.
+  Engine reports raw identifiers; consumer can use `@dispatch_key clean` for
+  cleaner labels.
+
 ## [1.2.5] - 2026-04-13
 
 ### Fixed

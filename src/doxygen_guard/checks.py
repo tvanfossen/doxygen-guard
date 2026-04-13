@@ -415,6 +415,7 @@ _KNOWN_TAGS: frozenset[str] = frozenset(
         "after",
         "loop",
         "group",
+        "dispatch_key",
         "internal",
         "utility",
         "callback",
