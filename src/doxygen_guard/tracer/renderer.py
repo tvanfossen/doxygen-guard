@@ -304,19 +304,29 @@ def _sanitize_label(label: str) -> str:
 
 
 ## @brief Select the raw label text based on label_mode.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 def _select_label_text(label: str, event: str | None, mode: str) -> str:
     if mode == "full":
         san_label = _sanitize_label(label)
-        if event and san_label:
-            return f"{_sanitize_label(event)}\\n{san_label}"
-        return _sanitize_label(event) if event else san_label
+        san_event = _sanitize_label(event) if event else ""
+        if event and san_label and not _label_redundant_with_event(san_label, san_event):
+            return f"{san_event}\\n{san_label}"
+        return san_event or san_label
     if event:
         raw = event.split(":", 1)[-1] if mode == "brief" and ":" in event else event
     else:
         raw = label
     return _sanitize_label(raw)
+
+
+## @brief Check if label is derivable from event (prefix-stripped form).
+#  @version 1.0
+#  @internal
+#  @return True if the label is redundant with the event
+def _label_redundant_with_event(label: str, event: str) -> bool:
+    stripped = event.split(":", 1)[-1] if ":" in event else event
+    return label in (event, stripped)
 
 
 ## @brief Render default skinparam lines for PlantUML diagrams.

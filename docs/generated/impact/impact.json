@@ -4,8 +4,13 @@
     "req_name": "Sequence diagram generation",
     "functions": [
       {
-        "name": "language_for_file",
-        "file": "src/doxygen_guard/ts_languages.py",
+        "name": "_infer_entry_edges",
+        "file": "src/doxygen_guard/tracer/edges_behavioral.py",
+        "version": "2.3"
+      },
+      {
+        "name": "build_behavioral_edges",
+        "file": "src/doxygen_guard/tracer/edges_behavioral.py",
         "version": "1.2"
       }
     ]

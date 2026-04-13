@@ -236,7 +236,7 @@ class _EdgeContext:
 
 
 ## @brief Infer entry edges from unresolved @receives events.
-#  @version 2.2
+#  @version 2.3
 #  @req REQ-TRACE-001
 #  @return List of entry edges for external triggers
 def _infer_entry_edges(
@@ -244,10 +244,15 @@ def _infer_entry_edges(
     all_tagged: list[TaggedFunction],
     participants: list[Participant],
     config: dict[str, Any],
+    file_cache: dict | None = None,
 ) -> list[Edge]:
-    req_names = {tf.name for tf in req_funcs}
-    emitter_map = _build_emitter_participant_map(all_tagged)
-    externals = [p for p in participants if p.receives_prefix]
+    ctx = _EntryResolveCtx(
+        req_names={tf.name for tf in req_funcs},
+        emitter_map=_build_emitter_participant_map(all_tagged),
+        externals=[p for p in participants if p.receives_prefix],
+        all_tagged=all_tagged,
+        file_cache=file_cache,
+    )
 
     entries: list[Edge] = []
     seen_events: set[str] = set()
@@ -258,7 +263,7 @@ def _infer_entry_edges(
         for event in tf.receives:
             if event in seen_events:
                 continue
-            entry = _resolve_entry_edge(event, tf, req_names, emitter_map, externals, all_tagged)
+            entry = _resolve_entry_edge(event, tf, ctx)
             seen_events.add(event)
             if entry:
                 entries.append(entry)
@@ -266,27 +271,32 @@ def _infer_entry_edges(
     return entries
 
 
+## @brief Bundle of resolution dependencies for entry edge inference.
+#  @version 1.0
+#  @internal
+@dataclass
+class _EntryResolveCtx:
+    req_names: set[str]
+    emitter_map: dict[str, tuple[str, str]]
+    externals: list[Participant]
+    all_tagged: list[TaggedFunction] | None = None
+    file_cache: dict | None = None
+
+
 ## @brief Resolve a single entry edge for an unresolved @receives event.
 #  @details If the event is internal (no prefix match), backtracks one hop through
 #  the global emitter map to find the upstream function's external entry point.
-#  This handles dispatch hub patterns where a hub function fans out internal events
-#  to many REQ-specific handlers.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 #  @return Edge if source resolved, None if unresolvable
-def _resolve_entry_edge(
-    event: str,
-    tf: TaggedFunction,
-    req_names: set[str],
-    emitter_map: dict[str, tuple[str, str]],
-    externals: list[Participant],
-    all_tagged: list[TaggedFunction] | None = None,
-) -> Edge | None:
-    emitter_participant = emitter_map.get(event)
-    if emitter_participant and emitter_participant[1] in req_names:
+def _resolve_entry_edge(event: str, tf: TaggedFunction, ctx: _EntryResolveCtx) -> Edge | None:
+    emitter_participant = ctx.emitter_map.get(event)
+    if emitter_participant and emitter_participant[1] in ctx.req_names:
         return None
 
-    resolved = _resolve_entry_source(event, tf, emitter_participant, externals, all_tagged)
+    resolved = _resolve_entry_source(
+        event, tf, emitter_participant, ctx.externals, ctx.all_tagged, ctx.file_cache
+    )
     if resolved:
         return Edge(resolved[0], tf.display_name, resolved[1], event=resolved[2], style="-->")
 
@@ -299,7 +309,7 @@ def _resolve_entry_edge(
 
 
 ## @brief Resolve the source participant for an entry edge, with hub backtracking.
-#  @version 1.0
+#  @version 1.1
 #  @internal
 #  @return Tuple of (source, label, event) or None
 def _resolve_entry_source(
@@ -308,6 +318,7 @@ def _resolve_entry_source(
     emitter_participant: tuple[str, str] | None,
     externals: list[Participant],
     all_tagged: list[TaggedFunction] | None,
+    file_cache: dict | None = None,
 ) -> tuple[str, str, str] | None:
     source = resolve_by_prefix(event, externals) or (
         emitter_participant[0] if emitter_participant else None
@@ -315,25 +326,46 @@ def _resolve_entry_source(
     is_self = source is not None and source == tf.display_name
 
     if source and not is_self:
-        return (source, _strip_prefix(event), event)
+        label = _enrich_with_payload(_strip_prefix(event), tf, file_cache)
+        return (source, label, event)
 
     # Backtrack through dispatch hub: trace emitter's @receives to find external entry
     if emitter_participant and all_tagged:
-        return _backtrack_to_external_entry(emitter_participant[1], all_tagged, externals)
+        return _backtrack_to_external_entry(
+            emitter_participant[1], all_tagged, externals, file_cache
+        )
 
     return None
+
+
+## @brief Enrich an entry label with payload context from conditional comparisons.
+#  @details Scans the handler function's body for strcmp/== patterns and appends
+#  extracted string literals as payload fragments ("\n*state:clean").
+#  @version 1.0
+#  @internal
+#  @return Label with appended payload fragments, or original label if none found
+def _enrich_with_payload(base_label: str, tf: TaggedFunction, file_cache: dict | None) -> str:
+    body_node = _get_body_node(tf, file_cache)
+    if body_node is None:
+        return base_label
+    payloads: list[str] = []
+    _scan_for_string_comparisons(body_node, payloads)
+    if not payloads:
+        return base_label
+    return base_label + "".join(f"\\n*{p}" for p in payloads)
 
 
 ## @brief Backtrack from an internal emitter to its external entry point.
 #  @details Finds the upstream function by name, checks its @receives for
 #  an externally-resolvable event, and returns (source, label, event).
-#  @version 1.0
+#  @version 1.1
 #  @internal
 #  @return Tuple of (source_participant, label, event) or None
 def _backtrack_to_external_entry(
     emitter_name: str,
     all_tagged: list[TaggedFunction],
     externals: list[Participant],
+    file_cache: dict | None = None,
 ) -> tuple[str, str, str] | None:
     upstream_tf = next((tf for tf in all_tagged if tf.name == emitter_name), None)
     if not upstream_tf:
@@ -341,7 +373,7 @@ def _backtrack_to_external_entry(
     for upstream_event in upstream_tf.receives:
         source = resolve_by_prefix(upstream_event, externals)
         if source:
-            label = _strip_prefix(upstream_event)
+            label = _enrich_with_payload(_strip_prefix(upstream_event), upstream_tf, file_cache)
             return (source, label, upstream_event)
     return None
 
@@ -498,7 +530,7 @@ def _check_equality_comparison(node: Any, payloads: list[str]) -> None:
 
 
 ## @brief Build annotation-driven behavioral edges for a REQ's functions.
-#  @version 1.1
+#  @version 1.2
 #  @req REQ-TRACE-001
 #  @return List of ASTEdge objects representing the behavioral sequence diagram
 def build_behavioral_edges(
@@ -514,7 +546,7 @@ def build_behavioral_edges(
     participant_configs = ctx.participant_configs
     req_name = _resolve_req_name(req_id, config)
 
-    entry_edges = _infer_entry_edges(emitters, all_tagged, participants, config)
+    entry_edges = _infer_entry_edges(emitters, all_tagged, participants, config, file_cache)
     ast_edges: list[ASTEdge] = _build_entry_section(entry_edges, participant_configs, req_name)
 
     entry_names = {e.label.split("(")[0] for e in entry_edges if "(" in e.label}
@@ -689,18 +721,38 @@ def _append_send_edges(
         placed.add(event)
 
 
-## @brief Append @calls edges with boundary-argument extraction.
-#  @version 1.0
+## @brief Split @calls value into (module::func, optional_manual_label).
+#  @details Syntax: '@calls module::func "Label text"' returns ('module::func', 'Label text').
+#  Without quotes: returns (value, None).
+#  @version 1.1
+#  @internal
+#  @return Tuple of (reference, manual_label or None)
+def _split_calls_value(value: str) -> tuple[str, str | None]:
+    m = re.match(r'^(\S+)\s+"([^"]+)"\s*$', value)
+    if m:
+        return (m.group(1), m.group(2))
+    return (value.strip(), None)
+
+
+## @brief Append @calls edges with manual label override or boundary-argument extraction.
+#  @version 1.1
 #  @internal
 def _append_calls_edges(
     tf: TaggedFunction, ctx: _EdgeContext, body_node: Any, call_type: str, result: list[ASTEdge]
 ) -> None:
     for calls_ref in tf.calls:
-        module, func_name = split_calls_ref(calls_ref)
+        ref, manual_label = _split_calls_value(calls_ref)
+        module, func_name = split_calls_ref(ref)
         target = _resolve_calls_target(func_name, module, ctx.externals, ctx.participant_configs)
-        template = _get_label_template(func_name, ctx.participant_configs)
         to_name = target or module or func_name
 
+        if manual_label:
+            result.append(
+                ASTEdge(kind="ext", edge=Edge(tf.display_name, to_name, manual_label, style="->"))
+            )
+            continue
+
+        template = _get_label_template(func_name, ctx.participant_configs)
         call_sites = _extract_boundary_args(func_name, body_node, call_type) if body_node else []
         if call_sites:
             for args in call_sites:
