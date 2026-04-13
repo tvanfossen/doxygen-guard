@@ -3,10 +3,9 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "always takes precedence. Also detects system boundary calls (callees not defined in scanned source)." as always_takes_precedence__Also_detects_system_boundary_calls__callees_not_defined_in_scanned_source__
-
 box "System" #LightBlue
   participant "Trace" as Trace
+  participant "always takes precedence. Also detects system boundary calls (callees not defined in scanned source)." as always_takes_precedence__Also_detects_system_boundary_calls__callees_not_defined_in_scanned_source__
 end box
 
 header

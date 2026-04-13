@@ -309,7 +309,7 @@ def _resolve_entry_edge(event: str, tf: TaggedFunction, ctx: _EntryResolveCtx) -
 
 
 ## @brief Resolve the source participant for an entry edge, with hub backtracking.
-#  @version 1.1
+#  @version 1.2
 #  @internal
 #  @return Tuple of (source, label, event) or None
 def _resolve_entry_source(
@@ -326,39 +326,158 @@ def _resolve_entry_source(
     is_self = source is not None and source == tf.display_name
 
     if source and not is_self:
-        label = _enrich_with_payload(_strip_prefix(event), tf, file_cache)
+        # Scope payload to events received by other REQ functions (downstream handlers)
+        downstream_events = _collect_downstream_events(tf, all_tagged) if all_tagged else None
+        label = _enrich_with_payload(
+            _strip_prefix(event), tf, file_cache, target_events=downstream_events
+        )
         return (source, label, event)
 
     # Backtrack through dispatch hub: trace emitter's @receives to find external entry
     if emitter_participant and all_tagged:
         return _backtrack_to_external_entry(
-            emitter_participant[1], all_tagged, externals, file_cache
+            emitter_participant[1],
+            all_tagged,
+            externals,
+            file_cache,
+            target_handler=tf.name,
+            target_events=set(tf.receives),
         )
 
     return None
 
 
-## @brief Enrich an entry label with payload context from conditional comparisons.
-#  @details Scans the handler function's body for strcmp/== patterns and appends
-#  extracted string literals as payload fragments ("\n*state:clean").
+## @brief Collect events that REQ-scope downstream handlers receive.
+#  @details Used when the entry handler is itself a hub: scopes payload extraction
+#  to discriminator branches that route to events handled by REQ-tagged handlers.
 #  @version 1.0
 #  @internal
+#  @return Set of event names received by other functions in the same REQ scope
+def _collect_downstream_events(
+    hub: TaggedFunction, all_tagged: list[TaggedFunction]
+) -> set[str] | None:
+    hub_reqs = set(hub.reqs)
+    if not hub_reqs:
+        return None
+    events: set[str] = set()
+    for tf in all_tagged:
+        if tf.name == hub.name:
+            continue
+        if hub_reqs & set(tf.reqs):
+            events.update(tf.receives)
+    return events or None
+
+
+## @brief Enrich an entry label with payload context from conditional comparisons.
+#  @details Scans the handler function's body for strcmp/== patterns and appends
+#  extracted string literals as payload fragments ("\n*state:clean"). When
+#  target_call is provided (hub backtracking), only payloads inside conditionals
+#  that route to a call to target_call are included.
+#  @version 1.1
+#  @internal
 #  @return Label with appended payload fragments, or original label if none found
-def _enrich_with_payload(base_label: str, tf: TaggedFunction, file_cache: dict | None) -> str:
+def _enrich_with_payload(
+    base_label: str,
+    tf: TaggedFunction,
+    file_cache: dict | None,
+    target_call: str | None = None,
+    target_events: set[str] | None = None,
+) -> str:
     body_node = _get_body_node(tf, file_cache)
     if body_node is None:
         return base_label
     payloads: list[str] = []
-    _scan_for_string_comparisons(body_node, payloads)
+    if target_call or target_events:
+        _scan_payloads_routing_to(body_node, target_call or "", payloads, target_events)
+    else:
+        _scan_for_string_comparisons(body_node, payloads)
     if not payloads:
         return base_label
     return base_label + "".join(f"\\n*{p}" for p in payloads)
 
 
+## @brief Find payload literals that gate routing to a specific target.
+#  @details Walks if/switch blocks; when a block contains a routing path to the
+#  target (direct call, or event_post of an event in target_events), extracts
+#  the discriminator literals from the controlling condition.
+#  @version 1.1
+#  @internal
+def _scan_payloads_routing_to(
+    node: Any,
+    target_call: str,
+    payloads: list[str],
+    target_events: set[str] | None = None,
+) -> None:
+    target_events = target_events or set()
+    if node.type == "if_statement":
+        _extract_if_payloads(node, target_call, target_events, payloads)
+    elif node.type == "case_statement" and _block_routes_to(node, target_call, target_events):
+        _extract_case_payloads(node, payloads)
+    for child in node.named_children:
+        _scan_payloads_routing_to(child, target_call, payloads, target_events)
+
+
+## @brief Extract payloads from an if_statement's condition if it routes to target.
+#  @version 1.0
+#  @internal
+def _extract_if_payloads(
+    node: Any, target_call: str, target_events: set[str], payloads: list[str]
+) -> None:
+    consequent = node.child_by_field_name("consequence")
+    if not consequent or not _block_routes_to(consequent, target_call, target_events):
+        return
+    cond = node.child_by_field_name("condition")
+    if cond:
+        _scan_for_string_comparisons(cond, payloads)
+
+
+## @brief Extract payloads from a case_statement's literal/identifier children.
+#  @version 1.0
+#  @internal
+def _extract_case_payloads(node: Any, payloads: list[str]) -> None:
+    for child in node.children:
+        if child.type == "string_literal" and child.text:
+            payloads.append(child.text.decode("utf-8").strip('"'))
+        elif child.type == "identifier" and child.text:
+            payloads.append(child.text.decode("utf-8"))
+
+
+## @brief Check if a block routes to target via direct call or event_post.
+#  @version 1.0
+#  @internal
+#  @return True if any descendant calls target or posts a target_event
+def _block_routes_to(node: Any, target_call: str, target_events: set[str]) -> bool:
+    if node.type == "call_expression":
+        func = node.child_by_field_name("function")
+        if func and func.text:
+            fname = func.text.decode("utf-8")
+            if fname == target_call:
+                return True
+            if target_events and _call_posts_target_event(node, target_events):
+                return True
+    return any(_block_routes_to(child, target_call, target_events) for child in node.named_children)
+
+
+## @brief Check if a call_expression posts an event in target_events.
+#  @version 1.0
+#  @internal
+#  @return True if the first argument matches a target event name
+def _call_posts_target_event(call_node: Any, target_events: set[str]) -> bool:
+    args = call_node.child_by_field_name("arguments")
+    if not args:
+        return False
+    for child in args.named_children:
+        if child.text and child.text.decode("utf-8") in target_events:
+            return True
+    return False
+
+
 ## @brief Backtrack from an internal emitter to its external entry point.
 #  @details Finds the upstream function by name, checks its @receives for
 #  an externally-resolvable event, and returns (source, label, event).
-#  @version 1.1
+#  When target_handler is provided, payload extraction is scoped to
+#  conditionals in the hub that route to the named handler.
+#  @version 1.2
 #  @internal
 #  @return Tuple of (source_participant, label, event) or None
 def _backtrack_to_external_entry(
@@ -366,6 +485,8 @@ def _backtrack_to_external_entry(
     all_tagged: list[TaggedFunction],
     externals: list[Participant],
     file_cache: dict | None = None,
+    target_handler: str | None = None,
+    target_events: set[str] | None = None,
 ) -> tuple[str, str, str] | None:
     upstream_tf = next((tf for tf in all_tagged if tf.name == emitter_name), None)
     if not upstream_tf:
@@ -373,7 +494,13 @@ def _backtrack_to_external_entry(
     for upstream_event in upstream_tf.receives:
         source = resolve_by_prefix(upstream_event, externals)
         if source:
-            label = _enrich_with_payload(_strip_prefix(upstream_event), upstream_tf, file_cache)
+            label = _enrich_with_payload(
+                _strip_prefix(upstream_event),
+                upstream_tf,
+                file_cache,
+                target_handler,
+                target_events,
+            )
             return (source, label, upstream_event)
     return None
 

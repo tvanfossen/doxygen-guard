@@ -118,8 +118,10 @@ def _render_static_participants(
 
 ## @brief Render participant declarations with box grouping and entity stereotypes.
 #  @details Static participants from config appear first in declaration order,
-#  regardless of whether they have edges. Supports actor/entity/participant types.
-#  @version 1.3
+#  regardless of whether they have edges. Internal participants (those without
+#  receives_prefix) render inside the box whether declared or module-derived.
+#  Undeclared external participants render as entities outside the box.
+#  @version 1.4
 #  @req REQ-TRACE-001
 #  @return List of PlantUML participant declaration lines
 def _render_participants(
@@ -133,23 +135,21 @@ def _render_participants(
     lines: list[str] = static_lines
 
     internal, external = _partition_participants(active_names, participants)
-    undeclared = _find_undeclared_participants(active_names, participant_set)
     skip = declared_static
     ext_names = [p for p in external if p in participant_set and p not in skip]
-    und_names = [p for p in undeclared if p not in skip]
+    box_names = [p for p in internal if p not in skip]
 
-    for pname in ext_names + und_names:
+    for pname in ext_names:
         lines.append(f'entity "{pname}" as {_safe_id(pname)}')
 
-    if (ext_names or und_names or declared_static) and internal:
+    if (ext_names or declared_static) and box_names:
         lines.append("")
 
     box_label = options.get("box_label", "System")
-    if internal:
+    if box_names:
         lines.append(f'box "{box_label}" #LightBlue')
-        for pname in internal:
-            if pname in participant_set:
-                lines.append(f'  participant "{pname}" as {_safe_id(pname)}')
+        for pname in box_names:
+            lines.append(f'  participant "{pname}" as {_safe_id(pname)}')
         lines.append("end box")
 
     return lines

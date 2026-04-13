@@ -181,19 +181,24 @@ class TestGeneratePlantuml:
         result = generate_plantuml("REQ-0001", [], [], [], config)
         assert "autonumber" not in result
 
-    def test_undeclared_participant_gets_entity_declaration(self):
-        """Fallback 'External' used in edges but not in participants list gets declared."""
-        participants = [Participant(name="Handler")]
+    def test_external_participant_renders_outside_box(self):
+        """Participant declared with receives_prefix renders as entity outside box."""
+        participants = [
+            Participant(name="Handler"),
+            Participant(name="External", receives_prefix=["EVENT_"]),
+        ]
         edges = [Edge("External", "Handler", "EVENT_BOOT_REQ", style="->")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
         assert 'entity "External"' in result
 
-    def test_custom_external_fallback(self):
-        """Custom external_fallback name gets declared as entity."""
+    def test_undeclared_participant_renders_inside_box(self):
+        """Participant used in edges but with no receives_prefix renders inside box."""
         participants = [Participant(name="Handler")]
-        edges = [Edge("System Boundary", "Handler", "EVENT_BOOT_REQ", style="->")]
+        edges = [Edge("Internal_Helper", "Handler", "EVENT_X", style="->")]
         result = generate_plantuml("REQ-0001", edges, [], participants, TRACE_CONFIG)
-        assert 'entity "System Boundary"' in result
+        assert 'participant "Internal_Helper"' in result
+        # Should NOT be rendered as entity (which would put it outside the box)
+        assert 'entity "Internal_Helper"' not in result
 
 
 class TestInferEntryEdges:

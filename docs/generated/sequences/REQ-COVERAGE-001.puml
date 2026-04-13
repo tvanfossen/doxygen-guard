@@ -3,10 +3,9 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "Collector" as Collector
-
 box "System" #LightBlue
   participant "Coverage" as Coverage
+  participant "Collector" as Collector
 end box
 
 header

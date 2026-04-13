@@ -3,6 +3,24 @@
 All notable changes to doxygen-guard are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.5] - 2026-04-13
+
+### Fixed
+
+- **Box placement** — module-derived participants (from `@participant` tag)
+  now render inside the box instead of as standalone entities outside an
+  empty box. Internal/external partition simplified: anything without
+  `receives_prefix` goes inside the box.
+- **Hub backtracking payload extraction** — when entry edges are resolved
+  via dispatch hub backtracking, payload context is now scoped to
+  conditional branches in the hub that route to the REQ-tagged handler
+  (via direct call OR `event_post` of a target event). REQ-0102 now
+  shows `cmd/req\n*dock` instead of the full set of all branches.
+- **Direct-path payload scoping** — when the receiving function is itself
+  a hub (e.g., `handle_cmd_request` with multiple `@sends`), payload
+  extraction scopes to events received by other functions in the same
+  REQ. REQ-0100 now shows `cmd/req\n*clean` instead of `*clean\n*dock`.
+
 ## [1.2.4] - 2026-04-13
 
 ### Fixed

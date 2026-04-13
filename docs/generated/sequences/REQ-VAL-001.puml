@@ -3,13 +3,12 @@ autonumber
 skinparam maxMessageSize 200
 skinparam responseMessageBelowArrow true
 
-entity "  Init  " as __Init__
-
 box "System" #LightBlue
   participant "Validate" as Validate
   participant "Config" as Config
   participant "Git" as Git
   participant "Impact" as Impact
+  participant "  Init  " as __Init__
 end box
 
 header
