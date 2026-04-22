@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "req_id": "REQ-PARSE-004",
+    "req_name": "Tree-sitter function indexing",
+    "functions": [
+      {
+        "name": "_find_preceding_doxygen",
+        "file": "src/doxygen_guard/ts_parser.py",
+        "version": "1.5"
+      }
+    ]
+  }
+]

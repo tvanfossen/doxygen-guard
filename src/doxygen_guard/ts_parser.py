@@ -232,7 +232,7 @@ def _collect_c_comment(
 
 
 ## @brief Find the doxygen comment block preceding a function node.
-#  @version 1.4
+#  @version 1.5
 #  @req REQ-PARSE-004
 def _find_preceding_doxygen(
     func_node: Node,
@@ -255,7 +255,17 @@ def _find_preceding_doxygen(
     if not comment_lines:
         return None
 
-    raw = "\n".join(n.text.decode("utf-8") for n in comment_lines)
+    # Build raw as the contiguous file substring spanning the block so that
+    # blank lines between comment nodes are preserved. This keeps
+    # raw.splitlines() aligned 1-1 with file line numbers between
+    # start_line and end_line, which the staleness check relies on.
+    start_byte = comment_lines[0].start_byte
+    end_byte = comment_lines[-1].end_byte
+    root = func_node
+    while root.parent is not None:
+        root = root.parent
+    source = root.text or b""
+    raw = source[start_byte:end_byte].decode("utf-8", errors="replace")
     tags = parse_doxygen_tags(raw)
     return DoxygenBlock(
         start_line=comment_lines[0].start_point[0],

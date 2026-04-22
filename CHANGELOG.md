@@ -3,6 +3,23 @@
 All notable changes to doxygen-guard are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.7] - 2026-04-22
+
+### Fixed
+
+- **Version staleness false positive on Python doxygen with blank lines.**
+  `check_version_staleness` indexes `DoxygenBlock.raw.splitlines()` by
+  `file_line - doxygen.start_line`, which assumes the raw text is a contiguous
+  slice of the file. For Python, the tree-sitter parser built `raw` by joining
+  individual comment-node texts with `"\n"`, so blank lines inside a doxygen
+  block (e.g. `## @brief ... \n# \n\n#  @version 2`) caused
+  `len(raw.splitlines())` to be shorter than `end_line - start_line + 1`. The
+  changed `@version` line then indexed into the wrong entry (or past the end),
+  and the guard reported "body changed but @version was not updated" even
+  when the version tag had been bumped. Tree-sitter parser now builds `raw`
+  from the contiguous file byte-range between the first and last comment
+  nodes, preserving blank lines and keeping the indexing invariant.
+
 ## [1.2.6] - 2026-04-13
 
 ### Added
