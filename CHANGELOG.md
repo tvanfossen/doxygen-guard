@@ -3,7 +3,7 @@
 All notable changes to doxygen-guard are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [1.2.7] - 2026-04-22
+## [1.2.8] - 2026-04-22
 
 ### Fixed
 
