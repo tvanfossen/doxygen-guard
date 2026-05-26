@@ -186,6 +186,65 @@ def find_doxygen_block_before(
     return _scan_for_comment_start(lines, scan_line, start_re)
 
 
+_DOCSTRING_OPEN_RE = re.compile(r'^\s*(?:[rRbBuU]{0,2})("""|\'\'\')')
+
+
+## @brief Find a Python docstring inside a function body and parse doxygen tags.
+#  @details Walks from the def line into the body to locate a leading
+#  docstring (triple-quoted string as the first statement). When the docstring
+#  contains `@brief` or `@version` tags, treat it as a doxygen block.
+#  @version 1.1
+#  @req REQ-PARSE-005
+#  @return DoxygenBlock if the docstring carries tags, else None
+def find_python_docstring_block(lines: list[str], func_line: int) -> DoxygenBlock | None:
+    located = _locate_python_docstring(lines, func_line)
+    if located is None:
+        return None
+    start_line, end_line, content, raw = located
+    tags = parse_doxygen_tags(content)
+    if "brief" not in tags and "version" not in tags:
+        return None
+    return DoxygenBlock(start_line=start_line, end_line=end_line, tags=tags, raw=raw)
+
+
+## @brief Locate a Python docstring after a `def` line.
+#  @version 1.0
+#  @internal
+#  @return (start_line, end_line, content, raw) for the docstring, or None
+def _locate_python_docstring(lines: list[str], func_line: int) -> tuple[int, int, str, str] | None:
+    body_start = _find_body_start(lines, func_line)
+    scan = body_start + 1
+    while scan < len(lines) and not lines[scan].strip():
+        scan += 1
+    open_match = _DOCSTRING_OPEN_RE.match(lines[scan]) if scan < len(lines) else None
+    if not open_match:
+        return None
+    quote = open_match.group(1)
+    after_open = lines[scan][open_match.end() :]
+    if quote in after_open:
+        content = after_open[: after_open.index(quote)]
+        return scan, scan, content, lines[scan]
+    return _scan_multiline_docstring(lines, scan, after_open, quote)
+
+
+## @brief Scan forward for the closing triple-quote of a multi-line docstring.
+#  @version 1.0
+#  @internal
+#  @return (start_line, end_line, content, raw) once the closer is found
+def _scan_multiline_docstring(
+    lines: list[str], start_line: int, first_segment: str, quote: str
+) -> tuple[int, int, str, str] | None:
+    body_lines = [first_segment]
+    for i in range(start_line + 1, len(lines)):
+        if quote in lines[i]:
+            body_lines.append(lines[i][: lines[i].index(quote)])
+            content = "\n".join(body_lines)
+            raw = "\n".join(lines[start_line : i + 1])
+            return start_line, i, content, raw
+        body_lines.append(lines[i])
+    return None
+
+
 ## @brief Locate the end of a function body by matching braces.
 #  @version 1.1
 #  @req REQ-PARSE-001
@@ -312,7 +371,7 @@ def _parse_functions_treesitter(
 
 
 ## @brief Parse functions using regex patterns (original implementation).
-#  @version 1.0
+#  @version 1.1
 #  @internal
 def _parse_functions_regex(
     content: str,
@@ -330,6 +389,7 @@ def _parse_functions_regex(
         return []
 
     body_end_fn = find_body_end_indent if s.body_style == "indent" else find_body_end
+    is_python = "##" in s.comment_start
     functions: list[Function] = []
 
     for i, line in enumerate(lines):
@@ -345,12 +405,15 @@ def _parse_functions_regex(
             logger.debug("Skipping forward declaration: %s at line %d", func_name, i + 1)
             continue
 
+        doxygen = find_doxygen_block_before(lines, i, s.comment_start, s.comment_end)
+        if doxygen is None and is_python:
+            doxygen = find_python_docstring_block(lines, i)
         functions.append(
             Function(
                 name=func_name,
                 def_line=i,
                 body_end=body_end_fn(lines, i),
-                doxygen=find_doxygen_block_before(lines, i, s.comment_start, s.comment_end),
+                doxygen=doxygen,
             )
         )
         logger.debug("Found function: %s at line %d", func_name, i + 1)

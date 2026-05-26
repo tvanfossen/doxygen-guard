@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -232,7 +233,7 @@ def _collect_c_comment(
 
 
 ## @brief Find the doxygen comment block preceding a function node.
-#  @version 1.5
+#  @version 1.6
 #  @req REQ-PARSE-004
 def _find_preceding_doxygen(
     func_node: Node,
@@ -253,6 +254,8 @@ def _find_preceding_doxygen(
         _collect_python_comments(prev, spec) if is_python else _collect_c_comment(prev, spec)
     )
     if not comment_lines:
+        if is_python:
+            return _find_python_docstring_block(func_node)
         return None
 
     # Build raw as the contiguous file substring spanning the block so that
@@ -273,6 +276,61 @@ def _find_preceding_doxygen(
         tags=tags,
         raw=raw,
     )
+
+
+## @brief Find a docstring inside a Python function body and parse doxygen tags.
+#  @details PEP 257 docstrings are idiomatic for Python; many codebases carry
+#  `@brief`/`@version` tags inside the function docstring rather than in a
+#  preceding `##` comment block. Only treated as a doxygen block when at least
+#  one recognized tag (`@brief` or `@version`) is present.
+#  @version 1.1
+#  @req REQ-PARSE-005
+#  @return DoxygenBlock if the docstring carries tags, else None
+def _find_python_docstring_block(func_node: Node) -> DoxygenBlock | None:
+    string_node = _find_python_docstring_node(func_node)
+    if string_node is None or not string_node.text:
+        return None
+    raw = string_node.text.decode("utf-8", errors="replace")
+    tags = parse_doxygen_tags(_strip_docstring_quotes(raw))
+    if "brief" not in tags and "version" not in tags:
+        return None
+    return DoxygenBlock(
+        start_line=string_node.start_point[0],
+        end_line=string_node.end_point[0],
+        tags=tags,
+        raw=raw,
+    )
+
+
+## @brief Locate the docstring string-node at the head of a Python function body.
+#  @version 1.0
+#  @internal
+#  @return The string AST node, or None if the body has no leading docstring
+def _find_python_docstring_node(func_node: Node) -> Node | None:
+    body = func_node.child_by_field_name("body")
+    if body is None:
+        return None
+    first_stmt = next((c for c in body.named_children if c.type != "comment"), None)
+    if first_stmt is None or first_stmt.type != "expression_statement":
+        return None
+    return next((c for c in first_stmt.named_children if c.type == "string"), None)
+
+
+_DOCSTRING_QUOTE_RE = re.compile(r'^[rRbBuU]{0,2}("""|\'\'\'|"|\')')
+
+
+## @brief Strip surrounding quotes from a Python string literal for tag parsing.
+#  @version 1.0
+#  @internal
+def _strip_docstring_quotes(raw: str) -> str:
+    stripped = raw.strip()
+    match = _DOCSTRING_QUOTE_RE.match(stripped)
+    if not match:
+        return raw
+    quote = match.group(1)
+    if stripped.endswith(quote) and len(stripped) >= 2 * len(quote):
+        return stripped[match.end() : -len(quote)]
+    return stripped[match.end() :]
 
 
 ## @brief Parse functions from source content using tree-sitter.

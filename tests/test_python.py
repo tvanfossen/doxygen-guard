@@ -276,3 +276,153 @@ class TestPythonPresenceCheck:
         )
         violations = validate_file(str(py_file), CONFIG_DEFAULTS, no_git=True)
         assert violations == []
+
+    def test_presence_message_python_style(self, tmp_path):
+        py_file = tmp_path / "bad.py"
+        py_file.write_text(
+            dedent("""\
+                def undoc() -> None:
+                    pass
+            """)
+        )
+        violations = validate_file(str(py_file), CONFIG_DEFAULTS, no_git=True)
+        presence = [v for v in violations if v.check == "presence" and "no doxygen" in v.message]
+        assert presence, "expected a presence violation"
+        msg = presence[0].message
+        assert "/**" not in msg, "C-style skeleton must not leak into Python suggestion"
+        assert "##" in msg
+        assert "@brief" in msg and "@version" in msg
+
+    def test_presence_message_includes_return_for_non_void(self, tmp_path):
+        py_file = tmp_path / "bad.py"
+        py_file.write_text(
+            dedent("""\
+                def compute(x: int) -> int:
+                    return x + 1
+            """)
+        )
+        violations = validate_file(str(py_file), CONFIG_DEFAULTS, no_git=True)
+        presence = [v for v in violations if "no doxygen" in v.message]
+        assert presence
+        assert "@return" in presence[0].message
+
+    def test_presence_message_omits_return_for_void(self, tmp_path):
+        py_file = tmp_path / "bad.py"
+        py_file.write_text(
+            dedent("""\
+                def emit(x: int) -> None:
+                    print(x)
+            """)
+        )
+        violations = validate_file(str(py_file), CONFIG_DEFAULTS, no_git=True)
+        presence = [v for v in violations if "no doxygen" in v.message]
+        assert presence
+        assert "@return" not in presence[0].message
+
+    def test_presence_message_c_style_for_c_file(self, tmp_path):
+        c_file = tmp_path / "bad.c"
+        c_file.write_text("int undoc(void) { return 0; }\n")
+        violations = validate_file(str(c_file), CONFIG_DEFAULTS, no_git=True)
+        presence = [v for v in violations if "no doxygen" in v.message]
+        assert presence
+        assert "/**" in presence[0].message
+        assert "##" not in presence[0].message
+
+
+class TestPythonDocstringTags:
+    """Verify @brief/@version inside Python docstrings is accepted."""
+
+    def test_docstring_tags_satisfy_presence(self, tmp_path):
+        py_file = tmp_path / "doc.py"
+        py_file.write_text(
+            dedent('''\
+                def apply_patch(path: str) -> int:
+                    """Apply a unified-diff patch.
+
+                    @brief Apply a unified-diff patch to a project directory.
+                    @version 1.0
+                    @return 0 on success.
+                    """
+                    return 0
+            '''),
+        )
+        violations = validate_file(str(py_file), CONFIG_DEFAULTS, no_git=True)
+        assert violations == [], f"expected clean run, got: {[str(v) for v in violations]}"
+
+    def test_docstring_tags_via_regex_parser(self):
+        content = dedent('''\
+            def helper(x: int) -> int:
+                """Short summary.
+
+                @brief Helper function.
+                @version 1.2
+                @return Doubled value.
+                """
+                return x * 2
+        ''')
+        functions = parse_functions(content, PY_PATTERN, PY_EXCLUDES, PY_SETTINGS)
+        assert len(functions) == 1
+        dox = functions[0].doxygen
+        assert dox is not None
+        assert dox.tags["brief"] == ["Helper function."]
+        assert dox.tags["version"] == ["1.2"]
+        assert "return" in dox.tags
+
+    def test_docstring_without_tags_not_recognized(self):
+        content = dedent('''\
+            def helper():
+                """Just a prose docstring."""
+                return 1
+        ''')
+        functions = parse_functions(content, PY_PATTERN, PY_EXCLUDES, PY_SETTINGS)
+        assert len(functions) == 1
+        assert functions[0].doxygen is None
+
+    def test_block_above_takes_precedence_over_docstring(self):
+        content = dedent('''\
+            ## @brief Block-above wins.
+            #  @version 2.0
+            def helper():
+                """Body docstring.
+
+                @brief Should be ignored when block above exists.
+                @version 9.9
+                """
+                return 1
+        ''')
+        functions = parse_functions(content, PY_PATTERN, PY_EXCLUDES, PY_SETTINGS)
+        assert len(functions) == 1
+        dox = functions[0].doxygen
+        assert dox is not None
+        assert dox.tags["brief"] == ["Block-above wins."]
+        assert dox.tags["version"] == ["2.0"]
+
+    def test_single_line_docstring_with_tags(self):
+        content = dedent('''\
+            def helper():
+                """@brief One-liner. @version 1.0"""
+                pass
+        ''')
+        functions = parse_functions(content, PY_PATTERN, PY_EXCLUDES, PY_SETTINGS)
+        assert len(functions) == 1
+        dox = functions[0].doxygen
+        assert dox is not None
+        assert dox.tags["brief"] == ["One-liner."]
+        assert dox.tags["version"] == ["1.0"]
+
+    def test_docstring_satisfies_req_tag(self, tmp_path):
+        py_file = tmp_path / "doc.py"
+        py_file.write_text(
+            dedent('''\
+                def handle() -> None:
+                    """Handler.
+
+                    @brief Event handler.
+                    @version 1.0
+                    @req REQ-PY-001
+                    """
+                    pass
+            '''),
+        )
+        violations = validate_file(str(py_file), CONFIG_DEFAULTS, no_git=True)
+        assert violations == []

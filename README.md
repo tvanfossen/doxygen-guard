@@ -234,6 +234,40 @@ For Python:
 ## @participant Config
 ```
 
+### Python Function Docstring Style
+
+Python functions accept doxygen tags in two equivalent forms. Use whichever
+fits your codebase — they are interchangeable on a per-function basis.
+
+**Two-hash block above the def** (classic doxygen-for-Python convention):
+
+```python
+## @brief Apply a unified-diff patch to a project directory.
+#  @version 1.0
+#  @req REQ-PATCH-001
+#  @return 0 on success, non-zero on failure.
+def apply_patch(repo_path: str, patch: str) -> int:
+    ...
+```
+
+**Inside the PEP 257 docstring** (idiomatic Python — Sphinx/IDE-friendly):
+
+```python
+def apply_patch(repo_path: str, patch: str) -> int:
+    """Apply a unified-diff patch via `git apply`.
+
+    @brief Apply a unified-diff patch to a project directory.
+    @version 1.0
+    @req REQ-PATCH-001
+    @return 0 on success, non-zero on failure.
+    """
+    ...
+```
+
+When both styles are present on the same function, the `##`-block above
+takes precedence. A docstring without any recognized tag is not treated
+as a doxygen block (so prose-only docstrings remain free-form).
+
 ## Infrastructure Roots
 
 Mark event bus functions once to enable automatic inference:
@@ -322,7 +356,7 @@ validate:
 | C | `.c`, `.h` | `/** ... */` | Brace matching |
 | C++ | `.cpp`, `.hpp`, `.cc`, `.cxx` | `/** ... */` | Brace matching |
 | Java | `.java` | `/** ... */` | Brace matching |
-| Python | `.py` | `## ...` | Indentation |
+| Python | `.py` | `## ...` block above `def` **or** `@tag` lines inside the docstring | Indentation |
 
 C++ template functions (`template<typename T> void func(...)`) are fully supported — doxygen comments are associated via tree-sitter AST sibling detection, handling `template_declaration` wrappers correctly.
 

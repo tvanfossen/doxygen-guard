@@ -3,6 +3,48 @@
 All notable changes to doxygen-guard are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.9] - 2026-05-26
+
+### Added
+
+- **Python docstring-internal `@brief`/`@version`** ([#2]). Python functions
+  may now carry doxygen tags inside the PEP 257 docstring rather than in a
+  preceding `## @brief` block. Both styles are accepted on a per-function
+  basis; when both are present on the same function, the `##` block above
+  the `def` takes precedence. A docstring without any recognized tag is not
+  treated as a doxygen block, so prose-only docstrings remain free-form.
+  Lowers adoption friction for codebases that already carry doxygen tags in
+  docstrings (Sphinx, IDE hover, `help()` all read the docstring).
+
+  ```python
+  def apply_patch(repo_path: str, patch: str) -> int:
+      """Apply a unified-diff patch via `git apply`.
+
+      @brief Apply a unified-diff patch to a project directory.
+      @version 1.0
+      @return 0 on success.
+      """
+      ...
+  ```
+
+### Fixed
+
+- **Language-aware presence error messages** ([#1]). The `presence` violation
+  for an undocumented function previously emitted a hardcoded C-style
+  skeleton (`/** @brief … @version 1.0 */`) regardless of the file's
+  language. In Python files this suggestion is a syntax error if followed
+  verbatim. The skeleton is now selected by file extension:
+
+  - `.py` → `## @brief <description> @version 1.0` (two-hash style)
+  - C/C++/Java → `/** @brief <description> @version 1.0 */`
+
+  The skeleton also now includes `@return <description>` for non-void
+  functions, so a single round of edits clears both the `presence` and
+  `@return` violations.
+
+[#1]: https://github.com/tvanfossen/doxygen-guard/issues/1
+[#2]: https://github.com/tvanfossen/doxygen-guard/issues/2
+
 ## [1.2.8] - 2026-04-22
 
 ### Fixed

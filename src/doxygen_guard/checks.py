@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from doxygen_guard.config import get_impact, get_validate
@@ -17,6 +18,29 @@ if TYPE_CHECKING:
     from doxygen_guard.parser import Function
 
 logger = logging.getLogger(__name__)
+
+
+## @brief Build a language-appropriate doxygen skeleton suggestion.
+#  @version 1.0
+#  @internal
+#  @return Single-line skeleton string in the file's native comment style
+def _suggest_skeleton(file_path: str, *, with_return: bool = False) -> str:
+    return_tag = " @return <description>" if with_return else ""
+    if Path(file_path).suffix.lower() == ".py":
+        return f"'## @brief <description> @version 1.0{return_tag}' (two-hash style, above the def)"
+    return f"'/** @brief <description> @version 1.0{return_tag} */' before function"
+
+
+## @brief Build a language-appropriate file-level doxygen skeleton suggestion.
+#  @version 1.0
+#  @internal
+def _suggest_file_skeleton(file_path: str) -> str:
+    if Path(file_path).suffix.lower() == ".py":
+        return (
+            "'## @file' / '## @brief <desc>' / '## @version 1.0' "
+            "(two-hash style, before first code)"
+        )
+    return "/** @file @brief <desc> @version 1.0 */ before first code"
 
 
 ## @brief Represents a check failure with location and description.
@@ -37,12 +61,13 @@ class Violation:
 
 
 ## @brief Verify every function has a doxygen comment with @brief and @version.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-VAL-001
 def check_presence(
     functions: list[Function],
     file_path: str,
     config: dict[str, Any],
+    content: str | None = None,
 ) -> list[Violation]:
     validate = get_validate(config)
     presence_config = validate.get("presence", {})
@@ -53,10 +78,14 @@ def check_presence(
     version_config = validate.get("version", {})
     require_version = version_config.get("require_present", True)
 
+    source_lines = content.splitlines() if content is not None else None
     violations: list[Violation] = []
 
     for func in functions:
         if func.doxygen is None:
+            needs_return = bool(
+                source_lines is not None and not _is_void_function(func, source_lines)
+            )
             violations.append(
                 Violation(
                     file=file_path,
@@ -64,7 +93,7 @@ def check_presence(
                     check="presence",
                     message=(
                         f"Function '{func.name}' has no doxygen comment"
-                        " — add '/** @brief <description> @version 1.0 */' before function"
+                        f" — add {_suggest_skeleton(file_path, with_return=needs_return)}"
                     ),
                 )
             )
@@ -545,7 +574,7 @@ def check_req_exists(
 
 
 ## @brief Check for file-level doxygen documentation block.
-#  @version 1.2
+#  @version 1.3
 #  @req REQ-VAL-006
 #  @return List of violations for missing or incomplete file-level doxygen
 def check_file_presence(
@@ -569,7 +598,7 @@ def check_file_presence(
                 check="presence",
                 message=(
                     f"File '{file_path}' has no file-level doxygen block"
-                    " — add /** @file @brief <desc> @version 1.0 */ before first code"
+                    f" — add {_suggest_file_skeleton(file_path)}"
                 ),
             )
         ]

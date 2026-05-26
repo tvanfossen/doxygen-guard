@@ -116,7 +116,7 @@ def _add_coverage_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 ## @brief Orchestrate presence, staleness, and tag checks for one file.
-#  @version 1.6
+#  @version 1.7
 #  @req REQ-VAL-001
 def validate_file(
     file_path: str,
@@ -143,7 +143,7 @@ def validate_file(
         violations.extend(check_file_presence(file_path, content, config))
     except OSError:
         pass
-    violations.extend(check_presence(functions, file_path, config))
+    violations.extend(check_presence(functions, file_path, config, content))
     if content is not None:
         violations.extend(check_return_presence(functions, file_path, config, content))
     violations.extend(check_tags(functions, file_path, config))

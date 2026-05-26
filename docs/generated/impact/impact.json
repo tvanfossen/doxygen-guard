@@ -6,7 +6,50 @@
       {
         "name": "_find_preceding_doxygen",
         "file": "src/doxygen_guard/ts_parser.py",
-        "version": "1.5"
+        "version": "1.6"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-PARSE-005",
+    "req_name": "Python docstring tag extraction",
+    "functions": [
+      {
+        "name": "find_python_docstring_block",
+        "file": "src/doxygen_guard/parser.py",
+        "version": "1.1"
+      },
+      {
+        "name": "_find_python_docstring_block",
+        "file": "src/doxygen_guard/ts_parser.py",
+        "version": "1.1"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-VAL-001",
+    "req_name": "Doxygen presence check",
+    "functions": [
+      {
+        "name": "validate_file",
+        "file": "src/doxygen_guard/main.py",
+        "version": "1.7"
+      },
+      {
+        "name": "check_presence",
+        "file": "src/doxygen_guard/checks.py",
+        "version": "1.3"
+      }
+    ]
+  },
+  {
+    "req_id": "REQ-VAL-006",
+    "req_name": "File-level doxygen validation",
+    "functions": [
+      {
+        "name": "check_file_presence",
+        "file": "src/doxygen_guard/checks.py",
+        "version": "1.3"
       }
     ]
   }
